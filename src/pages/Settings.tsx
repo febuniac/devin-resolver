@@ -16,6 +16,7 @@ interface ConnectedRepo {
 interface SettingsData {
   github_token_set: boolean;
   devin_api_token_set: boolean;
+  devin_org_id: string;
   slack_webhook_url: string;
   slack_channels: string[];
   auto_approve_enabled: boolean;
@@ -34,6 +35,7 @@ export default function Settings() {
   const [newRepoUrl, setNewRepoUrl] = useState('');
   const [githubToken, setGithubToken] = useState('');
   const [devinToken, setDevinToken] = useState('');
+  const [devinOrgId, setDevinOrgId] = useState('');
   const [slackWebhook, setSlackWebhook] = useState('');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<number | null>(null);
@@ -58,6 +60,7 @@ export default function Settings() {
       ]);
       setRepos(repoData);
       setSettings(settingsData);
+      setDevinOrgId(settingsData.devin_org_id || '');
       setSlackWebhook(settingsData.slack_webhook_url || '');
     } catch {
       setError('Failed to load settings. Is the backend running?');
@@ -77,7 +80,7 @@ export default function Settings() {
       await loadData();
       // Auto-validate after saving
       if (field === 'github_token') validateGithub();
-      else if (field === 'devin_api_token') validateDevin();
+      else if (field === 'devin_api_token' || field === 'devin_org_id') validateDevin();
       else if (field === 'slack_webhook_url') validateSlack();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to save');
@@ -322,6 +325,31 @@ export default function Settings() {
             {devinValidation === 'error' && devinValidationError && (
               <p className="text-xs text-red-400 mt-1">{devinValidationError}</p>
             )}
+
+            {/* Devin Organization ID */}
+            <div className="mt-3">
+              <label className="text-xs text-zinc-400 mb-1.5 flex items-center gap-2">
+                Organization ID
+                {settings?.devin_org_id && <span className="text-emerald-400 text-xs">(configured)</span>}
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={devinOrgId}
+                  onChange={(e) => setDevinOrgId(e.target.value)}
+                  placeholder={settings?.devin_org_id || 'org-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
+                  className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-violet-500/50"
+                />
+                <button
+                  onClick={() => saveToken('devin_org_id', devinOrgId)}
+                  disabled={!devinOrgId || saving}
+                  className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+              <p className="text-xs text-zinc-600 mt-1">Found on the Service Users page (e.g. org-abc123...)</p>
+            </div>
 
             {/* Devin Token Step-by-Step Guide */}
             <details className="mt-3 group">
