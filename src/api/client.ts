@@ -89,6 +89,9 @@ export const api = {
   validateDevin: () => request<any>('/api/settings/validate/devin', { method: 'POST' }),
   validateSlack: () => request<any>('/api/settings/validate/slack', { method: 'POST' }),
 
+  // Status
+  getStatus: () => request<any>('/api/status'),
+
   // Analytics
   getAnalytics: () => request<any>('/api/analytics'),
 

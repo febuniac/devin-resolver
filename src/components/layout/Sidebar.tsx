@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -12,6 +13,7 @@ import {
   Moon,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import api from '../../api/client';
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -26,6 +28,20 @@ export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const [repoCount, setRepoCount] = useState<number | null>(null);
+  const [devinConnected, setDevinConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    api.getStatus()
+      .then((data) => {
+        setRepoCount(data.repos_connected);
+        setDevinConnected(data.devin_connected);
+      })
+      .catch(() => {
+        setRepoCount(null);
+        setDevinConnected(null);
+      });
+  }, [location.pathname]);
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 sidebar-glass border-r border-zinc-800/50 dark:border-zinc-800/50 light:border-zinc-200 flex flex-col z-50">
@@ -74,11 +90,15 @@ export default function Sidebar() {
         <div className="sidebar-card rounded-lg p-3 space-y-2">
           <div className="flex items-center gap-2">
             <Github className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">5 repos connected</span>
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              {repoCount !== null ? `${repoCount} repo${repoCount !== 1 ? 's' : ''} connected` : 'Loading...'}
+            </span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs text-zinc-500">Devin is active</span>
+            <div className={`w-2 h-2 rounded-full ${devinConnected ? 'bg-emerald-400 animate-pulse' : devinConnected === false ? 'bg-zinc-500' : 'bg-zinc-600'}`} />
+            <span className="text-xs text-zinc-500">
+              {devinConnected === null ? 'Checking Devin...' : devinConnected ? 'Devin connected' : 'Devin not connected'}
+            </span>
           </div>
         </div>
       </div>
