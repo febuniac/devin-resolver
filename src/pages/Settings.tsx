@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Github, Plus, Trash2, RefreshCw, Slack, Shield, Bell, CheckCircle2, Key, Bot, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Github, Plus, Trash2, RefreshCw, Slack, Shield, Bell, CheckCircle2, Key, Bot, Loader2, AlertCircle, CheckCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import api from '../api/client';
 
 interface ConnectedRepo {
@@ -206,7 +206,7 @@ export default function Settings() {
           <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">API Tokens</h3>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
           {/* GitHub Token */}
           <div>
             <label className="text-xs text-zinc-400 mb-1.5 flex items-center gap-2">
@@ -235,6 +235,50 @@ export default function Settings() {
               </button>
             </div>
             <p className="text-xs text-zinc-600 mt-1">Needs repo, read:org, and read:code_scanning scopes</p>
+
+            {/* GitHub Token Step-by-Step Guide */}
+            <details className="mt-3 group">
+              <summary className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 cursor-pointer select-none transition-colors">
+                <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
+                <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
+                How to get your GitHub token (step-by-step)
+              </summary>
+              <div className="mt-2 ml-1 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                  <p className="text-xs text-zinc-400">
+                    Go to <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline inline-flex items-center gap-0.5">github.com/settings/tokens/new <ExternalLink className="w-3 h-3" /></a>
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                  <p className="text-xs text-zinc-400">Give it a name like <span className="text-zinc-300 font-medium">&quot;DevinResolver&quot;</span></p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                  <p className="text-xs text-zinc-400">Set expiration to <span className="text-zinc-300 font-medium">90 days</span> (or custom)</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+                  <div className="text-xs text-zinc-400">
+                    <p>Select these scopes:</p>
+                    <ul className="mt-1 ml-3 space-y-0.5 list-disc text-zinc-500">
+                      <li><span className="text-zinc-300 font-mono">repo</span> - Full control of private repositories</li>
+                      <li><span className="text-zinc-300 font-mono">read:org</span> - Read org membership</li>
+                      <li><span className="text-zinc-300 font-mono">read:code_scanning</span> - Read code scanning alerts (under Security events)</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
+                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Generate token&quot;</span> and copy the <span className="text-zinc-300 font-mono">ghp_...</span> value</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">6</span>
+                  <p className="text-xs text-zinc-400">Paste it in the field above and click <span className="text-zinc-300 font-medium">Save</span></p>
+                </div>
+              </div>
+            </details>
           </div>
 
           {/* Devin API Token */}
@@ -265,6 +309,39 @@ export default function Settings() {
               </button>
             </div>
             <p className="text-xs text-zinc-600 mt-1">Get your token at app.devin.ai/settings</p>
+
+            {/* Devin Token Step-by-Step Guide */}
+            <details className="mt-3 group">
+              <summary className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 cursor-pointer select-none transition-colors">
+                <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
+                <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
+                How to get your Devin API token (step-by-step)
+              </summary>
+              <div className="mt-2 ml-1 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                  <p className="text-xs text-zinc-400">
+                    Go to <a href="https://app.devin.ai/settings" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline inline-flex items-center gap-0.5">app.devin.ai/settings <ExternalLink className="w-3 h-3" /></a>
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                  <p className="text-xs text-zinc-400">Navigate to the <span className="text-zinc-300 font-medium">&quot;API Keys&quot;</span> section</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Generate New Token&quot;</span></p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+                  <p className="text-xs text-zinc-400">Copy the token (starts with <span className="text-zinc-300 font-mono">devin_...</span>)</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
+                  <p className="text-xs text-zinc-400">Paste it in the field above and click <span className="text-zinc-300 font-medium">Save</span></p>
+                </div>
+              </div>
+            </details>
           </div>
         </div>
       </div>
@@ -365,6 +442,43 @@ export default function Settings() {
                 {slackValidation === 'idle' && <RefreshCw className="w-4 h-4" />}
               </button>
             </div>
+
+            {/* Slack Webhook Step-by-Step Guide */}
+            <details className="mt-3 group">
+              <summary className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 cursor-pointer select-none transition-colors">
+                <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
+                <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
+                How to create a Slack webhook (step-by-step)
+              </summary>
+              <div className="mt-2 ml-1 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                  <p className="text-xs text-zinc-400">
+                    Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline inline-flex items-center gap-0.5">api.slack.com/apps <ExternalLink className="w-3 h-3" /></a>
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Create New App&quot;</span> &rarr; <span className="text-zinc-300 font-medium">&quot;From scratch&quot;</span></p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                  <p className="text-xs text-zinc-400">Name it <span className="text-zinc-300 font-medium">&quot;DevinResolver&quot;</span> and select your workspace</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+                  <p className="text-xs text-zinc-400">Go to <span className="text-zinc-300 font-medium">&quot;Incoming Webhooks&quot;</span> in the left sidebar and toggle it <span className="text-zinc-300 font-medium">On</span></p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
+                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Add New Webhook to Workspace&quot;</span> and select the channel for notifications</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">6</span>
+                  <p className="text-xs text-zinc-400">Copy the webhook URL (<span className="text-zinc-300 font-mono">https://hooks.slack.com/services/...</span>) and paste it above</p>
+                </div>
+              </div>
+            </details>
           </div>
           {settings?.slack_channels && settings.slack_channels.length > 0 && (
             <div>
