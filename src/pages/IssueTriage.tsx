@@ -1,19 +1,86 @@
-import { useState } from 'react';
-import { Search, Filter, CheckCircle2, Zap, ExternalLink, Play, GitPullRequest, ChevronDown, ChevronUp, Brain } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Filter, CheckCircle2, Zap, ExternalLink, Play, GitPullRequest, ChevronDown, ChevronUp, Brain, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { StatusBadge, SeverityBadge } from '../components/ui/StatusBadge';
 import ConfidenceMeter from '../components/ui/ConfidenceMeter';
-import { githubIssues } from '../data/mockData';
-import { GithubIssue, IssueSeverity, IssueStatus, IssueCategory } from '../types';
+import { IssueSeverity, IssueStatus, IssueCategory } from '../types';
+import api from '../api/client';
+
+interface Issue {
+  id: number;
+  github_id: number;
+  number: number;
+  title: string;
+  body: string;
+  repo_full_name: string;
+  labels: string[];
+  state: string;
+  author: string;
+  created_at: string;
+  updated_at: string;
+  severity: string;
+  category: string;
+  status: string;
+  ai_confidence: number;
+  ai_summary: string;
+  estimated_effort: string;
+  devin_session_id: string | null;
+  devin_session_url: string | null;
+  pr_url: string | null;
+  pr_number: number | null;
+  slack_notified: boolean;
+  video_url: string | null;
+}
 
 export default function IssueTriage() {
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [triaging, setTriaging] = useState(false);
+  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState<IssueSeverity | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<IssueStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<IssueCategory | 'all'>('all');
-  const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
-  const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
+  const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
+  const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
 
-  const filteredIssues = githubIssues.filter((issue) => {
+  useEffect(() => {
+    loadIssues();
+  }, []);
+
+  const loadIssues = async () => {
+    try {
+      const data = await api.listIssues();
+      setIssues(data);
+    } catch {
+      setError('Failed to load issues. Is the backend running?');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const triageAll = async () => {
+    setTriaging(true);
+    try {
+      await api.triageAll();
+      await loadIssues();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to triage');
+    } finally {
+      setTriaging(false);
+    }
+  };
+
+  const approveSelected = async () => {
+    try {
+      await api.approveIssues(Array.from(selectedIssues));
+      setSelectedIssues(new Set());
+      await loadIssues();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to approve');
+    }
+  };
+
+  const filteredIssues = issues.filter((issue) => {
     if (searchQuery && !issue.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     if (severityFilter !== 'all' && issue.severity !== severityFilter) return false;
     if (statusFilter !== 'all' && issue.status !== statusFilter) return false;
@@ -21,36 +88,41 @@ export default function IssueTriage() {
     return true;
   });
 
-  const toggleIssue = (id: string) => {
+  const toggleIssue = (id: number) => {
     const newSelected = new Set(selectedIssues);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
+    if (newSelected.has(id)) newSelected.delete(id);
+    else newSelected.add(id);
     setSelectedIssues(newSelected);
   };
 
   const selectAll = () => {
-    if (selectedIssues.size === filteredIssues.length) {
-      setSelectedIssues(new Set());
-    } else {
-      setSelectedIssues(new Set(filteredIssues.map(i => i.id)));
-    }
+    if (selectedIssues.size === filteredIssues.length) setSelectedIssues(new Set());
+    else setSelectedIssues(new Set(filteredIssues.map(i => i.id)));
   };
 
-  const approveSelected = () => {
-    // Demo: would approve selected issues for Devin to work on
-    setSelectedIssues(new Set());
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {error && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          {error}
+          <button onClick={() => setError('')} className="ml-auto text-red-400/70 hover:text-red-400">dismiss</button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Issue Triage</h1>
-          <p className="text-sm text-zinc-500 mt-1">AI-powered analysis and categorization of {githubIssues.length} issues across all repositories</p>
+          <p className="text-sm text-zinc-500 mt-1">AI-powered analysis and categorization of {issues.length} issues across all repositories</p>
         </div>
         <div className="flex items-center gap-3">
           {selectedIssues.size > 0 && (
@@ -59,29 +131,42 @@ export default function IssueTriage() {
               Approve {selectedIssues.size} for Devin
             </button>
           )}
-          <button className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-            <Brain className="w-4 h-4" />
-            Re-Triage All
+          <button onClick={loadIssues} className="glass glass-hover px-3 py-2 rounded-lg text-sm text-zinc-300 flex items-center gap-2">
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <button onClick={triageAll} disabled={triaging} className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+            {triaging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+            {triaging ? 'Triaging...' : 'Triage All'}
           </button>
         </div>
       </div>
 
-      {/* Stats Bar */}
-      <div className="grid grid-cols-6 gap-3">
-        {[
-          { label: 'Total', count: githubIssues.length, color: 'text-zinc-300' },
-          { label: 'Critical', count: githubIssues.filter(i => i.severity === 'critical').length, color: 'text-red-400' },
-          { label: 'Triaged', count: githubIssues.filter(i => i.status === 'triaged').length, color: 'text-blue-400' },
-          { label: 'Approved', count: githubIssues.filter(i => i.status === 'approved').length, color: 'text-violet-400' },
-          { label: 'In Progress', count: githubIssues.filter(i => i.status === 'in_progress').length, color: 'text-amber-400' },
-          { label: 'Resolved', count: githubIssues.filter(i => i.status === 'resolved').length, color: 'text-emerald-400' },
-        ].map((stat) => (
-          <div key={stat.label} className="glass rounded-lg p-3 text-center">
-            <p className={`text-xl font-bold ${stat.color}`}>{stat.count}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">{stat.label}</p>
+      {issues.length === 0 ? (
+        <div className="glass rounded-xl p-12 text-center">
+          <Brain className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-zinc-300 mb-2">No Issues Yet</h3>
+          <p className="text-sm text-zinc-500 mb-4">Connect a GitHub repository in Settings and sync it to start seeing issues here.</p>
+        </div>
+      ) : (
+        <>
+          {/* Stats Bar */}
+          <div className="grid grid-cols-6 gap-3">
+            {[
+              { label: 'Total', count: issues.length, color: 'text-zinc-300' },
+              { label: 'Critical', count: issues.filter(i => i.severity === 'critical').length, color: 'text-red-400' },
+              { label: 'Triaged', count: issues.filter(i => i.status === 'triaged').length, color: 'text-blue-400' },
+              { label: 'Approved', count: issues.filter(i => i.status === 'approved').length, color: 'text-violet-400' },
+              { label: 'In Progress', count: issues.filter(i => i.status === 'in_progress').length, color: 'text-amber-400' },
+              { label: 'Resolved', count: issues.filter(i => i.status === 'resolved').length, color: 'text-emerald-400' },
+            ].map((stat) => (
+              <div key={stat.label} className="glass rounded-lg p-3 text-center">
+                <p className={`text-xl font-bold ${stat.color}`}>{stat.count}</p>
+                <p className="text-xs text-zinc-500 mt-0.5">{stat.label}</p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
 
       {/* Filters */}
       <div className="glass rounded-xl p-4 flex items-center gap-4">
@@ -137,6 +222,7 @@ export default function IssueTriage() {
       </div>
 
       {/* Issue List */}
+      {filteredIssues.length > 0 && (
       <div className="space-y-2">
         {/* Header row */}
         <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium text-zinc-500 uppercase tracking-wider">
@@ -168,12 +254,13 @@ export default function IssueTriage() {
           />
         ))}
       </div>
+      )}
     </div>
   );
 }
 
 function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSelect }: {
-  issue: GithubIssue;
+  issue: Issue;
   index: number;
   expanded: boolean;
   selected: boolean;
@@ -203,18 +290,18 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-xs text-zinc-500 font-mono">#{issue.number}</span>
-            <span className={`text-xs px-1.5 py-0.5 rounded ${categoryColors[issue.category]}`}>{issue.category}</span>
+            <span className={`text-xs px-1.5 py-0.5 rounded ${categoryColors[issue.category] || 'bg-zinc-500/15 text-zinc-400'}`}>{issue.category}</span>
           </div>
           <p className="text-sm font-medium text-zinc-200 mt-0.5 truncate">{issue.title}</p>
-          <p className="text-xs text-zinc-500 mt-0.5">{issue.repo}</p>
+          <p className="text-xs text-zinc-500 mt-0.5">{issue.repo_full_name}</p>
         </div>
         <div className="w-28"><SeverityBadge severity={issue.severity} /></div>
         <div className="w-28"><StatusBadge status={issue.status} /></div>
-        <div className="w-24"><ConfidenceMeter value={issue.aiConfidence} /></div>
-        <div className="w-20 text-xs text-zinc-400">{issue.estimatedEffort}</div>
+        <div className="w-24"><ConfidenceMeter value={issue.ai_confidence} /></div>
+        <div className="w-20 text-xs text-zinc-400">{issue.estimated_effort}</div>
         <div className="w-20 flex items-center gap-1">
-          {issue.prUrl && <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />}
-          {issue.videoUrl && <Play className="w-3.5 h-3.5 text-violet-400" />}
+          {issue.pr_url && <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />}
+          {issue.video_url && <Play className="w-3.5 h-3.5 text-violet-400" />}
           {expanded ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
         </div>
       </div>
@@ -226,38 +313,48 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
               <Brain className="w-4 h-4 text-violet-400" />
               <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">AI Analysis</span>
             </div>
-            <p className="text-sm text-zinc-300 leading-relaxed">{issue.aiSummary}</p>
+            <p className="text-sm text-zinc-300 leading-relaxed">{issue.ai_summary || 'Not yet triaged. Click "Triage All" to analyze.'}</p>
             <div className="flex items-center gap-4 text-xs text-zinc-500">
               <span>Created by <span className="text-zinc-300">@{issue.author}</span></span>
-              <span>Created {issue.createdAt}</span>
-              <span>Labels: {issue.labels.join(', ')}</span>
+              <span>Created {issue.created_at}</span>
+              {issue.labels.length > 0 && <span>Labels: {issue.labels.join(', ')}</span>}
             </div>
           </div>
 
+          {issue.body && (
+            <div className="glass rounded-lg p-3">
+              <p className="text-xs text-zinc-500 mb-1">Description</p>
+              <p className="text-sm text-zinc-400 whitespace-pre-wrap line-clamp-6">{issue.body}</p>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
-            {issue.status === 'triaged' && (
-              <button className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+            {(issue.status === 'triaged' || issue.status === 'open') && (
+              <button
+                onClick={(e) => { e.stopPropagation(); api.approveIssues([issue.id]).then(() => window.location.reload()); }}
+                className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
                 <Zap className="w-4 h-4" />
                 Approve for Devin
               </button>
             )}
-            {issue.devinSessionUrl && (
-              <button className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-violet-400 flex items-center gap-2">
+            {issue.devin_session_url && (
+              <a href={issue.devin_session_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-violet-400 flex items-center gap-2">
                 <ExternalLink className="w-4 h-4" />
                 View Devin Session
-              </button>
+              </a>
             )}
-            {issue.prUrl && (
-              <button className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-cyan-400 flex items-center gap-2">
+            {issue.pr_url && (
+              <a href={issue.pr_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-cyan-400 flex items-center gap-2">
                 <GitPullRequest className="w-4 h-4" />
-                View PR #{issue.prNumber}
-              </button>
+                View PR #{issue.pr_number}
+              </a>
             )}
-            {issue.videoUrl && (
-              <button className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-emerald-400 flex items-center gap-2">
+            {issue.video_url && (
+              <a href={issue.video_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-emerald-400 flex items-center gap-2">
                 <Play className="w-4 h-4" />
                 Watch Test Recording
-              </button>
+              </a>
             )}
           </div>
         </div>

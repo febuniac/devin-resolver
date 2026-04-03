@@ -16,8 +16,8 @@ const severityConfig: Record<IssueSeverity, { label: string; className: string }
   low: { label: 'Low', className: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30' },
 };
 
-export function StatusBadge({ status }: { status: IssueStatus }) {
-  const config = statusConfig[status];
+export function StatusBadge({ status }: { status: string }) {
+  const config = statusConfig[status as IssueStatus] || statusConfig.open;
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.className}`}>
       {status === 'in_progress' && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse mr-1.5" />}
@@ -27,8 +27,8 @@ export function StatusBadge({ status }: { status: IssueStatus }) {
   );
 }
 
-export function SeverityBadge({ severity }: { severity: IssueSeverity }) {
-  const config = severityConfig[severity];
+export function SeverityBadge({ severity }: { severity: string }) {
+  const config = severityConfig[severity as IssueSeverity] || severityConfig.medium;
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.className}`}>
       {severity === 'critical' && <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse mr-1.5" />}
