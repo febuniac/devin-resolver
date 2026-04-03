@@ -43,6 +43,7 @@ export default function Settings() {
   const [devinValidation, setDevinValidation] = useState<ValidationStatus>('idle');
   const [slackValidation, setSlackValidation] = useState<ValidationStatus>('idle');
   const [error, setError] = useState('');
+  const [devinValidationError, setDevinValidationError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
@@ -74,6 +75,10 @@ export default function Settings() {
       setSuccessMsg(`${label} token saved!`);
       setTimeout(() => setSuccessMsg(''), 3000);
       await loadData();
+      // Auto-validate after saving
+      if (field === 'github_token') validateGithub();
+      else if (field === 'devin_api_token') validateDevin();
+      else if (field === 'slack_webhook_url') validateSlack();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to save');
     } finally {
@@ -93,11 +98,16 @@ export default function Settings() {
 
   const validateDevin = async () => {
     setDevinValidation('loading');
+    setDevinValidationError('');
     try {
       const result = await api.validateDevin();
       setDevinValidation(result.valid ? 'success' : 'error');
+      if (!result.valid && result.error) {
+        setDevinValidationError(result.error);
+      }
     } catch {
       setDevinValidation('error');
+      setDevinValidationError('Failed to reach validation endpoint');
     }
   };
 
@@ -309,6 +319,9 @@ export default function Settings() {
               </button>
             </div>
             <p className="text-xs text-zinc-600 mt-1">Service user key (starts with cog_) or legacy personal key</p>
+            {devinValidation === 'error' && devinValidationError && (
+              <p className="text-xs text-red-400 mt-1">{devinValidationError}</p>
+            )}
 
             {/* Devin Token Step-by-Step Guide */}
             <details className="mt-3 group">
