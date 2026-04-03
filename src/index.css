@@ -7,22 +7,60 @@
     --radius: 0.5rem;
   }
   
+  /* Dark mode (default) */
+  .dark body,
   body {
     @apply bg-zinc-950 text-zinc-100 antialiased;
+  }
+
+  /* Light mode */
+  .light body {
+    @apply bg-gray-50 text-zinc-900 antialiased;
   }
 }
 
 @layer utilities {
+  /* Dark mode glass */
   .glass {
     @apply bg-zinc-900/60 backdrop-blur-xl border border-zinc-800/50;
+  }
+
+  .light .glass {
+    @apply bg-white/80 backdrop-blur-xl border border-zinc-200;
+  }
+
+  /* Sidebar glass */
+  .sidebar-glass {
+    @apply bg-zinc-900/60 backdrop-blur-xl border border-zinc-800/50;
+  }
+
+  .light .sidebar-glass {
+    @apply bg-white/95 backdrop-blur-xl border border-zinc-200;
+  }
+
+  /* Sidebar card */
+  .sidebar-card {
+    @apply bg-zinc-900/60 backdrop-blur-xl border border-zinc-800/50;
+  }
+
+  .light .sidebar-card {
+    @apply bg-zinc-100 border border-zinc-200;
   }
   
   .glass-hover {
     @apply hover:bg-zinc-800/60 hover:border-zinc-700/50 transition-all duration-200;
   }
+
+  .light .glass-hover {
+    @apply hover:bg-zinc-100 hover:border-zinc-300 transition-all duration-200;
+  }
   
   .gradient-text {
     @apply bg-gradient-to-r from-violet-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent;
+  }
+
+  .light .gradient-text {
+    @apply bg-gradient-to-r from-violet-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent;
   }
   
   .glow {
@@ -40,6 +78,95 @@
   .glow-amber {
     box-shadow: 0 0 20px rgba(245, 158, 11, 0.15), 0 0 40px rgba(245, 158, 11, 0.1);
   }
+
+  .light .glow {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.1), 0 0 40px rgba(59, 130, 246, 0.05);
+  }
+
+  .light .glow-green {
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
+  }
+
+  .light .glow-red {
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.1);
+  }
+
+  .light .glow-amber {
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.1);
+  }
+}
+
+/* Light mode text overrides */
+.light .text-white {
+  color: rgb(24 24 27) !important; /* zinc-900 */
+}
+
+.light .text-zinc-100 {
+  color: rgb(39 39 42) !important; /* zinc-800 */
+}
+
+.light .text-zinc-200 {
+  color: rgb(63 63 70) !important; /* zinc-700 */
+}
+
+.light .text-zinc-300 {
+  color: rgb(82 82 91) !important; /* zinc-600 */
+}
+
+.light .text-zinc-400:not(.dark\:text-zinc-400) {
+  color: rgb(113 113 122) !important; /* zinc-500 */
+}
+
+/* Light mode background overrides */
+.light .bg-zinc-800\/40,
+.light .bg-zinc-800\/50,
+.light .bg-zinc-800\/60,
+.light .bg-zinc-800\/80 {
+  background-color: rgb(244 244 245 / 0.8) !important; /* zinc-100 */
+}
+
+.light .bg-zinc-900\/40,
+.light .bg-zinc-900\/50,
+.light .bg-zinc-900\/60 {
+  background-color: rgb(250 250 250 / 0.8) !important; /* zinc-50 */
+}
+
+.light .bg-zinc-950 {
+  background-color: rgb(249 250 251) !important; /* gray-50 */
+}
+
+/* Light mode border overrides */
+.light .border-zinc-800\/50,
+.light .border-zinc-800 {
+  border-color: rgb(228 228 231) !important; /* zinc-200 */
+}
+
+.light .border-zinc-700\/50,
+.light .border-zinc-700 {
+  border-color: rgb(212 212 216) !important; /* zinc-300 */
+}
+
+.light .border-zinc-600\/50 {
+  border-color: rgb(212 212 216) !important; /* zinc-300 */
+}
+
+/* Light mode hover overrides */
+.light .hover\:bg-zinc-800\/50:hover,
+.light .hover\:bg-zinc-800\/60:hover {
+  background-color: rgb(228 228 231) !important; /* zinc-200 */
+}
+
+.light .hover\:text-zinc-200:hover {
+  color: rgb(24 24 27) !important; /* zinc-900 */
+}
+
+/* Light mode scrollbar */
+.light ::-webkit-scrollbar-thumb {
+  @apply bg-zinc-300 rounded-full;
+}
+
+.light ::-webkit-scrollbar-thumb:hover {
+  @apply bg-zinc-400;
 }
 
 ::-webkit-scrollbar {

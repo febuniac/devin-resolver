@@ -16,10 +16,10 @@ export default function MetricCard({ title, value, trend, icon: Icon, iconColor 
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{title}</p>
-          <p className="text-2xl font-bold text-white">{value}</p>
+          <p className="text-2xl font-bold text-zinc-900 dark:text-white">{value}</p>
           {subtitle && <p className="text-xs text-zinc-500">{subtitle}</p>}
         </div>
-        <div className={`w-10 h-10 rounded-lg bg-zinc-800/80 flex items-center justify-center ${iconColor}`}>
+        <div className={`w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 flex items-center justify-center ${iconColor}`}>
           <Icon className="w-5 h-5" />
         </div>
       </div>
