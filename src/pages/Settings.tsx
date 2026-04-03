@@ -308,7 +308,7 @@ export default function Settings() {
                 {devinValidation === 'idle' && <RefreshCw className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-xs text-zinc-600 mt-1">Get your token at app.devin.ai/settings</p>
+            <p className="text-xs text-zinc-600 mt-1">Service user key (starts with cog_) or legacy personal key</p>
 
             {/* Devin Token Step-by-Step Guide */}
             <details className="mt-3 group">
@@ -317,28 +317,44 @@ export default function Settings() {
                 <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
                 How to get your Devin API token (step-by-step)
               </summary>
-              <div className="mt-2 ml-1 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-2">
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                  <p className="text-xs text-zinc-400">
-                    Go to <a href="https://app.devin.ai/settings" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline inline-flex items-center gap-0.5">app.devin.ai/settings <ExternalLink className="w-3 h-3" /></a>
-                  </p>
+              <div className="mt-2 ml-1 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-3">
+                <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Option A &mdash; Service User Key (recommended)</p>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                    <p className="text-xs text-zinc-400">
+                      Go to <a href="https://app.devin.ai/settings" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline inline-flex items-center gap-0.5">app.devin.ai/settings <ExternalLink className="w-3 h-3" /></a>
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                    <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Service users&quot;</span> in the left sidebar (under Membership)</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                    <p className="text-xs text-zinc-400">Create a new service user or select an existing one</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+                    <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Generate API key&quot;</span> &mdash; it starts with <span className="text-zinc-300 font-mono">cog_</span></p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
+                    <p className="text-xs text-zinc-400">Copy the key and paste it in the field above, then click <span className="text-zinc-300 font-medium">Save</span></p>
+                  </div>
                 </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;API keys&quot;</span> in the left sidebar (under Membership)</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;View key&quot;</span> next to Personal API Key to reveal it</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                  <p className="text-xs text-zinc-400">Copy the API key</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
-                  <p className="text-xs text-zinc-400">Paste it in the field above and click <span className="text-zinc-300 font-medium">Save</span></p>
+                <div className="border-t border-zinc-700/30 pt-3">
+                  <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Option B &mdash; Personal API Key (legacy)</p>
+                  <div className="space-y-2 mt-2">
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-zinc-700/50 text-zinc-500 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                      <p className="text-xs text-zinc-500">Go to Settings &rarr; <span className="text-zinc-400 font-medium">&quot;API keys&quot;</span> (under Membership, marked Legacy)</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-zinc-700/50 text-zinc-500 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                      <p className="text-xs text-zinc-500">Click <span className="text-zinc-400 font-medium">&quot;View key&quot;</span> next to Personal API Key to reveal it, then copy and paste above</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </details>
