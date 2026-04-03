@@ -2,7 +2,8 @@ import aiosqlite
 import json
 from pathlib import Path
 
-DB_PATH = "devin_resolver.db"
+import os
+DB_PATH = os.environ.get("DATABASE_PATH", "/data/app.db" if os.path.isdir("/data") else "devin_resolver.db")
 
 
 async def get_db():
