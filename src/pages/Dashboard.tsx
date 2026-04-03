@@ -55,12 +55,12 @@ export default function Dashboard() {
   const hasData = issues.length > 0 || findings.length > 0;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Command Center</h1>
-          <p className="text-sm text-zinc-500 mt-1">Real-time overview of Devin resolving your issues autonomously</p>
+          <h1 className="text-xl font-bold text-white">Command Center</h1>
+          <p className="text-xs text-zinc-500 mt-0.5">Real-time overview of Devin resolving your issues autonomously</p>
         </div>
         <div className="flex items-center gap-3">
           {activeSessions > 0 && (
@@ -108,7 +108,7 @@ export default function Dashboard() {
           <WorkflowPipeline />
 
           {/* KPI Grid */}
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-5 gap-3">
             <MetricCard title="Issues Resolved" value={analytics?.issues_resolved || 0} icon={Bug} iconColor="text-emerald-400" subtitle="Total" />
             <MetricCard title="Open Issues" value={analytics?.issues_open || 0} icon={Clock} iconColor="text-blue-400" subtitle="Pending resolution" />
             <MetricCard title="Security Fixed" value={analytics?.security_findings_fixed || 0} icon={Shield} iconColor="text-amber-400" subtitle="CodeQL findings" />
@@ -117,21 +117,21 @@ export default function Dashboard() {
           </div>
 
           {/* Active Work */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2 glass rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Recent Activity</h3>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2 glass rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Recent Activity</h3>
                 <button onClick={() => navigate('/issues')} className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1">
                   View all <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {recentIssues.length === 0 && recentFindings.length === 0 ? (
-                  <p className="text-sm text-zinc-500 text-center py-4">No active work yet. Sync a repository to get started.</p>
+                  <p className="text-sm text-zinc-500 text-center py-3">No active work yet. Sync a repository to get started.</p>
                 ) : (
                   <>
                     {recentIssues.map((issue) => (
-                      <div key={`issue-${issue.id}`} className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/40 hover:bg-zinc-800/60 transition-colors">
+                      <div key={`issue-${issue.id}`} className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-800/40 hover:bg-zinc-800/60 transition-colors">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center flex-shrink-0">
                             <Zap className="w-4 h-4 text-violet-400" />
@@ -153,7 +153,7 @@ export default function Dashboard() {
                       </div>
                     ))}
                     {recentFindings.map((finding) => (
-                      <div key={`finding-${finding.id}`} className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/40 hover:bg-zinc-800/60 transition-colors">
+                      <div key={`finding-${finding.id}`} className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-800/40 hover:bg-zinc-800/60 transition-colors">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
                             <Shield className="w-4 h-4 text-amber-400" />
@@ -175,30 +175,30 @@ export default function Dashboard() {
             </div>
 
             {/* Stats Summary */}
-            <div className="glass rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Quick Stats</h3>
+            <div className="glass rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Quick Stats</h3>
               </div>
-              <div className="space-y-3">
-                <div className="p-3 rounded-lg bg-zinc-800/40">
-                  <p className="text-xs text-zinc-500">Connected Repos</p>
-                  <p className="text-lg font-bold text-zinc-200">{analytics?.connected_repos || 0}</p>
+              <div className="space-y-2">
+                <div className="p-2.5 rounded-lg bg-zinc-800/40">
+                  <p className="text-[10px] text-zinc-500">Connected Repos</p>
+                  <p className="text-base font-bold text-zinc-200">{analytics?.connected_repos || 0}</p>
                 </div>
-                <div className="p-3 rounded-lg bg-zinc-800/40">
-                  <p className="text-xs text-zinc-500">Total Issues</p>
-                  <p className="text-lg font-bold text-zinc-200">{analytics?.total_issues || 0}</p>
+                <div className="p-2.5 rounded-lg bg-zinc-800/40">
+                  <p className="text-[10px] text-zinc-500">Total Issues</p>
+                  <p className="text-base font-bold text-zinc-200">{analytics?.total_issues || 0}</p>
                 </div>
-                <div className="p-3 rounded-lg bg-zinc-800/40">
-                  <p className="text-xs text-zinc-500">Security Findings</p>
-                  <p className="text-lg font-bold text-zinc-200">{analytics?.total_findings || 0}</p>
+                <div className="p-2.5 rounded-lg bg-zinc-800/40">
+                  <p className="text-[10px] text-zinc-500">Security Findings</p>
+                  <p className="text-base font-bold text-zinc-200">{analytics?.total_findings || 0}</p>
                 </div>
-                <div className="p-3 rounded-lg bg-zinc-800/40">
-                  <p className="text-xs text-zinc-500">Devin Sessions</p>
-                  <p className="text-lg font-bold text-zinc-200">{analytics?.total_sessions || 0}</p>
+                <div className="p-2.5 rounded-lg bg-zinc-800/40">
+                  <p className="text-[10px] text-zinc-500">Devin Sessions</p>
+                  <p className="text-base font-bold text-zinc-200">{analytics?.total_sessions || 0}</p>
                 </div>
-                <div className="p-3 rounded-lg bg-zinc-800/40">
-                  <p className="text-xs text-zinc-500">Compliance Score</p>
-                  <p className="text-lg font-bold text-emerald-400">{analytics?.compliance_score || 100}%</p>
+                <div className="p-2.5 rounded-lg bg-zinc-800/40">
+                  <p className="text-[10px] text-zinc-500">Compliance Score</p>
+                  <p className="text-base font-bold text-emerald-400">{analytics?.compliance_score || 100}%</p>
                 </div>
               </div>
             </div>
