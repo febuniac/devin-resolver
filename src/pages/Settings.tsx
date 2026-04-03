@@ -234,7 +234,7 @@ export default function Settings() {
                 {githubValidation === 'idle' && <RefreshCw className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-xs text-zinc-600 mt-1">Needs repo, read:org, and read:code_scanning scopes</p>
+            <p className="text-xs text-zinc-600 mt-1">Needs repo, read:org, and security_events scopes</p>
 
             {/* GitHub Token Step-by-Step Guide */}
             <details className="mt-3 group">
@@ -265,7 +265,7 @@ export default function Settings() {
                     <ul className="mt-1 ml-3 space-y-0.5 list-disc text-zinc-500">
                       <li><span className="text-zinc-300 font-mono">repo</span> - Full control of private repositories</li>
                       <li><span className="text-zinc-300 font-mono">read:org</span> - Read org membership</li>
-                      <li><span className="text-zinc-300 font-mono">read:code_scanning</span> - Read code scanning alerts (under Security events)</li>
+                      <li><span className="text-zinc-300 font-mono">security_events</span> - Read and write security events (under repo)</li>
                     </ul>
                   </div>
                 </div>
@@ -326,15 +326,15 @@ export default function Settings() {
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                  <p className="text-xs text-zinc-400">Navigate to the <span className="text-zinc-300 font-medium">&quot;API Keys&quot;</span> section</p>
+                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;API keys&quot;</span> in the left sidebar (under Membership)</p>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Generate New Token&quot;</span></p>
+                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;View key&quot;</span> next to Personal API Key to reveal it</p>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                  <p className="text-xs text-zinc-400">Copy the token (starts with <span className="text-zinc-300 font-mono">devin_...</span>)</p>
+                  <p className="text-xs text-zinc-400">Copy the API key</p>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
