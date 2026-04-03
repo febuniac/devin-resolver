@@ -1,0 +1,70 @@
+import { ArrowRight } from 'lucide-react';
+
+interface PipelineStep {
+  label: string;
+  title: string;
+  subtitle: string;
+  type: 'trigger' | 'autonomous' | 'checkpoint' | 'output' | 'analytics';
+  active?: boolean;
+}
+
+const typeStyles: Record<string, { border: string; badge: string; dot: string }> = {
+  trigger: { border: 'border-emerald-500/40', badge: 'bg-emerald-500/15 text-emerald-400', dot: 'bg-emerald-400' },
+  autonomous: { border: 'border-violet-500/40', badge: 'bg-violet-500/15 text-violet-400', dot: 'bg-violet-400' },
+  checkpoint: { border: 'border-amber-500/40 border-dashed', badge: 'bg-amber-500/15 text-amber-400', dot: 'bg-amber-400' },
+  output: { border: 'border-emerald-500/40', badge: 'bg-emerald-500/15 text-emerald-400', dot: 'bg-emerald-400' },
+  analytics: { border: 'border-violet-500/40', badge: 'bg-violet-500/15 text-violet-400', dot: 'bg-violet-400' },
+};
+
+const steps: PipelineStep[] = [
+  { label: 'TRIGGER', title: 'GitHub Issues', subtitle: '312 open via MCP', type: 'trigger' },
+  { label: 'STEP 1', title: 'AI Triage', subtitle: 'Filter, sort, assign', type: 'autonomous' },
+  { label: 'STEP 2', title: 'Your Approval', subtitle: 'Pick batch in 30s', type: 'checkpoint' },
+  { label: 'STEP 3', title: 'Devin Writes + Tests', subtitle: 'Desktop test recording', type: 'autonomous', active: true },
+  { label: 'STEP 4', title: 'PR + Slack Notify', subtitle: 'Ready for review', type: 'output' },
+  { label: 'STEP 5', title: 'Monthly Report', subtitle: 'PRs approved this month', type: 'analytics' },
+];
+
+export default function WorkflowPipeline() {
+  return (
+    <div className="glass rounded-xl p-6">
+      <h3 className="text-sm font-semibold text-zinc-300 mb-5 uppercase tracking-wider">Automation Pipeline</h3>
+      <div className="flex items-center gap-2 overflow-x-auto pb-2">
+        {steps.map((step, i) => {
+          const style = typeStyles[step.type];
+          return (
+            <div key={i} className="flex items-center gap-2 flex-shrink-0">
+              <div className={`relative rounded-xl border-2 ${style.border} p-4 min-w-40 ${step.active ? 'animate-pulse-glow' : ''} bg-zinc-900/80`}>
+                <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold mb-2 ${style.badge}`}>
+                  {step.label}
+                </span>
+                <p className="text-sm font-semibold text-white">{step.title}</p>
+                <p className="text-xs text-zinc-500 mt-0.5">{step.subtitle}</p>
+                {step.active && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-violet-400 animate-pulse" />
+                )}
+              </div>
+              {i < steps.length - 1 && (
+                <ArrowRight className="w-4 h-4 text-zinc-600 flex-shrink-0" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-6 mt-4 text-xs">
+        {[
+          { label: 'Trigger', color: 'bg-emerald-400' },
+          { label: 'Devin Autonomous', color: 'bg-violet-400' },
+          { label: 'Human Checkpoint', color: 'bg-amber-400' },
+          { label: 'Output', color: 'bg-emerald-400' },
+          { label: 'Analytics', color: 'bg-violet-400' },
+        ].map((item) => (
+          <div key={item.label} className="flex items-center gap-1.5">
+            <div className={`w-3 h-0.5 rounded ${item.color}`} />
+            <span className="text-zinc-500">{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

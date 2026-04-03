@@ -1,0 +1,41 @@
+import { TrendingUp, TrendingDown } from 'lucide-react';
+import { type LucideIcon } from 'lucide-react';
+
+interface MetricCardProps {
+  title: string;
+  value: string | number;
+  trend?: number;
+  icon: LucideIcon;
+  iconColor?: string;
+  subtitle?: string;
+}
+
+export default function MetricCard({ title, value, trend, icon: Icon, iconColor = 'text-violet-400', subtitle }: MetricCardProps) {
+  return (
+    <div className="glass rounded-xl p-5 glass-hover">
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{title}</p>
+          <p className="text-2xl font-bold text-white">{value}</p>
+          {subtitle && <p className="text-xs text-zinc-500">{subtitle}</p>}
+        </div>
+        <div className={`w-10 h-10 rounded-lg bg-zinc-800/80 flex items-center justify-center ${iconColor}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
+      {trend !== undefined && (
+        <div className="mt-3 flex items-center gap-1.5">
+          {trend >= 0 ? (
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+          ) : (
+            <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
+          )}
+          <span className="text-xs font-medium text-emerald-400">
+            {Math.abs(trend)}% {trend >= 0 ? 'increase' : 'decrease'}
+          </span>
+          <span className="text-xs text-zinc-600">vs last month</span>
+        </div>
+      )}
+    </div>
+  );
+}
