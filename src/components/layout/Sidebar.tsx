@@ -19,7 +19,7 @@ const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/issues', icon: GitPullRequest, label: 'Issue Triage' },
   { path: '/security', icon: Shield, label: 'Security' },
-  { path: '/approvals', icon: CheckCircle, label: 'Approvals' },
+  { path: '/approvals', icon: CheckCircle, label: 'Review Work' },
   { path: '/analytics', icon: BarChart3, label: 'Analytics' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];

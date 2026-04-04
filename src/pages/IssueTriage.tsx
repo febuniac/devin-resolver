@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, CheckCircle2, Zap, ExternalLink, Play, GitPullRequest, ChevronDown, ChevronUp, Brain, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, Filter, Send, ExternalLink, Play, GitPullRequest, ChevronDown, ChevronUp, Brain, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { StatusBadge, SeverityBadge } from '../components/ui/StatusBadge';
 import ConfidenceMeter from '../components/ui/ConfidenceMeter';
 import { IssueSeverity, IssueStatus, IssueCategory } from '../types';
@@ -70,13 +70,13 @@ export default function IssueTriage() {
     }
   };
 
-  const approveSelected = async () => {
+  const sendToDevin = async () => {
     try {
       await api.approveIssues(Array.from(selectedIssues));
       setSelectedIssues(new Set());
       await loadIssues();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to approve');
+      setError(e instanceof Error ? e.message : 'Failed to send to Devin');
     }
   };
 
@@ -122,13 +122,13 @@ export default function IssueTriage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Issue Triage</h1>
-          <p className="text-sm text-zinc-500 mt-1">AI-powered analysis and categorization of {issues.length} issues across all repositories</p>
+          <p className="text-sm text-zinc-500 mt-1">Review, triage, and select issues to send to Devin for resolution</p>
         </div>
         <div className="flex items-center gap-3">
           {selectedIssues.size > 0 && (
-            <button onClick={approveSelected} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4" />
-              Approve {selectedIssues.size} for Devin
+            <button onClick={sendToDevin} className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+              <Send className="w-4 h-4" />
+              Send {selectedIssues.size} to Devin
             </button>
           )}
           <button onClick={loadIssues} className="glass glass-hover px-3 py-2 rounded-lg text-sm text-zinc-300 flex items-center gap-2">
@@ -136,7 +136,7 @@ export default function IssueTriage() {
           </button>
           <button onClick={triageAll} disabled={triaging} className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
             {triaging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
-            {triaging ? 'Triaging...' : 'Triage All'}
+            {triaging ? 'Syncing...' : 'Sync & Triage'}
           </button>
         </div>
       </div>
@@ -334,8 +334,8 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
                 onClick={(e) => { e.stopPropagation(); api.approveIssues([issue.id]).then(() => window.location.reload()); }}
                 className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
-                <Zap className="w-4 h-4" />
-                Approve for Devin
+                <Send className="w-4 h-4" />
+                Send to Devin
               </button>
             )}
             {issue.devin_session_url && (
