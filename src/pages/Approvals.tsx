@@ -451,20 +451,61 @@ export default function Approvals() {
                         </div>
                       </div>
                     ) : session.session_url ? (
-                      <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden' }}>
-                        <iframe
-                          src={session.session_url}
-                          style={{ width: '100%', height: 320, border: 'none', display: 'block', background: '#0d1117' }}
-                          title={`Devin Session - ${session.issue_title || session.id}`}
-                          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-                        />
-                        <div style={{ padding: '8px 14px', background: 'var(--bg)', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 10, color: 'var(--dim)' }}>
+                      <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden', background: '#0d1117' }}>
+                        {/* Session activity preview */}
+                        <div style={{ padding: '16px 18px', minHeight: 200 }}>
+                          {/* Devin avatar + status header */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                            <img src="/brand/devin-icon.png" alt="Devin" style={{ width: 28, height: 28, borderRadius: 6, background: '#1a1f2e' }} />
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3' }}>Devin AI</div>
+                              <div style={{ fontSize: 10, color: '#8b949e', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
+                                  background: session.status_detail === 'waiting_for_user' ? '#e9a820' : session.status === 'running' ? '#3fb950' : '#8b949e',
+                                  animation: session.status === 'running' ? 'pulse 2s infinite' : 'none'
+                                }} />
+                                {session.status_detail === 'waiting_for_user' ? 'Waiting for your approval' : session.status === 'running' ? 'Working on fix...' : session.status === 'suspended' ? 'Session paused' : session.status}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Terminal-like activity log */}
+                          <div style={{ background: '#161b22', borderRadius: 8, padding: '12px 14px', fontFamily: 'monospace', fontSize: 11, color: '#8b949e', lineHeight: 1.8 }}>
+                            {liveData[session.id]?.title ? (
+                              <>
+                                <div><span style={{ color: '#3fb950' }}>$</span> <span style={{ color: '#e6edf3' }}>analyzing issue...</span></div>
+                                <div style={{ color: '#58a6ff', paddingLeft: 14 }}>Found: {session.issue_title}</div>
+                                <div><span style={{ color: '#3fb950' }}>$</span> <span style={{ color: '#e6edf3' }}>planning solution</span></div>
+                                <div style={{ color: '#58a6ff', paddingLeft: 14 }}>{liveData[session.id].title}</div>
+                                {session.status_detail === 'waiting_for_user' && (
+                                  <div style={{ marginTop: 6 }}><span style={{ color: '#e9a820' }}>?</span> <span style={{ color: '#e9a820' }}>Awaiting user approval to proceed...</span></div>
+                                )}
+                                {session.pr_url && (
+                                  <div><span style={{ color: '#3fb950' }}>$</span> <span style={{ color: '#3fb950' }}>PR created successfully</span></div>
+                                )}
+                              </>
+                            ) : loadingLive.has(session.id) ? (
+                              <>
+                                <div><span style={{ color: '#3fb950' }}>$</span> <span style={{ color: '#e6edf3' }}>connecting to Devin...</span></div>
+                                <div style={{ color: '#8b949e', paddingLeft: 14 }}>Loading session data...</div>
+                              </>
+                            ) : (
+                              <>
+                                <div><span style={{ color: '#3fb950' }}>$</span> <span style={{ color: '#e6edf3' }}>session initialized</span></div>
+                                <div style={{ color: '#8b949e', paddingLeft: 14 }}>Working on: {session.issue_title || 'issue fix'}</div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Footer with link */}
+                        <div style={{ padding: '8px 14px', background: '#161b22', borderTop: '1px solid #21262d', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 10, color: '#8b949e' }}>
                             {session.status_detail === 'waiting_for_user' ? "Review Devin's work before approving" : 'Live Devin session'}
                           </span>
                           <a href={session.session_url} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: 10, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <ExternalLink size={10} /> Open full view
+                            style={{ fontSize: 10, fontWeight: 600, color: '#58a6ff', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <ExternalLink size={10} /> Open full session
                           </a>
                         </div>
                       </div>
