@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, GitPullRequestArrow, Shield, CheckSquare, BarChart3, Radio, Settings, Sun, Moon, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, GitPullRequestArrow, Shield, CheckSquare, BarChart3, Radio, Settings, Sun, Moon, AlertCircle, Github } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useState, useEffect } from 'react';
 import api from '../../api/client';
@@ -141,36 +141,56 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div style={{
-        marginTop: 'auto', padding: '16px 20px',
+        marginTop: 'auto', padding: '14px 16px',
         borderTop: '1px solid var(--rule)',
-        display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: '50%',
-          background: 'linear-gradient(135deg, var(--purple), var(--blue))',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0,
-        }}>
-          {status && status.repos_connected > 0 ? 'U' : 'BZ'}
-        </div>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
-            {status ? (status.repos_connected > 0 ? status.repos_connected + ' repo' + (status.repos_connected !== 1 ? 's' : '') : 'Not connected') : '...'}
+        {/* Devin status row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <img
+            src={theme === 'dark' ? '/brand/cognition-logo-white.png' : '/brand/cognition-logo-black.png'}
+            alt="Devin"
+            style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, objectFit: 'contain' }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)' }}>Devin AI</div>
+            <div style={{ fontSize: 10, color: status?.devin_connected ? 'var(--green)' : 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: status?.devin_connected ? 'var(--green)' : '#e53e3e', display: 'inline-block' }} />
+              {status ? (status.devin_connected ? 'Connected' : 'Not connected') : '...'}
+            </div>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--dim)' }}>
-            {status ? (status.devin_connected ? 'Devin active' : 'Setup required') : '...'}
-          </div>
         </div>
-        <button onClick={toggleTheme}
-          style={{
-            marginLeft: 'auto', width: 28, height: 28, borderRadius: '50%',
-            background: 'var(--bg2)', border: '1px solid var(--rule)',
+
+        {/* GitHub status row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', color: 'var(--mid)',
-          }}
-        >
-          {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
-        </button>
+            background: status && status.repos_connected > 0 ? 'rgba(33,193,154,.1)' : 'rgba(229,62,62,.08)',
+          }}>
+            <Github size={16} style={{ color: status && status.repos_connected > 0 ? 'var(--green)' : '#e53e3e' }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)' }}>GitHub</div>
+            <div style={{ fontSize: 10, color: status && status.repos_connected > 0 ? 'var(--green)' : '#e53e3e', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: status && status.repos_connected > 0 ? 'var(--green)' : '#e53e3e', display: 'inline-block' }} />
+              {status ? (status.repos_connected > 0 ? status.repos_connected + ' repo' + (status.repos_connected !== 1 ? 's' : '') : 'No repos') : '...'}
+            </div>
+          </div>
+        </div>
+
+        {/* Theme toggle */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button onClick={toggleTheme}
+            style={{
+              width: 28, height: 28, borderRadius: '50%',
+              background: 'var(--bg2)', border: '1px solid var(--rule)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: 'var(--mid)',
+            }}
+          >
+            {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
+          </button>
+        </div>
       </div>
     </aside>
   );
