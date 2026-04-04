@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye } from 'lucide-react';
+import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video } from 'lucide-react';
 import api from '../api/client';
 
 interface Session {
@@ -16,6 +16,10 @@ interface Session {
   updated_at: string | null;
   session_url: string;
   recording_url: string | null;
+  issue_body: string | null;
+  ai_summary: string | null;
+  issue_severity: string | null;
+  issue_category: string | null;
 }
 
 interface LiveData {
@@ -301,123 +305,167 @@ export default function Approvals() {
                   </div>
                 )}
 
+                {/* Visual Problem → Solution layout */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  {/* Left: Details */}
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', marginBottom: 10, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>Session Details</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>Status:</span>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: session.status_detail === 'waiting_for_user' ? '#e9a820' : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? 'var(--green)' : 'var(--blue)' }}>
-                          {session.status_detail === 'waiting_for_user' ? 'Waiting for Approval' : session.status}
+
+                  {/* Left column: Problem + Solution cards */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                    {/* THE PROBLEM card */}
+                    <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden' }}>
+                      <div style={{ padding: '8px 14px', background: 'rgba(229,62,62,0.08)', borderBottom: '1px solid rgba(229,62,62,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {session.issue_category === 'security' ? <Shield size={14} style={{ color: '#e53e3e' }} /> : <Bug size={14} style={{ color: '#e53e3e' }} />}
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#e53e3e', textTransform: 'uppercase', letterSpacing: '0.06em' }}>The Problem</span>
+                        {session.issue_severity && (
+                          <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase',
+                            background: session.issue_severity === 'critical' || session.issue_severity === 'high' ? 'rgba(229,62,62,0.12)' : 'rgba(217,119,6,0.12)',
+                            color: session.issue_severity === 'critical' || session.issue_severity === 'high' ? '#e53e3e' : '#d97706',
+                          }}>{session.issue_severity}</span>
+                        )}
+                      </div>
+                      <div style={{ padding: '12px 14px' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 6, lineHeight: 1.4 }}>
+                          {session.issue_title || 'Issue details loading...'}
+                        </div>
+                        {session.issue_body && (
+                          <div style={{ fontSize: 11, color: 'var(--mid)', lineHeight: 1.6, maxHeight: 80, overflow: 'hidden', position: 'relative' }}>
+                            {session.issue_body.length > 250 ? session.issue_body.slice(0, 250) + '...' : session.issue_body}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                          {session.issue_category && (
+                            <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', background: 'var(--bg)', color: 'var(--dim)', border: '1px solid var(--rule)' }}>{session.issue_category}</span>
+                          )}
+                          {session.repo_full_name && (
+                            <a href={`https://github.com/${session.repo_full_name}`} target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: 9, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'var(--bg)', color: 'var(--blue)', border: '1px solid var(--rule)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                              <FileCode size={9} /> {session.repo_full_name}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Arrow connector */}
+                    <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--dim)', fontSize: 18 }}>{'\u2193'}</div>
+
+                    {/* THE SOLUTION card */}
+                    <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden' }}>
+                      <div style={{ padding: '8px 14px', background: 'rgba(33,193,154,0.08)', borderBottom: '1px solid rgba(33,193,154,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Wrench size={14} style={{ color: 'var(--green)' }} />
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? 'How Devin Solved It' : "Devin's Approach"}
+                        </span>
+                        <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+                          background: ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? 'rgba(33,193,154,0.12)' : session.status_detail === 'waiting_for_user' ? 'rgba(233,168,32,0.12)' : 'rgba(2,148,222,0.12)',
+                          color: ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? 'var(--green)' : session.status_detail === 'waiting_for_user' ? '#e9a820' : 'var(--blue)',
+                        }}>
+                          {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? 'RESOLVED' : session.status_detail === 'waiting_for_user' ? 'AWAITING APPROVAL' : 'IN PROGRESS'}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>Sent:</span>
-                        <span className="font-mono" style={{ fontSize: 12, color: 'var(--ink)' }}>{formatTimestamp(session.created_at)}</span>
+                      <div style={{ padding: '12px 14px' }}>
+                        {loadingLive.has(session.id) ? (
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 8 }}>
+                            <Loader2 size={14} className="animate-spin" style={{ color: 'var(--blue)' }} />
+                            <span style={{ fontSize: 12, color: 'var(--dim)' }}>Loading Devin's analysis...</span>
+                          </div>
+                        ) : (
+                          <>
+                            {(liveData[session.id]?.title || session.ai_summary) && (
+                              <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5, marginBottom: 10 }}>
+                                {liveData[session.id]?.title || session.ai_summary}
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <div style={{ display: 'flex', gap: 6, fontSize: 11, color: 'var(--dim)' }}>
+                                <span style={{ fontWeight: 600, width: 52, flexShrink: 0 }}>Sent:</span>
+                                <span className="font-mono">{formatTimestamp(session.created_at)}</span>
+                              </div>
+                              {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) && (
+                                <>
+                                  <div style={{ display: 'flex', gap: 6, fontSize: 11, color: 'var(--dim)' }}>
+                                    <span style={{ fontWeight: 600, width: 52, flexShrink: 0 }}>Solved:</span>
+                                    <span className="font-mono" style={{ color: 'var(--green)' }}>{formatTimestamp(session.updated_at)}</span>
+                                  </div>
+                                  {session.updated_at && (
+                                    <div style={{ display: 'flex', gap: 6, fontSize: 11, color: 'var(--dim)' }}>
+                                      <span style={{ fontWeight: 600, width: 52, flexShrink: 0 }}>Duration:</span>
+                                      <span className="font-mono" style={{ color: 'var(--purple)', fontWeight: 700 }}>{timeDiff(session.created_at, session.updated_at)}</span>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                            {/* PR + Session links */}
+                            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                              {session.pr_url && (
+                                <a href={session.pr_url} target="_blank" rel="noopener noreferrer"
+                                  style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.1)', color: 'var(--green)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid rgba(33,193,154,0.2)' }}>
+                                  <GitPullRequest size={11} /> View PR
+                                </a>
+                              )}
+                              {session.session_url && (
+                                <a href={session.session_url} target="_blank" rel="noopener noreferrer"
+                                  style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--bg)', color: 'var(--blue)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid var(--rule)' }}>
+                                  <ExternalLink size={11} /> View on Devin
+                                </a>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>Solved:</span>
-                        <span className="font-mono" style={{ fontSize: 12, color: ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? 'var(--green)' : 'var(--dim)' }}>
-                          {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? formatTimestamp(session.updated_at) : 'In progress...'}
-                        </span>
-                      </div>
-                      {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) && session.updated_at && (
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>Duration:</span>
-                          <span className="font-mono" style={{ fontSize: 12, color: 'var(--purple)', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at)}</span>
-                        </div>
-                      )}
-                      {session.issue_number && (
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>Issue:</span>
-                          <span className="font-mono" style={{ fontSize: 12, color: 'var(--ink)' }}>#{session.issue_number} {session.issue_title}</span>
-                        </div>
-                      )}
-                      {session.repo_full_name && (
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>Repo:</span>
-                          <a href={`https://github.com/${session.repo_full_name}`} target="_blank" rel="noopener noreferrer"
-                            className="font-mono" style={{ fontSize: 12, color: 'var(--blue)', textDecoration: 'none' }}>
-                            {session.repo_full_name}
-                          </a>
-                        </div>
-                      )}
-                      {session.session_url && (
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>Session:</span>
-                          <a href={session.session_url} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: 12, color: 'var(--blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            View on Devin <ExternalLink size={10} />
-                          </a>
-                        </div>
-                      )}
-                      {session.pr_url && (
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>PR:</span>
-                          <a href={session.pr_url} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: 12, color: 'var(--green)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <GitPullRequest size={12} /> {session.pr_url.split('/').slice(-2).join('#')}
-                          </a>
-                        </div>
-                      )}
-                      {loadingLive.has(session.id) && (
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
-                          <Loader2 size={12} className="animate-spin" style={{ color: 'var(--blue)' }} />
-                          <span style={{ fontSize: 11, color: 'var(--dim)' }}>Fetching live details from Devin...</span>
-                        </div>
-                      )}
-                      {liveData[session.id]?.title && (
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 4 }}>
-                          <span style={{ fontSize: 11, color: 'var(--dim)', width: 70, flexShrink: 0 }}>Plan:</span>
-                          <span style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.4 }}>{liveData[session.id].title}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
 
-                  {/* Right: Recording / Preview */}
+                  {/* Right column: Video / Recording */}
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', marginBottom: 10, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
-                      {session.recording_url || liveData[session.id]?.playback_url ? 'Test Recording' : 'Preview'}
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', marginBottom: 10, textTransform: 'uppercase' as const, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Video size={12} />
+                      {session.recording_url || liveData[session.id]?.playback_url ? "Devin's Test Recording" : 'Live Preview'}
                     </div>
                     {(session.recording_url || liveData[session.id]?.playback_url) ? (
-                      <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--rule)', background: '#000' }}>
+                      <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--rule)', background: '#0d1117' }}>
                         <video
-                          src={session.recording_url || undefined}
+                          src={session.recording_url || liveData[session.id]?.playback_url || undefined}
                           controls
-                          style={{ width: '100%', display: 'block', maxHeight: 200 }}
+                          style={{ width: '100%', display: 'block', maxHeight: 260, background: '#000' }}
                           preload="metadata"
+                          poster=""
                         />
-                        <a href={session.recording_url || undefined} target="_blank" rel="noopener noreferrer"
-                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: 'var(--bg)', fontSize: 11, color: 'var(--blue)', textDecoration: 'none', borderTop: '1px solid var(--rule)' }}>
-                          <Play size={12} /> Watch full recording
-                        </a>
+                        <div style={{ padding: '10px 14px', background: 'var(--bg)', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 11, color: 'var(--dim)' }}>Devin recorded this test run</span>
+                          <a href={session.recording_url || liveData[session.id]?.playback_url || undefined} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Play size={10} /> Full screen
+                          </a>
+                        </div>
                       </div>
                     ) : session.session_url ? (
-                      <div style={{ borderRadius: 8, border: '1px solid var(--rule)', overflow: 'hidden' }}>
-                        <div style={{ padding: '16px 20px', textAlign: 'center', background: 'var(--white)' }}>
-                          <Eye size={24} style={{ margin: '0 auto 8px', color: 'var(--blue)', display: 'block' }} />
-                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>
-                            {session.status_detail === 'waiting_for_user' ? "Review Devin's work before approving" : 'View live session on Devin'}
+                      <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden', height: '100%', minHeight: 200 }}>
+                        <div style={{ padding: '24px 20px', textAlign: 'center', background: 'var(--white)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 }}>
+                          <div style={{ width: 48, height: 48, borderRadius: '50%', background: session.status_detail === 'waiting_for_user' ? 'rgba(233,168,32,0.1)' : 'rgba(2,148,222,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {session.status_detail === 'waiting_for_user' ? <Eye size={22} style={{ color: '#e9a820' }} /> : <Play size={22} style={{ color: 'var(--blue)' }} />}
                           </div>
-                          <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 12 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+                            {session.status_detail === 'waiting_for_user' ? "Review Devin's work" : 'Session in progress'}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 240 }}>
                             {session.status_detail === 'waiting_for_user'
-                              ? 'Click below to see what Devin has analyzed and planned'
-                              : 'Recording will be available when Devin completes the fix'}
+                              ? 'See what Devin has analyzed and planned before approving'
+                              : 'Video will appear here when Devin finishes testing'}
                           </div>
                           <a href={session.session_url} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: 12, fontWeight: 600, padding: '8px 20px', borderRadius: 8, background: 'var(--blue)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            style={{ marginTop: 4, fontSize: 12, fontWeight: 600, padding: '8px 24px', borderRadius: 8, background: session.status_detail === 'waiting_for_user' ? '#e9a820' : 'var(--blue)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, transition: 'opacity 0.15s' }}>
                             <ExternalLink size={12} /> Open in Devin
                           </a>
                         </div>
                       </div>
                     ) : (
-                      <div style={{ padding: 20, textAlign: 'center', borderRadius: 8, border: '1px dashed var(--rule)', color: 'var(--dim)', fontSize: 11 }}>
-                        <Play size={20} style={{ margin: '0 auto 6px', opacity: 0.3, display: 'block' }} />
-                        {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status)
-                          ? 'No recording available for this session'
-                          : 'Recording will be available when Devin completes the fix'}
+                      <div style={{ padding: 24, textAlign: 'center', borderRadius: 10, border: '1px dashed var(--rule)', color: 'var(--dim)', fontSize: 11, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, height: '100%', justifyContent: 'center' }}>
+                        <Play size={24} style={{ opacity: 0.2 }} />
+                        <span>{['completed', 'succeeded', 'finished', 'stopped'].includes(session.status)
+                          ? 'No recording available'
+                          : 'Video will appear when Devin finishes'}</span>
                       </div>
                     )}
                   </div>
