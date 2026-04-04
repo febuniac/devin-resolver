@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Send, ExternalLink, Play, GitPullRequest, ChevronDown, ChevronUp, Brain, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, Filter, Send, ExternalLink, Play, GitPullRequest, ChevronDown, ChevronUp, Brain, Loader2, AlertCircle, RefreshCw, Sparkles, X, PartyPopper } from 'lucide-react';
 import { StatusBadge, SeverityBadge } from '../components/ui/StatusBadge';
 import ConfidenceMeter from '../components/ui/ConfidenceMeter';
 import { IssueSeverity, IssueStatus, IssueCategory } from '../types';
@@ -42,6 +42,8 @@ export default function IssueTriage() {
   const [categoryFilter, setCategoryFilter] = useState<IssueCategory | 'all'>('all');
   const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
   const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
+  const [successModal, setSuccessModal] = useState<{ count: number; show: boolean }>({ count: 0, show: false });
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     loadIssues();
@@ -70,13 +72,19 @@ export default function IssueTriage() {
     }
   };
 
-  const sendToDevin = async () => {
+  const sendToDevin = async (issueIds?: number[]) => {
+    const ids = issueIds || Array.from(selectedIssues);
+    const count = ids.length;
+    setSending(true);
     try {
-      await api.approveIssues(Array.from(selectedIssues));
+      await api.approveIssues(ids);
       setSelectedIssues(new Set());
+      setSuccessModal({ count, show: true });
       await loadIssues();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to send to Devin');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -110,6 +118,59 @@ export default function IssueTriage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Success Modal */}
+      {successModal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSuccessModal({ ...successModal, show: false })}>
+          <div className="glass rounded-2xl p-8 max-w-md mx-4 text-center border border-violet-500/30 shadow-2xl shadow-violet-500/20 animate-slide-in" onClick={(e) => e.stopPropagation()}>
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-500 to-emerald-500 flex items-center justify-center mx-auto mb-5 glow">
+              <PartyPopper className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">
+              {successModal.count} issue{successModal.count !== 1 ? 's' : ''} off your plate!
+            </h2>
+            <p className="text-zinc-400 mb-1">
+              That's {successModal.count} fewer thing{successModal.count !== 1 ? 's' : ''} you have to worry about.
+            </p>
+            <p className="text-violet-400 font-medium mb-6">
+              Devin takes it from here.
+            </p>
+            <div className="flex items-center justify-center gap-3 text-xs text-zinc-500 mb-6">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                <span>Analyzing code</span>
+              </div>
+              <span className="text-zinc-700">•</span>
+              <div className="flex items-center gap-1.5">
+                <Brain className="w-3.5 h-3.5 text-violet-400" />
+                <span>Writing fix</span>
+              </div>
+              <span className="text-zinc-700">•</span>
+              <div className="flex items-center gap-1.5">
+                <Play className="w-3.5 h-3.5 text-violet-400" />
+                <span>Testing</span>
+              </div>
+              <span className="text-zinc-700">•</span>
+              <div className="flex items-center gap-1.5">
+                <GitPullRequest className="w-3.5 h-3.5 text-violet-400" />
+                <span>Opening PR</span>
+              </div>
+            </div>
+            <button
+              onClick={() => setSuccessModal({ ...successModal, show: false })}
+              className="bg-violet-600 hover:bg-violet-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            >
+              Got it!
+            </button>
+            <button
+              onClick={() => setSuccessModal({ ...successModal, show: false })}
+              className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -126,9 +187,9 @@ export default function IssueTriage() {
         </div>
         <div className="flex items-center gap-3">
           {selectedIssues.size > 0 && (
-            <button onClick={sendToDevin} className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-              <Send className="w-4 h-4" />
-              Send {selectedIssues.size} to Devin
+            <button onClick={() => sendToDevin()} disabled={sending} className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {sending ? 'Sending...' : `Send ${selectedIssues.size} to Devin`}
             </button>
           )}
           <button onClick={loadIssues} className="glass glass-hover px-3 py-2 rounded-lg text-sm text-zinc-300 flex items-center gap-2">
@@ -251,6 +312,7 @@ export default function IssueTriage() {
             selected={selectedIssues.has(issue.id)}
             onToggleExpand={() => setExpandedIssue(expandedIssue === issue.id ? null : issue.id)}
             onToggleSelect={() => toggleIssue(issue.id)}
+            onSendToDevin={(id) => sendToDevin([id])}
           />
         ))}
       </div>
@@ -259,13 +321,14 @@ export default function IssueTriage() {
   );
 }
 
-function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSelect }: {
+function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSelect, onSendToDevin }: {
   issue: Issue;
   index: number;
   expanded: boolean;
   selected: boolean;
   onToggleExpand: () => void;
   onToggleSelect: () => void;
+  onSendToDevin: (id: number) => void;
 }) {
   const categoryColors: Record<string, string> = {
     bug: 'bg-red-500/15 text-red-400',
@@ -329,9 +392,9 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
           )}
 
           <div className="flex items-center gap-3">
-            {(issue.status === 'triaged' || issue.status === 'open') && (
+            {!['in_progress', 'pr_open', 'resolved'].includes(issue.status) && (
               <button
-                onClick={(e) => { e.stopPropagation(); api.approveIssues([issue.id]).then(() => window.location.reload()); }}
+                onClick={(e) => { e.stopPropagation(); onSendToDevin(issue.id); }}
                 className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
                 <Send className="w-4 h-4" />
