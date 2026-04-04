@@ -735,22 +735,42 @@ export default function Approvals() {
                               <ExternalLink size={11} /> Open full session
                             </a>
                           </div>
-                          {/* Embed Devin session as iframe so user can watch inline */}
-                          <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#0d1117' }}>
-                            <iframe
-                              src={`${session.session_url}?embed=true`}
-                              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
-                              allow="autoplay; fullscreen"
-                              title="Devin Desktop Recording"
-                            />
-                          </div>
+                          {/* Video-like player thumbnail that opens Devin session */}
+                          <a
+                            href={session.session_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', gap: 12,
+                              padding: '32px 16px', background: 'linear-gradient(135deg, #0d1117 0%, #161b22 100%)',
+                              textDecoration: 'none', cursor: 'pointer', position: 'relative', minHeight: 140,
+                            }}
+                          >
+                            {/* Play button circle */}
+                            <div style={{
+                              width: 56, height: 56, borderRadius: '50%', background: 'rgba(88,166,255,0.15)',
+                              border: '2px solid rgba(88,166,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transition: '0.2s', boxShadow: '0 0 20px rgba(88,166,255,0.1)',
+                            }}>
+                              <Play size={24} style={{ color: '#58a6ff', marginLeft: 2 }} fill="#58a6ff" />
+                            </div>
+                            <div style={{ textAlign: 'center' as const }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: '#c9d1d9' }}>Watch Devin&apos;s Desktop Recording</div>
+                              <div style={{ fontSize: 11, color: '#8b949e', marginTop: 4 }}>Opens in Devin session viewer</div>
+                            </div>
+                            {/* Devin branding bottom-right */}
+                            <div style={{ position: 'absolute', bottom: 10, right: 14, display: 'flex', alignItems: 'center', gap: 5, opacity: 0.6 }}>
+                              <DevinIcon size={14} />
+                              <span style={{ fontSize: 10, color: '#8b949e', fontWeight: 500 }}>Powered by Devin</span>
+                            </div>
+                          </a>
                           <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontSize: 11, color: 'var(--mid)', display: 'flex', alignItems: 'center', gap: 6 }}>
                               <Clock size={12} style={{ color: 'var(--dim)' }} /> Session {formatTimestamp(session.updated_at)}
                             </span>
-                            <a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 600, color: '#58a6ff', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <ExternalLink size={10} /> Open on Devin
-                            </a>
+                            <span style={{ fontSize: 10, fontWeight: 600, color: '#58a6ff', background: 'rgba(88,166,255,0.1)', padding: '2px 8px', borderRadius: 10 }}>
+                              Available on Devin
+                            </span>
                           </div>
                         </div>
                       ) : (
