@@ -619,7 +619,13 @@ export default function Approvals() {
                                   background: session.status_detail === 'waiting_for_user' ? '#e9a820' : session.status === 'running' ? '#3fb950' : '#8b949e',
                                   animation: session.status === 'running' ? 'pulse 2s infinite' : 'none'
                                 }} />
-                                {session.status_detail === 'waiting_for_user' ? 'Waiting for your approval' : session.status === 'running' ? 'Working on fix...' : session.status === 'suspended' ? 'Session paused' : session.status}
+                                {session.status_detail === 'waiting_for_user' ? 'Waiting for your approval' : session.status === 'running' ? (() => {
+                                  const todos = liveData[session.id]?.todos || [];
+                                  const inProgress = todos.find(t => t.status === 'in_progress');
+                                  const done = todos.filter(t => t.status === 'completed').length;
+                                  if (inProgress) return `${inProgress.content} (${done}/${todos.length})`;
+                                  return 'Working on fix...';
+                                })() : session.status === 'suspended' ? 'Session paused' : session.status}
                               </div>
                             </div>
                           </div>
