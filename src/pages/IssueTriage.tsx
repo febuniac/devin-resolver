@@ -235,7 +235,7 @@ export function IssueTriage() {
           {selectedIssues.size > 0 && (
             <button onClick={() => sendToDevin()} disabled={sending}
               style={{ fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 7, cursor: 'pointer', border: 'none', background: 'var(--purple)', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <img src="/brand/devin-icon.png" alt="Devin" style={{ width: 14, height: 14, borderRadius: 2 }} /> Send {selectedIssues.size} to Devin
+              <img src="/brand/devin-icon.png" alt="Devin" style={{ width: 14, height: 14, borderRadius: 2, filter: 'brightness(0) invert(1)', flexShrink: 0 }} /> Send {selectedIssues.size} to Devin
             </button>
           )}
           <button onClick={triageAll} disabled={syncing}
@@ -314,7 +314,7 @@ export function IssueTriage() {
               </div>
               <div onClick={e => e.stopPropagation()}>
                 {issue.status === 'triaged' ? (
-                  <button onClick={() => sendToDevin([issue.id])} style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: 'var(--green)', color: '#fff', display: 'flex', alignItems: 'center', gap: 4 }}><img src="/brand/devin-icon.png" alt="Devin" style={{ width: 12, height: 12, borderRadius: 2 }} /> Send {'\u2192'}</button>
+                  <button onClick={() => sendToDevin([issue.id])} style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: 'var(--green)', color: '#fff', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0 }}><img src="/brand/devin-icon.png" alt="Devin" style={{ width: 12, height: 12, borderRadius: 2, filter: 'brightness(0) invert(1)', flexShrink: 0 }} /> Send {'\u2192'}</button>
                 ) : (issue.status === 'approved' || issue.status === 'in_progress') ? (
                   <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--green)' }}>{'\u2713'} Sent</span>
                 ) : <span style={{ color: 'var(--dim)' }}>{'\u2014'}</span>}
