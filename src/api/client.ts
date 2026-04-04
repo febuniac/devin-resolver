@@ -93,6 +93,11 @@ export const api = {
     request<any>(`/api/github/pr-merge/${owner}/${repo}/${prNumber}`, { method: 'POST' }),
   syncPrs: () =>
     request<any>('/api/github/sync-prs', { method: 'POST' }),
+  postPrComment: (owner: string, repo: string, prNumber: number, comment: string) =>
+    request<any>(`/api/github/pr-comment/${owner}/${repo}/${prNumber}`, {
+      method: 'POST',
+      body: JSON.stringify({ comment }),
+    }),
 
   // Settings
   getSettings: () => request<any>('/api/settings'),

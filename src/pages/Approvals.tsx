@@ -127,6 +127,9 @@ export default function Approvals() {
   const [merging, setMerging] = useState<Set<string>>(new Set());
   const [merged, setMerged] = useState<Set<string>>(new Set());
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [prComments, setPrComments] = useState<Record<string, string>>({});
+  const [postingComment, setPostingComment] = useState<Set<string>>(new Set());
+  const [commentPosted, setCommentPosted] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Auto-poll on page load + every 30s
@@ -259,6 +262,26 @@ export default function Approvals() {
       setTimeout(() => setToast(null), 5000);
     } finally {
       setMerging(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
+    }
+  };
+
+  const postPrComment = async (sessionId: string, prUrl: string) => {
+    const parsed = parsePrUrl(prUrl);
+    const comment = prComments[sessionId]?.trim();
+    if (!parsed || !comment) return;
+    setPostingComment(prev => new Set(prev).add(sessionId));
+    try {
+      await api.postPrComment(parsed.owner, parsed.repo, parsed.number, comment);
+      setCommentPosted(prev => new Set(prev).add(sessionId));
+      setPrComments(prev => ({ ...prev, [sessionId]: '' }));
+      setToast({ message: 'Comment posted on PR successfully!', type: 'success' });
+      setTimeout(() => { setToast(null); setCommentPosted(prev => { const next = new Set(prev); next.delete(sessionId); return next; }); }, 4000);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setToast({ message: `Failed to post comment: ${msg}`, type: 'error' });
+      setTimeout(() => setToast(null), 5000);
+    } finally {
+      setPostingComment(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
     }
   };
 
@@ -791,48 +814,184 @@ export default function Approvals() {
                         </div>
                       </div>
 
-                      {/* 4. What Changed & Why */}
-                      <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--rule)' }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' as const, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
-                            <FileCode size={14} style={{ color: 'var(--mid)' }} /> What Changed & Why
+                      {/* 4. What Changed & Why — rich PR body content */}
+                      {(() => {
+                        const prBody = diff?.body || '';
+                        // Parse PR body sections
+                        const summaryMatch = prBody.match(/##\s*Summary\s*\n([\s\S]*?)(?=\n##\s|$)/i);
+                        const changesMatch = prBody.match(/##\s*Changes\s*\n([\s\S]*?)(?=\n##\s|$)/i);
+                        const testMatch = prBody.match(/##\s*Test(?:ing|s)?\s*\n([\s\S]*?)(?=\n##\s|$)/i);
+                        const notesMatch = prBody.match(/##\s*Notes?\s*\n([\s\S]*?)(?=\n##\s|$)/i);
+                        const hasPrBody = !!(summaryMatch || changesMatch || prBody.length > 20);
+
+                        // Helper to render markdown-like bullet points
+                        const renderLines = (text: string) => {
+                          return text.split('\n').filter(l => l.trim()).map((line, i) => {
+                            const trimmed = line.trim();
+                            // File header like ### `src/utils/crypto.js`
+                            if (trimmed.startsWith('###')) {
+                              const file = trimmed.replace(/^###\s*/, '').replace(/`/g, '');
+                              return <div key={i} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: 'var(--blue)', marginTop: i > 0 ? 8 : 0, marginBottom: 3 }}>{file}</div>;
+                            }
+                            // Bullet point
+                            if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
+                              const content = trimmed.replace(/^[-*]\s*/, '');
+                              // Render inline code
+                              const parts = content.split(/(`[^`]+`)/g);
+                              return (
+                                <div key={i} style={{ display: 'flex', gap: 6, fontSize: 12, color: 'var(--ink)', lineHeight: 1.6, marginBottom: 2, paddingLeft: 4 }}>
+                                  <span style={{ color: 'var(--dim)', flexShrink: 0 }}>•</span>
+                                  <span>{parts.map((p, j) => p.startsWith('`') && p.endsWith('`')
+                                    ? <code key={j} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, background: 'var(--bg)', padding: '1px 4px', borderRadius: 3, border: '1px solid var(--rule)' }}>{p.slice(1, -1)}</code>
+                                    : <span key={j}>{p}</span>
+                                  )}</span>
+                                </div>
+                              );
+                            }
+                            // Regular paragraph
+                            return <div key={i} style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.6, marginBottom: 2 }}>{trimmed}</div>;
+                          });
+                        };
+
+                        return (
+                          <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--rule)' }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' as const, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                                <FileCode size={14} style={{ color: 'var(--mid)' }} /> What Changed & Why
+                              </div>
+                              {diff && (
+                                <div style={{ display: 'flex', gap: 5 }}>
+                                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: '#22a559' }}>+{diff.additions}</span>
+                                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: '#cf222e' }}>-{diff.deletions}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div style={{ padding: '14px 16px' }}>
+                              {hasPrBody ? (
+                                <>
+                                  {/* Summary / Root Cause */}
+                                  {summaryMatch && (
+                                    <div style={{ marginBottom: 12 }}>
+                                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#e53e3e', marginBottom: 5 }}>Summary</div>
+                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.6 }}>{renderLines(summaryMatch[1].trim())}</div>
+                                    </div>
+                                  )}
+                                  {/* Changes — the rich bullet points */}
+                                  {changesMatch && (
+                                    <div style={{ marginBottom: 12 }}>
+                                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--blue)', marginBottom: 5 }}>What Changed</div>
+                                      <div style={{ background: 'var(--bg)', padding: '10px 12px', borderRadius: 6, border: '1px solid var(--rule)' }}>
+                                        {renderLines(changesMatch[1].trim())}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {/* Test Results */}
+                                  {testMatch && (
+                                    <div style={{ marginBottom: 12 }}>
+                                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#21C19A', marginBottom: 5 }}>Test Results</div>
+                                      <div style={{ background: 'rgba(33,193,154,0.07)', borderLeft: '3px solid #21C19A', borderRadius: '0 6px 6px 0', padding: '8px 12px', fontSize: 12, color: 'var(--ink)', lineHeight: 1.6 }}>
+                                        {renderLines(testMatch[1].trim())}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {/* Notes */}
+                                  {notesMatch && (
+                                    <div style={{ marginBottom: 12 }}>
+                                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--dim)', marginBottom: 5 }}>Notes</div>
+                                      <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.6 }}>{renderLines(notesMatch[1].trim())}</div>
+                                    </div>
+                                  )}
+                                  {/* Fallback: show full body if no sections parsed */}
+                                  {!summaryMatch && !changesMatch && prBody && (
+                                    <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.6 }}>{renderLines(prBody)}</div>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {/* Fallback to issue body parsing when no PR body */}
+                                  {impactMatch && (
+                                    <div style={{ marginBottom: 12 }}>
+                                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#e53e3e', marginBottom: 5 }}>Root Cause</div>
+                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.6 }}>{impactMatch[1].trim()}</div>
+                                    </div>
+                                  )}
+                                  {fileMatch && (
+                                    <div style={{ marginBottom: 12 }}>
+                                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--blue)', marginBottom: 5 }}>What Changed</div>
+                                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--ink)', background: 'var(--bg)', padding: '6px 10px', borderRadius: 5, border: '1px solid var(--rule)', lineHeight: 1.6 }}>{fileMatch[1].trim()}</div>
+                                    </div>
+                                  )}
+                                  {fixMatch && (
+                                    <div style={{ marginBottom: 12 }}>
+                                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#21C19A', marginBottom: 5 }}>Why It Fixes It</div>
+                                      <div style={{ background: 'rgba(33,193,154,0.07)', borderLeft: '3px solid #21C19A', borderRadius: '0 6px 6px 0', padding: '8px 12px', fontSize: 12, color: 'var(--ink)', lineHeight: 1.6 }}>{fixMatch[1].trim()}</div>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              {/* Confidence badges */}
+                              <div>
+                                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--dim)', marginBottom: 5 }}>Confidence</div>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                  {diff && <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: 'rgba(33,193,154,0.1)', color: '#0d9e7e', border: '1px solid rgba(33,193,154,0.25)' }}>Tests passing</span>}
+                                  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: 'rgba(57,105,202,0.1)', color: '#3969CA', border: '1px solid rgba(57,105,202,0.25)' }}>Score 85</span>
+                                  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: 'rgba(217,119,6,0.1)', color: '#d97706', border: '1px solid rgba(217,119,6,0.25)' }}>Low complexity</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                          {diff && (
-                            <div style={{ display: 'flex', gap: 5 }}>
-                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: '#22a559' }}>+{diff.additions}</span>
-                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: '#cf222e' }}>-{diff.deletions}</span>
+                        );
+                      })()}
+
+                      {/* 5. Leave a Comment on PR (shown when merged) */}
+                      {isMerged && (
+                        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--rule)' }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' as const, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                              <MessageSquare size={14} style={{ color: 'var(--mid)' }} /> Leave a Comment on PR
                             </div>
-                          )}
-                        </div>
-                        <div style={{ padding: '14px 16px' }}>
-                          {impactMatch && (
-                            <div style={{ marginBottom: 12 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#e53e3e', marginBottom: 5 }}>Root Cause</div>
-                              <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.6 }}>{impactMatch[1].trim()}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <GitMerge size={12} style={{ color: '#8b5cf6' }} />
+                              <span style={{ fontSize: 10, fontWeight: 700, color: '#8b5cf6' }}>Merged</span>
                             </div>
-                          )}
-                          {fileMatch && (
-                            <div style={{ marginBottom: 12 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--blue)', marginBottom: 5 }}>What Changed</div>
-                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--ink)', background: 'var(--bg)', padding: '6px 10px', borderRadius: 5, border: '1px solid var(--rule)', lineHeight: 1.6 }}>{fileMatch[1].trim()}</div>
-                            </div>
-                          )}
-                          {fixMatch && (
-                            <div style={{ marginBottom: 12 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#21C19A', marginBottom: 5 }}>Why It Fixes It</div>
-                              <div style={{ background: 'rgba(33,193,154,0.07)', borderLeft: '3px solid #21C19A', borderRadius: '0 6px 6px 0', padding: '8px 12px', fontSize: 12, color: 'var(--ink)', lineHeight: 1.6 }}>{fixMatch[1].trim()}</div>
-                            </div>
-                          )}
-                          <div>
-                            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--dim)', marginBottom: 5 }}>Confidence</div>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                              {diff && <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: 'rgba(33,193,154,0.1)', color: '#0d9e7e', border: '1px solid rgba(33,193,154,0.25)' }}>Tests passing</span>}
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: 'rgba(57,105,202,0.1)', color: '#3969CA', border: '1px solid rgba(57,105,202,0.25)' }}>Score 85</span>
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: 'rgba(217,119,6,0.1)', color: '#d97706', border: '1px solid rgba(217,119,6,0.25)' }}>Low complexity</span>
+                          </div>
+                          <div style={{ padding: '14px 16px' }}>
+                            <textarea
+                              value={prComments[session.id] || ''}
+                              onChange={e => setPrComments(prev => ({ ...prev, [session.id]: e.target.value }))}
+                              placeholder="Leave feedback, request follow-up changes, or add notes to this PR..."
+                              style={{
+                                width: '100%', minHeight: 70, padding: '10px 12px', fontSize: 12, lineHeight: 1.5,
+                                border: '1px solid var(--rule)', borderRadius: 8, background: 'var(--bg)', color: 'var(--ink)',
+                                resize: 'vertical', fontFamily: 'inherit', outline: 'none',
+                                boxSizing: 'border-box',
+                              }}
+                              onFocus={e => { e.currentTarget.style.borderColor = 'var(--blue)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(57,105,202,0.1)'; }}
+                              onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule)'; e.currentTarget.style.boxShadow = 'none'; }}
+                            />
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                              <span style={{ fontSize: 11, color: 'var(--mid)' }}>
+                                {commentPosted.has(session.id)
+                                  ? <span style={{ color: '#21C19A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={12} /> Comment posted!</span>
+                                  : 'Comment will be posted directly on the GitHub PR'}
+                              </span>
+                              <button
+                                onClick={() => postPrComment(session.id, prUrl)}
+                                disabled={postingComment.has(session.id) || !prComments[session.id]?.trim()}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700,
+                                  padding: '7px 16px', background: '#3969CA', color: '#fff', border: 'none', borderRadius: 7,
+                                  cursor: !prComments[session.id]?.trim() ? 'not-allowed' : 'pointer',
+                                  opacity: !prComments[session.id]?.trim() ? 0.5 : 1, transition: '.15s',
+                                }}
+                              >
+                                {postingComment.has(session.id) ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                                {postingComment.has(session.id) ? 'Posting...' : 'Post Comment'}
+                              </button>
                             </div>
                           </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* Sticky Approve CTA */}
                       {!isMerged && (
