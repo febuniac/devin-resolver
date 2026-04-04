@@ -686,7 +686,7 @@ export default function Approvals() {
                     {/* ── RIGHT PANEL ── */}
                     <div style={{ background: 'var(--bg)', overflowY: 'auto', maxHeight: 600, padding: 20 }}>
 
-                      {/* 1. Desktop Recording — compact when no video, expanded when available */}
+                      {/* 1. Desktop Recording */}
                       {(session.recording_url || liveData[session.id]?.playback_url) ? (
                         <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--rule)' }}>
@@ -707,20 +707,49 @@ export default function Approvals() {
                             </a>
                           </div>
                         </div>
+                      ) : session.session_url ? (
+                        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--rule)' }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' as const, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                              <Video size={14} style={{ color: 'var(--mid)' }} /> Devin Desktop Recording
+                            </div>
+                            <a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+                              <ExternalLink size={11} /> Open full session
+                            </a>
+                          </div>
+                          <a
+                            href={session.session_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                              padding: '24px 16px', background: '#0d1117', color: '#8b949e',
+                              textDecoration: 'none', cursor: 'pointer', transition: 'background 0.2s',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = '#161b22')}
+                            onMouseLeave={e => (e.currentTarget.style.background = '#0d1117')}
+                          >
+                            <Play size={20} style={{ color: '#58a6ff' }} />
+                            <span style={{ fontSize: 13, fontWeight: 600, color: '#c9d1d9' }}>Watch Devin&apos;s desktop recording</span>
+                          </a>
+                          <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: 11, color: 'var(--mid)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <Clock size={12} style={{ color: 'var(--dim)' }} /> Session {formatTimestamp(session.updated_at)}
+                            </span>
+                            <span style={{ fontSize: 10, fontWeight: 600, color: '#58a6ff', background: 'rgba(88,166,255,0.1)', padding: '2px 8px', borderRadius: 10 }}>
+                              Available on Devin
+                            </span>
+                          </div>
+                        </div>
                       ) : (
                         <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '10px 16px', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <Video size={14} style={{ color: 'var(--dim)' }} />
                             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>Desktop Recording</span>
-                            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--mid)', background: 'var(--bg)', padding: '2px 8px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <Loader2 size={10} className="animate-spin" /> Loading...
+                            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--mid)', background: 'var(--bg)', padding: '2px 8px', borderRadius: 10 }}>
+                              Pending
                             </span>
                           </div>
-                          {session.session_url && (
-                            <a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
-                              <ExternalLink size={11} /> Open full session
-                            </a>
-                          )}
                         </div>
                       )}
 
