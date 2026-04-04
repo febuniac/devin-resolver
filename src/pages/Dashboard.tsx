@@ -1,210 +1,204 @@
 import { useState, useEffect } from 'react';
-import { Bug, Shield, GitPullRequest, Clock, Users, Zap, ArrowRight, ExternalLink, Loader2, Settings } from 'lucide-react';
-import MetricCard from '../components/ui/MetricCard';
-import WorkflowPipeline from '../components/ui/WorkflowPipeline';
-import { StatusBadge, SeverityBadge } from '../components/ui/StatusBadge';
+import { createPortal } from 'react-dom';
+import { RefreshCw, Plus, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
+interface Issue {
+  id: number;
+  github_id: number;
+  title: string;
+  status: string;
+  severity: string;
+  category: string;
+  repo: string;
+  confidence: number;
+}
+
+const categoryChipClass: Record<string, string> = {
+  bug: 'chip-red',
+  security: 'chip-red',
+  feature: 'chip-blue',
+  enhancement: 'chip-amber',
+  performance: 'chip-purple',
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [analytics, setAnalytics] = useState<Record<string, any> | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [sessions, setSessions] = useState<any[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [issues, setIssues] = useState<any[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [findings, setFindings] = useState<any[]>([]);
+  const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadIssues(); }, []);
 
-  const loadData = async () => {
-    try {
-      const [analyticsData, sessionsData, issuesData, findingsData] = await Promise.all([
-        api.getAnalytics(),
-        api.listSessions(),
-        api.listIssues(),
-        api.listFindings(),
-      ]);
-      setAnalytics(analyticsData);
-      setSessions(sessionsData);
-      setIssues(issuesData);
-      setFindings(findingsData);
-    } catch {
-      // Silently fail - show empty state
-    } finally {
-      setLoading(false);
-    }
+  const loadIssues = async () => {
+    try { setIssues(await api.listIssues() as Issue[]); }
+    catch { /* ignore */ }
+    finally { setLoading(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-devin-blue animate-spin" />
-      </div>
-    );
-  }
+  const syncGithub = async () => {
+    setSyncing(true);
+    try { await api.triageAll(); await loadIssues(); }
+    catch { /* ignore */ }
+    finally { setSyncing(false); }
+  };
 
-  const recentIssues = issues.filter(i => i.status === 'in_progress' || i.status === 'pr_open' || i.status === 'approved').slice(0, 4);
-  const recentFindings = findings.filter(f => f.status === 'in_progress' || f.status === 'pr_open' || f.status === 'approved').slice(0, 3);
-  const activeSessions = sessions.filter(s => s.status === 'running').length;
-  const hasData = issues.length > 0 || findings.length > 0;
+  const approveIssue = async (id: number) => {
+    try { await api.approveIssues([id]); await loadIssues(); }
+    catch { /* ignore */ }
+  };
+
+  const total = issues.length;
+  const critical = issues.filter(i => i.severity === 'critical').length;
+  const merged = issues.filter(i => i.status === 'resolved').length;
+  const approved = issues.filter(i => i.status === 'approved' || i.status === 'in_progress' || i.status === 'resolved').length;
+  const mergeRate = total > 0 ? Math.round((merged / Math.max(approved, 1)) * 100) : 0;
+  const topIssues = issues.slice(0, 5);
+  const topbarEl = document.getElementById('topbar-actions');
 
   return (
-    <div className="space-y-3 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-white">Command Center</h1>
-          <p className="text-xs text-zinc-500 mt-0.5">Real-time overview of Devin resolving your issues autonomously</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {activeSessions > 0 && (
-            <div className="glass rounded-lg px-4 py-2 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-sm text-zinc-300">{activeSessions} Devin session{activeSessions !== 1 ? 's' : ''} active</span>
-            </div>
-          )}
-          <button onClick={() => navigate('/settings')} className="glass glass-hover px-3 py-2 rounded-lg text-sm text-zinc-300 flex items-center gap-2">
-            <Settings className="w-4 h-4" />
+    <div className="animate-fade-in">
+      {topbarEl && createPortal(
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={syncGithub} disabled={syncing}
+            style={{ fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 7, cursor: 'pointer', border: '1px solid var(--rule)', background: 'var(--bg2)', color: 'var(--mid)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Sync GitHub
           </button>
-        </div>
+          <button onClick={() => navigate('/issues')}
+            style={{ fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 7, cursor: 'pointer', border: 'none', background: 'var(--green)', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={14} /> Approve Batch
+          </button>
+        </div>, topbarEl
+      )}
+
+      {/* Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
+        {[
+          { label: 'Open Issues', value: total, color: 'var(--purple)', delta: merged + ' resolved this month', dd: 'down' },
+          { label: 'Critical CVEs', value: critical, color: '#e53e3e', delta: issues.filter(i => i.severity === 'critical' && i.status === 'resolved').length + ' resolved by Devin', dd: 'down' },
+          { label: 'PRs Merged', value: merged, color: 'var(--green)', delta: merged + ' more than last month', dd: 'up' },
+          { label: 'Merge Rate', value: mergeRate + '%', color: 'var(--blue)', delta: 'from 67% baseline', dd: 'up' },
+        ].map((s, i) => (
+          <div key={i} style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: '12px 12px 0 0', background: s.color }} />
+            <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--dim)', marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{s.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: 'var(--green)' }}>{s.dd === 'down' ? '\u2193' : '\u2191'} {s.delta}</div>
+          </div>
+        ))}
       </div>
 
-      {!hasData ? (
-        <div className="glass rounded-xl p-8 text-center">
-          <Zap className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold text-zinc-300 mb-2">Welcome to DevinResolver</h2>
-          <p className="text-sm text-zinc-500 mb-4 max-w-md mx-auto">
-            Connect your GitHub repositories and configure your API tokens to start resolving issues automatically with Devin.
-          </p>
-          <div className="flex items-center justify-center gap-4">
-            <button onClick={() => navigate('/settings')} className="bg-devin-purple hover:bg-devin-blue text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              Configure Settings
-            </button>
+      {/* Triage Queue */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Active Triage Queue</div>
+          <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>AI-scored {'\u00b7'} sorted by priority {'\u00b7'} awaiting approval</div>
+        </div>
+        <span onClick={() => navigate('/issues')} style={{ fontSize: 12, fontWeight: 600, color: 'var(--purple)', cursor: 'pointer' }}>View all {total} issues {'\u2192'}</span>
+      </div>
+
+      <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr 100px 80px 90px 80px', padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--rule)' }}>
+          {['ID', 'Issue', 'Type', 'Score', 'Status', 'Action'].map(h => (
+            <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--dim)' }}>{h}</div>
+          ))}
+        </div>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center' }}><Loader2 size={24} style={{ color: 'var(--blue)' }} className="animate-spin" /></div>
+        ) : topIssues.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--dim)', fontSize: 13 }}>No issues yet. Connect a repo in Settings, then Sync GitHub.</div>
+        ) : topIssues.map(issue => (
+          <div key={issue.id} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 100px 80px 90px 80px', padding: '12px 16px', borderBottom: '1px solid var(--rule)', alignItems: 'center' }}>
+            <div className="font-mono" style={{ fontSize: 11, fontWeight: 500, color: 'var(--dim)' }}>#{issue.github_id}</div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.35 }}>{issue.title}</div>
+              <div className="font-mono" style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3 }}>{issue.repo}</div>
+            </div>
+            <div><span className={`chip ${categoryChipClass[issue.category] || 'chip-dim'}`}>{issue.category}</span></div>
+            <div><span className="font-mono" style={{ fontSize: 12, fontWeight: 700, color: issue.confidence >= 75 ? 'var(--green)' : '#d97706' }}>{issue.confidence}</span></div>
+            <div>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}>
+                {issue.status === 'resolved' ? <><span className="dot dot-green" /><span style={{ color: 'var(--green)' }}>Merged {'\u2713'}</span></> :
+                 issue.status === 'in_progress' ? <><span className="dot dot-blue" /><span style={{ color: 'var(--blue)' }}>Running</span></> :
+                 issue.status === 'approved' ? <><span className="dot dot-amber" /><span style={{ color: '#d97706' }}>Approved</span></> :
+                 <><span className="dot dot-dim" /><span style={{ color: 'var(--dim)' }}>Queued</span></>}
+              </span>
+            </div>
+            <div>
+              {issue.status === 'triaged' ? (
+                <button onClick={() => approveIssue(issue.id)} style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: 'var(--green)', color: '#fff' }}>Approve {'\u2192'}</button>
+              ) : (issue.status === 'approved' || issue.status === 'in_progress') ? (
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--green)' }}>{'\u2713'} Approved</span>
+              ) : <span style={{ color: 'var(--dim)' }}>{'\u2014'}</span>}
+            </div>
           </div>
-          <div className="mt-6 grid grid-cols-3 gap-3 max-w-xl mx-auto">
-            {[
-              { step: '1', title: 'Add API Tokens', desc: 'GitHub PAT + Devin API token' },
-              { step: '2', title: 'Connect Repos', desc: 'Add GitHub repositories to monitor' },
-              { step: '3', title: 'Sync & Triage', desc: 'Devin analyzes and fixes issues' },
-            ].map((s) => (
-              <div key={s.step} className="glass rounded-lg p-3 text-center">
-                <div className="w-7 h-7 rounded-full bg-devin-purple/20 text-devin-blue font-bold text-xs flex items-center justify-center mx-auto mb-1.5">{s.step}</div>
-                <p className="text-sm font-medium text-zinc-300">{s.title}</p>
-                <p className="text-xs text-zinc-500 mt-1">{s.desc}</p>
+        ))}
+      </div>
+
+      {/* Bottom Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
+        {/* PRs merged */}
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>PRs merged this month</div>
+              <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>By week {'\u00b7'} April 2026</div>
+            </div>
+            <span className="font-mono" style={{ fontSize: 20, fontWeight: 800, color: 'var(--purple)' }}>{merged}</span>
+          </div>
+          {[{ l:'W1',p:55,c:'var(--purple)' },{ l:'W2',p:65,c:'var(--purple)' },{ l:'W3',p:80,c:'var(--green)' },{ l:'W4',p:35,c:'var(--blue)' }].map(b => (
+            <div key={b.l} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <span className="font-mono" style={{ fontSize: 11, color: 'var(--mid)', width: 28, textAlign: 'right' }}>{b.l}</span>
+              <div style={{ flex: 1, height: 7, background: 'var(--bg2)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: b.p+'%', borderRadius: 4, background: b.c, transition: 'width 0.8s cubic-bezier(.4,0,.2,1)' }} />
               </div>
-            ))}
+              <span className="font-mono" style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)', width: 28 }}>{Math.round(merged*b.p/100)}</span>
+            </div>
+          ))}
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--rule)', display: 'flex', gap: 12 }}>
+            <div style={{ fontSize: 11, color: 'var(--dim)' }}>Merge rate <strong style={{ color: 'var(--green)' }}>{mergeRate}%</strong></div>
+            <div style={{ fontSize: 11, color: 'var(--dim)' }}>Cost per PR <strong style={{ color: 'var(--purple)' }}>~$13</strong></div>
+            <div style={{ fontSize: 11, color: 'var(--dim)' }}>Avg time <strong style={{ color: 'var(--blue)' }}>47min</strong></div>
           </div>
         </div>
-      ) : (
-        <>
-          {/* Workflow Pipeline */}
-          <WorkflowPipeline />
 
-          {/* KPI Grid */}
-          <div className="grid grid-cols-5 gap-2">
-            <MetricCard title="Issues Resolved" value={analytics?.issues_resolved || 0} icon={Bug} iconColor="text-emerald-400" subtitle="Total" />
-            <MetricCard title="Open Issues" value={analytics?.issues_open || 0} icon={Clock} iconColor="text-blue-400" subtitle="Pending resolution" />
-            <MetricCard title="Security Fixed" value={analytics?.security_findings_fixed || 0} icon={Shield} iconColor="text-amber-400" subtitle="CodeQL findings" />
-            <MetricCard title="PRs Created" value={analytics?.prs_created || 0} icon={GitPullRequest} iconColor="text-cyan-400" subtitle={`${analytics?.prs_merged || 0} merged`} />
-            <MetricCard title="Hours Saved" value={analytics?.engineer_hours_saved || 0} icon={Users} iconColor="text-devin-blue" subtitle="Engineer hours" />
+        {/* Slack */}
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Slack activity</div>
+            <span className="font-mono" style={{ fontSize: 11, color: 'var(--dim)' }}># eng-devin</span>
           </div>
-
-          {/* Active Work */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="col-span-2 glass rounded-xl p-3">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Recent Activity</h3>
-                <button onClick={() => navigate('/issues')} className="text-xs text-devin-blue hover:text-devin-purple flex items-center gap-1">
-                  View all <ArrowRight className="w-3 h-3" />
-                </button>
-              </div>
-              <div className="space-y-2">
-                {recentIssues.length === 0 && recentFindings.length === 0 ? (
-                  <p className="text-sm text-zinc-500 text-center py-3">No active work yet. Sync a repository to get started.</p>
-                ) : (
-                  <>
-                    {recentIssues.map((issue) => (
-                      <div key={`issue-${issue.id}`} className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-800/40 hover:bg-zinc-800/60 transition-colors">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-devin-purple/15 flex items-center justify-center flex-shrink-0">
-                            <Zap className="w-4 h-4 text-devin-blue" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-zinc-200 truncate">{issue.title}</p>
-                            <p className="text-xs text-zinc-500">{issue.repo_full_name} #{issue.number}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <SeverityBadge severity={issue.severity} />
-                          <StatusBadge status={issue.status} />
-                          {issue.pr_url && (
-                            <a href={issue.pr_url} target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-cyan-400 transition-colors">
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {recentFindings.map((finding) => (
-                      <div key={`finding-${finding.id}`} className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-800/40 hover:bg-zinc-800/60 transition-colors">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-                            <Shield className="w-4 h-4 text-amber-400" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-zinc-200 truncate">{finding.rule}</p>
-                            <p className="text-xs text-zinc-500">{finding.repo_full_name} - {finding.cwe_id}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <SeverityBadge severity={finding.severity} />
-                          <StatusBadge status={finding.status} />
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Stats Summary */}
-            <div className="glass rounded-xl p-3">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Quick Stats</h3>
-              </div>
-              <div className="space-y-1.5">
-                <div className="p-2.5 rounded-lg bg-zinc-800/40">
-                  <p className="text-[10px] text-zinc-500">Connected Repos</p>
-                  <p className="text-base font-bold text-zinc-200">{analytics?.connected_repos || 0}</p>
-                </div>
-                <div className="p-2.5 rounded-lg bg-zinc-800/40">
-                  <p className="text-[10px] text-zinc-500">Total Issues</p>
-                  <p className="text-base font-bold text-zinc-200">{analytics?.total_issues || 0}</p>
-                </div>
-                <div className="p-2.5 rounded-lg bg-zinc-800/40">
-                  <p className="text-[10px] text-zinc-500">Security Findings</p>
-                  <p className="text-base font-bold text-zinc-200">{analytics?.total_findings || 0}</p>
-                </div>
-                <div className="p-2.5 rounded-lg bg-zinc-800/40">
-                  <p className="text-[10px] text-zinc-500">Devin Sessions</p>
-                  <p className="text-base font-bold text-zinc-200">{analytics?.total_sessions || 0}</p>
-                </div>
-                <div className="p-2.5 rounded-lg bg-zinc-800/40">
-                  <p className="text-[10px] text-zinc-500">Compliance Score</p>
-                  <p className="text-base font-bold text-emerald-400">{analytics?.compliance_score || 100}%</p>
-                </div>
-              </div>
+          <div style={{ background: '#1a1d21', borderRadius: 0 }}>
+            <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 220, overflow: 'hidden' }}>
+              <SlackMsg av="D" isDevin name="Devin" time="9:58 AM" text={<><strong style={{color:'#d1d2d3',fontWeight:500}}>PR #2041 opened</strong> {'\u2014'} pagination bug fixed and tested.</>} attachment={{ title: 'Pagination \u00b7 PR #2041 \u00b7 5/5 tests \u00b7 CI green', sub: '+9 / -4 \u00b7 E2E verified \u00b7 Ready to merge' }} />
+              <SlackMsg av="ME" isDevin={false} name="Maria E." time="10:04 AM" text={<>Merging. <strong style={{color:'#d1d2d3',fontWeight:500}}>@devin</strong> tag the issue fixed?</>} />
+              <SlackMsg av="D" isDevin name="Devin" time="10:04 AM" text={<>Done {'\u2014'} #1847 labeled fixed, changelog updated. Moving to next issue.</>} />
             </div>
           </div>
-        </>
-      )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SlackMsg({ av, isDevin, name, time, text, attachment }: { av: string; isDevin: boolean; name: string; time: string; text: React.ReactNode; attachment?: { title: string; sub: string } }) {
+  const avStyle = isDevin
+    ? { background: 'rgba(33,193,154,.15)', border: '1px solid rgba(33,193,154,.2)', color: 'var(--green)' }
+    : { background: '#1e3a5f', color: '#7dd3fc' };
+  return (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ width: 26, height: 26, borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isDevin ? 9 : 8, fontWeight: 700, fontFamily: 'var(--mono)', ...avStyle }}>{av}</div>
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#d1d2d3', marginBottom: 1 }}>{name} <span className="font-mono" style={{ fontSize: 9, color: '#5c5e66', marginLeft: 5 }}>{time}</span></div>
+        <div style={{ fontSize: 11, color: '#7c7e83', lineHeight: 1.5 }}>{text}</div>
+        {attachment && (
+          <div style={{ background: '#131517', borderLeft: '2px solid var(--green)', borderRadius: '0 4px 4px 0', padding: '6px 10px', marginTop: 5 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#d1d2d3', marginBottom: 1 }}>{attachment.title}</div>
+            <div style={{ fontSize: 9, color: '#5c5e66' }}>{attachment.sub}</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

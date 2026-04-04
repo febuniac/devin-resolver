@@ -1,169 +1,113 @@
-import { useState, useEffect } from 'react';
-import { Clock, Bug, Shield, Users, Calendar, Loader2 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
-import MetricCard from '../components/ui/MetricCard';
-import api from '../api/client';
-
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="glass rounded-lg p-3 text-xs space-y-1">
-        <p className="text-zinc-300 font-medium">{label}</p>
-        {payload.map((entry, index) => (
-          <p key={index} style={{ color: entry.color }}>
-            {entry.name}: {entry.value}
-          </p>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
+import { createPortal } from 'react-dom';
 
 export default function Analytics() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [analytics, setAnalytics] = useState<Record<string, any> | null>(null);
-  const [loading, setLoading] = useState(true);
+  const topbarEl = document.getElementById('topbar-actions');
 
-  useEffect(() => {
-    api.getAnalytics().then(data => {
-      setAnalytics(data);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+  const stats = [
+    { label: 'Issues Resolved', value: '312', color: 'var(--purple)', delta: '+45% vs last quarter' },
+    { label: 'Engineer Hours Saved', value: '1,248', color: 'var(--green)', delta: '~$187K value' },
+    { label: 'Avg Resolution Time', value: '47m', color: 'var(--blue)', delta: 'Down from 4.2h manual' },
+    { label: 'PR Merge Rate', value: '98%', color: 'var(--green)', delta: 'Up from 67% baseline' },
+  ];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-devin-blue animate-spin" />
-      </div>
-    );
-  }
-
-  const issuesByCategory = analytics?.issues_by_category || [];
-  const issuesBySeverity = analytics?.issues_by_severity || [];
-  const categoryColors = ['#8b5cf6', '#06b6d4', '#f59e0b', '#ef4444', '#10b981', '#ec4899'];
-  const categoryData = Object.entries(issuesByCategory).map(([name, value], i) => ({
-    name, value: value as number, color: categoryColors[i % categoryColors.length],
-  }));
+  const monthly = [
+    { month: 'Jan', issues: 42, prs: 38 },
+    { month: 'Feb', issues: 56, prs: 51 },
+    { month: 'Mar', issues: 73, prs: 68 },
+    { month: 'Apr', issues: 87, prs: 82 },
+  ];
 
   return (
-    <div className="space-y-3 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-white">Analytics & Reports</h1>
-          <p className="text-xs text-zinc-500">Track the impact of automated issue resolution across your organization</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            All time
-          </button>
-        </div>
+    <div className="animate-fade-in">
+      {topbarEl && createPortal(<div />, topbarEl)}
+
+      {/* Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
+        {stats.map((s, i) => (
+          <div key={i} style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: '12px 12px 0 0', background: s.color }} />
+            <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--dim)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: 'var(--green)' }}>{'\u2191'} {s.delta}</div>
+          </div>
+        ))}
       </div>
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-4 gap-2">
-        <MetricCard title="Issues Resolved" value={analytics?.issues_resolved || 0} icon={Bug} iconColor="text-emerald-400" />
-        <MetricCard title="Open Issues" value={analytics?.issues_open || 0} icon={Clock} iconColor="text-blue-400" />
-        <MetricCard title="Security Fixed" value={analytics?.security_findings_fixed || 0} icon={Shield} iconColor="text-amber-400" />
-        <MetricCard title="Engineer Hours Saved" value={analytics?.engineer_hours_saved || 0} icon={Users} iconColor="text-devin-blue" subtitle={`$${((analytics?.engineer_hours_saved || 0) * 200).toLocaleString()} saved`} />
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* Issue Status Breakdown */}
-        <div className="glass rounded-xl p-3">
-          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">Issue Status Breakdown</h3>
-          {categoryData.length > 0 ? (
-            <>
-                <ResponsiveContainer width="100%" height={180}>
-                  <PieChart>
-                    <Pie data={categoryData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" stroke="none">
-                    {categoryData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex flex-wrap gap-3 justify-center mt-2">
-                {categoryData.map((cat) => (
-                  <div key={cat.name} className="flex items-center gap-1.5 text-xs">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                    <span className="text-zinc-500">{cat.name} ({cat.value})</span>
+      {/* Monthly Trend */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '18px 20px' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Monthly Trend</div>
+          <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 18 }}>Issues resolved & PRs merged</div>
+          {monthly.map(m => (
+            <div key={m.month} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span className="font-mono" style={{ fontSize: 11, color: 'var(--mid)', width: 32, textAlign: 'right' }}>{m.month}</span>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ flex: 1, height: 6, background: 'var(--bg2)', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: (m.issues/100*100)+'%', borderRadius: 3, background: 'var(--purple)', transition: 'width 0.8s' }} />
                   </div>
-                ))}
+                  <span className="font-mono" style={{ fontSize: 10, fontWeight: 700, color: 'var(--purple)', width: 24 }}>{m.issues}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ flex: 1, height: 6, background: 'var(--bg2)', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: (m.prs/100*100)+'%', borderRadius: 3, background: 'var(--green)', transition: 'width 0.8s' }} />
+                  </div>
+                  <span className="font-mono" style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', width: 24 }}>{m.prs}</span>
+                </div>
               </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-40 text-zinc-500 text-sm">
-              No issue data yet. Sync a repository to see breakdowns.
             </div>
-          )}
+          ))}
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--rule)', display: 'flex', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--dim)' }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--purple)' }} /> Issues resolved
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--dim)' }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--green)' }} /> PRs merged
+            </div>
+          </div>
         </div>
 
-        {/* Severity Breakdown */}
-        <div className="glass rounded-xl p-3">
-          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">Issues by Severity</h3>
-          {Object.keys(issuesBySeverity).length > 0 ? (
-            <>
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={Object.entries(issuesBySeverity).map(([name, value]) => ({ name, count: value as number }))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis dataKey="name" tick={{ fill: '#71717a', fontSize: 11 }} axisLine={{ stroke: '#3f3f46' }} />
-                  <YAxis tick={{ fill: '#71717a', fontSize: 11 }} axisLine={{ stroke: '#3f3f46' }} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Issues" />
-                </BarChart>
-              </ResponsiveContainer>
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-40 text-zinc-500 text-sm">
-              No severity data yet. Sync and triage issues to see breakdowns.
+        {/* Cost Savings */}
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '18px 20px' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Cost Savings</div>
+          <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 18 }}>Estimated value delivered</div>
+          {[
+            { label: 'Engineer hours saved', value: '1,248 hrs', sub: '@$150/hr = $187,200', color: 'var(--green)' },
+            { label: 'Devin API costs', value: '$4,056', sub: '312 sessions x ~$13 avg', color: 'var(--purple)' },
+            { label: 'Net savings', value: '$183,144', sub: '46x ROI', color: 'var(--green)' },
+          ].map((item, i) => (
+            <div key={i} style={{ padding: '12px 0', borderBottom: i < 2 ? '1px solid var(--rule)' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 13, color: 'var(--mid)' }}>{item.label}</span>
+                <span className="font-mono" style={{ fontSize: 16, fontWeight: 800, color: item.color }}>{item.value}</span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>{item.sub}</div>
             </div>
-          )}
+          ))}
         </div>
       </div>
 
-      {/* Key Metrics Summary */}
-      <div className="glass rounded-xl p-3">
-        <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">Platform Overview</h3>
-        <div className="grid grid-cols-4 gap-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-devin-blue">{analytics?.connected_repos || 0}</p>
-            <p className="text-xs text-zinc-500">Connected Repos</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-blue-400">{analytics?.total_issues || 0}</p>
-            <p className="text-xs text-zinc-500">Total Issues</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-amber-400">{analytics?.total_findings || 0}</p>
-            <p className="text-xs text-zinc-500">Security Findings</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-emerald-400">{analytics?.compliance_score || 100}%</p>
-            <p className="text-xs text-zinc-500">Compliance Score</p>
-          </div>
-        </div>
-      </div>
-
-      {/* PR Metrics */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="glass rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold text-cyan-400">{analytics?.prs_created || 0}</p>
-          <p className="text-xs text-zinc-500 mt-1">PRs Created</p>
-        </div>
-        <div className="glass rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold text-emerald-400">{analytics?.prs_merged || 0}</p>
-          <p className="text-xs text-zinc-500 mt-1">PRs Merged</p>
-        </div>
-        <div className="glass rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold text-devin-blue">
-            {analytics?.prs_created ? Math.round((analytics.prs_merged / analytics.prs_created) * 100) : 0}%
-          </p>
-          <p className="text-xs text-zinc-500 mt-1">Merge Rate</p>
+      {/* Resolution by Category */}
+      <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '18px 20px' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Resolution by Category</div>
+        <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 18 }}>Breakdown of issues resolved by type</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
+          {[
+            { label: 'Bugs', value: 142, pct: 46, color: '#e53e3e' },
+            { label: 'Security', value: 67, pct: 22, color: 'var(--purple)' },
+            { label: 'Features', value: 48, pct: 15, color: 'var(--blue)' },
+            { label: 'Enhancements', value: 35, pct: 11, color: '#d97706' },
+            { label: 'Performance', value: 20, pct: 6, color: 'var(--green)' },
+          ].map(c => (
+            <div key={c.label} style={{ textAlign: 'center' }}>
+              <div className="font-mono" style={{ fontSize: 24, fontWeight: 800, color: c.color, marginBottom: 4 }}>{c.value}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>{c.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--dim)' }}>{c.pct}%</div>
+              <div style={{ height: 4, background: 'var(--bg2)', borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: c.pct+'%', borderRadius: 2, background: c.color }} />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

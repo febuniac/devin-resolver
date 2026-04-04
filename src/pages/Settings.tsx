@@ -1,624 +1,162 @@
 import { useState, useEffect } from 'react';
-import { Github, Plus, Trash2, RefreshCw, Slack, Shield, Bell, CheckCircle2, Key, Bot, Loader2, AlertCircle, CheckCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Save, CheckCircle, XCircle, Loader2, Eye, EyeOff, Plus, Trash2, HelpCircle } from 'lucide-react';
 import api from '../api/client';
 
-interface ConnectedRepo {
-  id: number;
-  owner: string;
-  name: string;
-  full_name: string;
-  language: string;
-  open_issues_count: number;
-  last_sync: string | null;
-  sync_enabled: boolean;
-}
-
-interface SettingsData {
-  github_token_set: boolean;
-  devin_api_token_set: boolean;
-  devin_org_id: string;
-  slack_webhook_url: string;
-  slack_channels: string[];
-  auto_approve_enabled: boolean;
-  auto_approve_confidence: number;
-  auto_approve_max_severity: string;
-  codeql_enabled: boolean;
-  scan_frequency: string;
-  notifications: Record<string, boolean>;
-}
-
-type ValidationStatus = 'idle' | 'loading' | 'success' | 'error';
-
 export default function Settings() {
-  const [repos, setRepos] = useState<ConnectedRepo[]>([]);
-  const [settings, setSettings] = useState<SettingsData | null>(null);
-  const [newRepoUrl, setNewRepoUrl] = useState('');
   const [githubToken, setGithubToken] = useState('');
   const [devinToken, setDevinToken] = useState('');
-  const [devinOrgId, setDevinOrgId] = useState('');
+  const [orgId, setOrgId] = useState('');
   const [slackWebhook, setSlackWebhook] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState<number | null>(null);
+  const [repos, setRepos] = useState<string[]>([]);
+  const [newRepo, setNewRepo] = useState('');
   const [saving, setSaving] = useState(false);
-  const [connectingRepo, setConnectingRepo] = useState(false);
-  const [githubValidation, setGithubValidation] = useState<ValidationStatus>('idle');
-  const [devinValidation, setDevinValidation] = useState<ValidationStatus>('idle');
-  const [slackValidation, setSlackValidation] = useState<ValidationStatus>('idle');
-  const [error, setError] = useState('');
-  const [devinValidationError, setDevinValidationError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [showGH, setShowGH] = useState(false);
+  const [showDevin, setShowDevin] = useState(false);
+  const [ghValid, setGhValid] = useState<boolean | null>(null);
+  const [devinValid, setDevinValid] = useState<boolean | null>(null);
+  const [showGHGuide, setShowGHGuide] = useState(false);
+  const [showDevinGuide, setShowDevinGuide] = useState(false);
 
   useEffect(() => {
-    loadData();
+    api.getSettings().then((s: Record<string, unknown>) => {
+      if (s.github_token) setGithubToken(s.github_token as string);
+      if (s.devin_api_token) setDevinToken(s.devin_api_token as string);
+      if (s.devin_org_id) setOrgId(s.devin_org_id as string);
+      if (s.slack_webhook) setSlackWebhook(s.slack_webhook as string);
+      if (s.repos) setRepos(s.repos as string[]);
+      if (s.github_token) setGhValid(true);
+      if (s.devin_api_token) setDevinValid(true);
+    }).catch(() => {});
   }, []);
 
-  const loadData = async () => {
-    try {
-      const [repoData, settingsData] = await Promise.all([
-        api.listRepos(),
-        api.getSettings(),
-      ]);
-      setRepos(repoData);
-      setSettings(settingsData);
-      setDevinOrgId(settingsData.devin_org_id || '');
-      setSlackWebhook(settingsData.slack_webhook_url || '');
-    } catch {
-      setError('Failed to load settings. Is the backend running?');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveToken = async (field: string, value: string) => {
+  const saveSettings = async () => {
     setSaving(true);
-    setError('');
     try {
-      await api.updateSettings({ [field]: value });
-      const label = field === 'github_token' ? 'GitHub' : field === 'devin_api_token' ? 'Devin' : 'Slack';
-      setSuccessMsg(`${label} token saved!`);
-      setTimeout(() => setSuccessMsg(''), 3000);
-      await loadData();
-      // Auto-validate after saving
-      if (field === 'github_token') validateGithub();
-      else if (field === 'devin_api_token' || field === 'devin_org_id') validateDevin();
-      else if (field === 'slack_webhook_url') validateSlack();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const validateGithub = async () => {
-    setGithubValidation('loading');
-    try {
-      const result = await api.validateGithub();
-      setGithubValidation(result.valid ? 'success' : 'error');
-    } catch {
-      setGithubValidation('error');
-    }
-  };
-
-  const validateDevin = async () => {
-    setDevinValidation('loading');
-    setDevinValidationError('');
-    try {
-      const result = await api.validateDevin();
-      setDevinValidation(result.valid ? 'success' : 'error');
-      if (!result.valid && result.error) {
-        setDevinValidationError(result.error);
+      await api.updateSettings({ github_token: githubToken, devin_api_token: devinToken, devin_org_id: orgId, slack_webhook: slackWebhook, repos });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+      if (githubToken) {
+        try { await api.validateGithub(); setGhValid(true); } catch { setGhValid(false); }
       }
-    } catch {
-      setDevinValidation('error');
-      setDevinValidationError('Failed to reach validation endpoint');
+      if (devinToken && orgId) {
+        try { await api.validateDevin(); setDevinValid(true); } catch { setDevinValid(false); }
+      }
+    } catch { /* ignore */ }
+    finally { setSaving(false); }
+  };
+
+  const addRepo = () => {
+    if (newRepo.trim() && !repos.includes(newRepo.trim())) {
+      setRepos([...repos, newRepo.trim()]);
+      setNewRepo('');
     }
   };
 
-  const validateSlack = async () => {
-    setSlackValidation('loading');
-    try {
-      const result = await api.validateSlack();
-      setSlackValidation(result.valid ? 'success' : 'error');
-    } catch {
-      setSlackValidation('error');
-    }
-  };
+  const removeRepo = (r: string) => setRepos(repos.filter(x => x !== r));
+  const topbarEl = document.getElementById('topbar-actions');
 
-  const addRepo = async () => {
-    if (!newRepoUrl || !newRepoUrl.includes('/')) return;
-    setConnectingRepo(true);
-    setError('');
-    try {
-      const [owner, name] = newRepoUrl.split('/');
-      await api.connectRepo(owner, name);
-      setNewRepoUrl('');
-      await loadData();
-      setSuccessMsg(`Connected ${newRepoUrl}!`);
-      setTimeout(() => setSuccessMsg(''), 3000);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to connect repo');
-    } finally {
-      setConnectingRepo(false);
-    }
-  };
-
-  const removeRepo = async (id: number) => {
-    try {
-      await api.disconnectRepo(id);
-      await loadData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to remove repo');
-    }
-  };
-
-  const syncRepo = async (id: number) => {
-    setSyncing(id);
-    setError('');
-    try {
-      const result = await api.syncRepo(id);
-      setSuccessMsg(`Synced: ${result.issues_synced} issues, ${result.security_synced} security findings`);
-      setTimeout(() => setSuccessMsg(''), 5000);
-      await loadData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to sync repo');
-    } finally {
-      setSyncing(null);
-    }
-  };
-
-  const updateSetting = async (key: string, value: unknown) => {
-    try {
-      await api.updateSettings({ [key]: value });
-      await loadData();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to update setting');
-    }
-  };
-
-  const ValidationIcon = ({ status }: { status: ValidationStatus }) => {
-    if (status === 'loading') return <Loader2 className="w-4 h-4 text-zinc-400 animate-spin" />;
-    if (status === 'success') return <CheckCircle className="w-4 h-4 text-emerald-400" />;
-    if (status === 'error') return <AlertCircle className="w-4 h-4 text-red-400" />;
-    return null;
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-devin-blue animate-spin" />
-      </div>
-    );
-  }
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--bg)', fontSize: 13, color: 'var(--ink)', outline: 'none', fontFamily: 'var(--mono)' };
+  const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 };
 
   return (
-    <div className="space-y-3 animate-fade-in max-w-4xl">
-      <div>
-        <h1 className="text-lg font-bold text-white">Settings</h1>
-        <p className="text-xs text-zinc-500">Configure repositories, integrations, and automation preferences</p>
-      </div>
-
-      {error && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          {error}
-          <button onClick={() => setError('')} className="ml-auto text-red-400/70 hover:text-red-400">dismiss</button>
-        </div>
-      )}
-
-      {successMsg && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
-          <CheckCircle className="w-4 h-4 flex-shrink-0" />
-          {successMsg}
-        </div>
-      )}
-
-      {/* API Tokens */}
-      <div className="glass rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Key className="w-4 h-4 text-zinc-300" />
-          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">API Tokens</h3>
-        </div>
-
-        <div className="space-y-4">
-          {/* GitHub Token */}
-          <div>
-            <label className="text-xs text-zinc-400 mb-1.5 flex items-center gap-2">
-              <Github className="w-3.5 h-3.5" />
-              GitHub Personal Access Token
-              {settings?.github_token_set && <span className="text-emerald-400 text-xs">(configured)</span>}
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="password"
-                value={githubToken}
-                onChange={(e) => setGithubToken(e.target.value)}
-                placeholder={settings?.github_token_set ? '••••••••••••••••' : 'ghp_xxxxxxxxxxxxx'}
-                className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
-              />
-              <button
-                onClick={() => saveToken('github_token', githubToken)}
-                disabled={!githubToken || saving}
-                className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-              <button onClick={validateGithub} className="p-2 rounded-lg hover:bg-zinc-700/50 text-zinc-400 hover:text-zinc-200 transition-colors">
-                <ValidationIcon status={githubValidation} />
-                {githubValidation === 'idle' && <RefreshCw className="w-4 h-4" />}
-              </button>
-            </div>
-            <p className="text-xs text-zinc-600 mt-1">Needs repo, read:org, and security_events scopes</p>
-
-            {/* GitHub Token Step-by-Step Guide */}
-            <details className="mt-3 group">
-              <summary className="flex items-center gap-1.5 text-xs text-devin-blue hover:text-devin-purple cursor-pointer select-none transition-colors">
-                <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
-                <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
-                How to get your GitHub token (step-by-step)
-              </summary>
-              <div className="mt-2 ml-1 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-2">
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                  <p className="text-xs text-zinc-400">
-                    Go to <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener noreferrer" className="text-devin-blue hover:text-devin-purple underline inline-flex items-center gap-0.5">github.com/settings/tokens/new <ExternalLink className="w-3 h-3" /></a>
-                  </p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                  <p className="text-xs text-zinc-400">Give it a name like <span className="text-zinc-300 font-medium">&quot;DevinResolver&quot;</span></p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                  <p className="text-xs text-zinc-400">Set expiration to <span className="text-zinc-300 font-medium">90 days</span> (or custom)</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                  <div className="text-xs text-zinc-400">
-                    <p>Select these scopes:</p>
-                    <ul className="mt-1 ml-3 space-y-0.5 list-disc text-zinc-500">
-                      <li><span className="text-zinc-300 font-mono">repo</span> - Full control of private repositories</li>
-                      <li><span className="text-zinc-300 font-mono">read:org</span> - Read org membership</li>
-                      <li><span className="text-zinc-300 font-mono">security_events</span> - Read and write security events (under repo)</li>
-                    </ul>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
-                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Generate token&quot;</span> and copy the <span className="text-zinc-300 font-mono">ghp_...</span> value</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">6</span>
-                  <p className="text-xs text-zinc-400">Paste it in the field above and click <span className="text-zinc-300 font-medium">Save</span></p>
-                </div>
-              </div>
-            </details>
-          </div>
-
-          {/* Devin API Token */}
-          <div>
-            <label className="text-xs text-zinc-400 mb-1.5 flex items-center gap-2">
-              <Bot className="w-3.5 h-3.5" />
-              Devin API Token
-              {settings?.devin_api_token_set && <span className="text-emerald-400 text-xs">(configured)</span>}
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="password"
-                value={devinToken}
-                onChange={(e) => setDevinToken(e.target.value)}
-                placeholder={settings?.devin_api_token_set ? '••••••••••••••••' : 'devin_xxxxxxxxxxxxx'}
-                className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
-              />
-              <button
-                onClick={() => saveToken('devin_api_token', devinToken)}
-                disabled={!devinToken || saving}
-                className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-              <button onClick={validateDevin} className="p-2 rounded-lg hover:bg-zinc-700/50 text-zinc-400 hover:text-zinc-200 transition-colors">
-                <ValidationIcon status={devinValidation} />
-                {devinValidation === 'idle' && <RefreshCw className="w-4 h-4" />}
-              </button>
-            </div>
-            <p className="text-xs text-zinc-600 mt-1">Service user key (starts with cog_) or legacy personal key</p>
-            {devinValidation === 'error' && devinValidationError && (
-              <p className="text-xs text-red-400 mt-1">{devinValidationError}</p>
-            )}
-
-            {/* Devin Organization ID */}
-            <div className="mt-3">
-              <label className="text-xs text-zinc-400 mb-1.5 flex items-center gap-2">
-                Organization ID
-                {settings?.devin_org_id && <span className="text-emerald-400 text-xs">(configured)</span>}
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={devinOrgId}
-                  onChange={(e) => setDevinOrgId(e.target.value)}
-                  placeholder={settings?.devin_org_id || 'org-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
-                  className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
-                />
-                <button
-                  onClick={() => saveToken('devin_org_id', devinOrgId)}
-                  disabled={!devinOrgId || saving}
-                  className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  {saving ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-              <p className="text-xs text-zinc-600 mt-1">Found on the Service Users page (e.g. org-abc123...)</p>
-            </div>
-
-            {/* Devin Token Step-by-Step Guide */}
-            <details className="mt-3 group">
-              <summary className="flex items-center gap-1.5 text-xs text-devin-blue hover:text-devin-purple cursor-pointer select-none transition-colors">
-                <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
-                <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
-                How to get your Devin API token (step-by-step)
-              </summary>
-              <div className="mt-2 ml-1 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-3">
-                <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Option A &mdash; Service User Key (recommended)</p>
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                    <p className="text-xs text-zinc-400">
-                      Go to <a href="https://app.devin.ai/settings" target="_blank" rel="noopener noreferrer" className="text-devin-blue hover:text-devin-purple underline inline-flex items-center gap-0.5">app.devin.ai/settings <ExternalLink className="w-3 h-3" /></a>
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                    <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Service users&quot;</span> in the left sidebar (under Membership)</p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                    <p className="text-xs text-zinc-400">Create a new service user or select an existing one</p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                    <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Generate API key&quot;</span> &mdash; it starts with <span className="text-zinc-300 font-mono">cog_</span></p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
-                    <p className="text-xs text-zinc-400">Copy the key and paste it in the field above, then click <span className="text-zinc-300 font-medium">Save</span></p>
-                  </div>
-                </div>
-                <div className="border-t border-zinc-700/30 pt-3">
-                  <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Option B &mdash; Personal API Key (legacy)</p>
-                  <div className="space-y-2 mt-2">
-                    <div className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-zinc-700/50 text-zinc-500 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                      <p className="text-xs text-zinc-500">Go to Settings &rarr; <span className="text-zinc-400 font-medium">&quot;API keys&quot;</span> (under Membership, marked Legacy)</p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="w-5 h-5 rounded-full bg-zinc-700/50 text-zinc-500 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                      <p className="text-xs text-zinc-500">Click <span className="text-zinc-400 font-medium">&quot;View key&quot;</span> next to Personal API Key to reveal it, then copy and paste above</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </details>
-          </div>
-        </div>
-      </div>
-
-      {/* Connected Repositories */}
-      <div className="glass rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Github className="w-5 h-5 text-zinc-300" />
-          <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Connected Repositories</h3>
-          <span className="text-xs text-zinc-500 ml-auto">{repos.length} repos</span>
-        </div>
-
-        {repos.length === 0 ? (
-          <div className="text-center py-8 text-zinc-500 text-sm">
-            No repositories connected yet. Add one below to get started.
-          </div>
-        ) : (
-          <div className="space-y-2 mb-4">
-            {repos.map((repo) => (
-              <div key={repo.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/40 hover:bg-zinc-800/60 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <div>
-                    <p className="text-sm font-medium text-zinc-200">{repo.full_name}</p>
-                    <p className="text-xs text-zinc-500">{repo.language || 'Unknown'} - {repo.open_issues_count} open issues</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-zinc-500">
-                    {repo.last_sync ? `Synced ${repo.last_sync}` : 'Never synced'}
-                  </span>
-                  <button
-                    onClick={() => syncRepo(repo.id)}
-                    disabled={syncing === repo.id}
-                    className="p-1.5 rounded hover:bg-zinc-700/50 text-zinc-500 hover:text-zinc-300 transition-colors disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${syncing === repo.id ? 'animate-spin' : ''}`} />
-                  </button>
-                  <button
-                    onClick={() => removeRepo(repo.id)}
-                    className="p-1.5 rounded hover:bg-red-500/10 text-zinc-500 hover:text-red-400 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={newRepoUrl}
-            onChange={(e) => setNewRepoUrl(e.target.value)}
-            placeholder="owner/repository"
-            onKeyDown={(e) => e.key === 'Enter' && addRepo()}
-            className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
-          />
-          <button
-            onClick={addRepo}
-            disabled={connectingRepo || !newRepoUrl.includes('/')}
-            className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-          >
-            {connectingRepo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Add Repository
+    <div className="animate-fade-in">
+      {topbarEl && createPortal(
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={saveSettings} disabled={saving}
+            style={{ fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 7, cursor: 'pointer', border: 'none', background: saved ? 'var(--green)' : 'var(--purple)', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, transition: '0.2s' }}>
+            {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <CheckCircle size={14} /> : <Save size={14} />}
+            {saved ? 'Saved!' : 'Save Settings'}
           </button>
-        </div>
-      </div>
+        </div>, topbarEl
+      )}
 
-      {/* Slack Integration */}
-      <div className="glass rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Slack className="w-4 h-4 text-zinc-300" />
-          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Slack Integration</h3>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs text-zinc-400 mb-1.5 block">Webhook URL</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={slackWebhook}
-                onChange={(e) => setSlackWebhook(e.target.value)}
-                placeholder="https://hooks.slack.com/services/..."
-                className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
-              />
-              <button
-                onClick={() => saveToken('slack_webhook_url', slackWebhook)}
-                disabled={!slackWebhook || saving}
-                className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Save
-              </button>
-              <button onClick={validateSlack} className="p-2 rounded-lg hover:bg-zinc-700/50 text-zinc-400 hover:text-zinc-200 transition-colors">
-                <ValidationIcon status={slackValidation} />
-                {slackValidation === 'idle' && <RefreshCw className="w-4 h-4" />}
-              </button>
-            </div>
-
-            {/* Slack Webhook Step-by-Step Guide */}
-            <details className="mt-3 group">
-              <summary className="flex items-center gap-1.5 text-xs text-devin-blue hover:text-devin-purple cursor-pointer select-none transition-colors">
-                <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
-                <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
-                How to create a Slack webhook (step-by-step)
-              </summary>
-              <div className="mt-2 ml-1 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-2">
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                  <p className="text-xs text-zinc-400">
-                    Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-devin-blue hover:text-devin-purple underline inline-flex items-center gap-0.5">api.slack.com/apps <ExternalLink className="w-3 h-3" /></a>
-                  </p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Create New App&quot;</span> &rarr; <span className="text-zinc-300 font-medium">&quot;From scratch&quot;</span></p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                  <p className="text-xs text-zinc-400">Name it <span className="text-zinc-300 font-medium">&quot;DevinResolver&quot;</span> and select your workspace</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                  <p className="text-xs text-zinc-400">Go to <span className="text-zinc-300 font-medium">&quot;Incoming Webhooks&quot;</span> in the left sidebar and toggle it <span className="text-zinc-300 font-medium">On</span></p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
-                  <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Add New Webhook to Workspace&quot;</span> and select the channel for notifications</p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">6</span>
-                  <p className="text-xs text-zinc-400">Copy the webhook URL (<span className="text-zinc-300 font-mono">https://hooks.slack.com/services/...</span>) and paste it above</p>
-                </div>
-              </div>
-            </details>
+      <div style={{ maxWidth: 640 }}>
+        {/* GitHub Token */}
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
+          <div style={labelStyle}>
+            GitHub Token
+            {ghValid === true && <CheckCircle size={14} style={{ color: 'var(--green)' }} />}
+            {ghValid === false && <XCircle size={14} style={{ color: '#e53e3e' }} />}
+            <button onClick={() => setShowGHGuide(!showGHGuide)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <HelpCircle size={13} /> How to get this
+            </button>
           </div>
-          {settings?.slack_channels && settings.slack_channels.length > 0 && (
-            <div>
-              <label className="text-xs text-zinc-400 mb-1.5 block">Notification Channels</label>
-              <div className="flex flex-wrap gap-2">
-                {settings.slack_channels.map((ch) => (
-                  <span key={ch} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800/60 border border-zinc-700/50 text-xs text-zinc-300">
-                    {ch}
-                  </span>
-                ))}
-              </div>
+          <div style={{ position: 'relative' }}>
+            <input type={showGH ? 'text' : 'password'} value={githubToken} onChange={e => setGithubToken(e.target.value)} placeholder="ghp_..." style={inputStyle} />
+            <button onClick={() => setShowGH(!showGH)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer' }}>
+              {showGH ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          {showGHGuide && (
+            <div style={{ marginTop: 12, padding: 14, borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--rule)', fontSize: 12, color: 'var(--mid)', lineHeight: 1.7 }}>
+              <strong style={{ color: 'var(--ink)' }}>How to create a GitHub Personal Access Token:</strong><br />
+              1. Go to <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--blue)' }}>github.com/settings/tokens</a><br />
+              2. Click <strong>{'\u201c'}Generate new token (classic){'\u201d'}</strong><br />
+              3. Select scopes: <code style={{ background: 'var(--bg2)', padding: '1px 4px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>repo</code>, <code style={{ background: 'var(--bg2)', padding: '1px 4px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>security_events</code><br />
+              4. Click <strong>{'\u201c'}Generate token{'\u201d'}</strong> and copy it
             </div>
           )}
         </div>
-      </div>
 
-      {/* Security Scanning */}
-      <div className="glass rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Shield className="w-4 h-4 text-zinc-300" />
-          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Security Scanning</h3>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/40">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <div>
-                <p className="text-sm text-zinc-200">CodeQL Analysis</p>
-                <p className="text-xs text-zinc-500">Automated code scanning for vulnerabilities</p>
-              </div>
-            </div>
-            <button
-              onClick={() => updateSetting('codeql_enabled', !settings?.codeql_enabled)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${settings?.codeql_enabled ? 'bg-emerald-500/15 text-emerald-400' : 'bg-zinc-700/50 text-zinc-500'}`}
-            >
-              {settings?.codeql_enabled ? 'Enabled' : 'Disabled'}
+        {/* Devin API Token */}
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
+          <div style={labelStyle}>
+            Devin API Token
+            {devinValid === true && <CheckCircle size={14} style={{ color: 'var(--green)' }} />}
+            {devinValid === false && <XCircle size={14} style={{ color: '#e53e3e' }} />}
+            <button onClick={() => setShowDevinGuide(!showDevinGuide)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <HelpCircle size={13} /> How to get this
             </button>
           </div>
-
-          <div>
-            <label className="text-xs text-zinc-400 mb-1.5 block">Scan Frequency</label>
-            <select
-              value={settings?.scan_frequency || 'daily'}
-              onChange={(e) => updateSetting('scan_frequency', e.target.value)}
-              className="w-full bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-devin-purple/50"
-            >
-              <option value="realtime">Real-time (on every push)</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-            </select>
+          <div style={{ position: 'relative' }}>
+            <input type={showDevin ? 'text' : 'password'} value={devinToken} onChange={e => setDevinToken(e.target.value)} placeholder="cog_..." style={inputStyle} />
+            <button onClick={() => setShowDevin(!showDevin)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer' }}>
+              {showDevin ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ ...labelStyle, marginTop: 4 }}>Organization ID</div>
+            <input type="text" value={orgId} onChange={e => setOrgId(e.target.value)} placeholder="org-..." style={inputStyle} />
+          </div>
+          {showDevinGuide && (
+            <div style={{ marginTop: 12, padding: 14, borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--rule)', fontSize: 12, color: 'var(--mid)', lineHeight: 1.7 }}>
+              <strong style={{ color: 'var(--ink)' }}>Service User Key (recommended):</strong><br />
+              1. Go to <a href="https://app.devin.ai/settings" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--blue)' }}>app.devin.ai/settings</a><br />
+              2. Click <strong>{'\u201c'}Service users{'\u201d'}</strong> in the sidebar<br />
+              3. Create or select a service user<br />
+              4. Copy the <code style={{ background: 'var(--bg2)', padding: '1px 4px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>cog_</code> key<br />
+              5. The <strong>Organization ID</strong> is shown on the same page (starts with <code style={{ background: 'var(--bg2)', padding: '1px 4px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>org-</code>)
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* Notification Preferences */}
-      <div className="glass rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Bell className="w-4 h-4 text-zinc-300" />
-          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Notifications</h3>
+        {/* Slack Webhook */}
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
+          <div style={labelStyle}>Slack Webhook URL <span style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 400 }}>(optional)</span></div>
+          <input type="text" value={slackWebhook} onChange={e => setSlackWebhook(e.target.value)} placeholder="https://hooks.slack.com/services/..." style={inputStyle} />
         </div>
 
-        <div className="space-y-2">
-          {settings?.notifications && Object.entries(settings.notifications).map(([key, value]) => {
-            const labels: Record<string, string> = {
-              pr_opened: 'PR opened by Devin',
-              pr_merged: 'PR merged',
-              triage_complete: 'Triage batch complete',
-              security_alert: 'Critical security finding detected',
-              weekly_report: 'Weekly summary report',
-            };
-            return (
-              <div key={key} className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/40">
-                <span className="text-sm text-zinc-300">{labels[key] || key}</span>
-                <button
-                  onClick={() => updateSetting('notifications', { ...settings.notifications, [key]: !value })}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${value ? 'bg-devin-purple/15 text-devin-blue' : 'bg-zinc-700/50 text-zinc-500'}`}
-                >
-                  {value ? 'On' : 'Off'}
-                </button>
-              </div>
-            );
-          })}
+        {/* Repos */}
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px' }}>
+          <div style={labelStyle}>Connected Repositories</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <input type="text" value={newRepo} onChange={e => setNewRepo(e.target.value)} placeholder="owner/repo" onKeyDown={e => e.key === 'Enter' && addRepo()}
+              style={{ ...inputStyle, flex: 1 }} />
+            <button onClick={addRepo}
+              style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'var(--purple)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+              <Plus size={14} /> Add
+            </button>
+          </div>
+          {repos.length === 0 ? (
+            <div style={{ padding: 16, textAlign: 'center', color: 'var(--dim)', fontSize: 12 }}>No repositories connected yet.</div>
+          ) : repos.map(r => (
+            <div key={r} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--rule)', marginBottom: 6 }}>
+              <span className="font-mono" style={{ fontSize: 12, color: 'var(--ink)' }}>{r}</span>
+              <button onClick={() => removeRepo(r)} style={{ background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer' }}><Trash2 size={14} /></button>
+            </div>
+          ))}
         </div>
       </div>
     </div>

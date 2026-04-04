@@ -18,6 +18,7 @@ function App() {
           <Route path="/approvals" element={<Approvals />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/integrations" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>

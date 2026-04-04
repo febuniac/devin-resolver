@@ -1,95 +1,74 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Filter, Send, ExternalLink, Play, GitPullRequest, ChevronDown, ChevronUp, Brain, Loader2, AlertCircle, RefreshCw, Sparkles, X, PartyPopper } from 'lucide-react';
-import { StatusBadge, SeverityBadge } from '../components/ui/StatusBadge';
-import ConfidenceMeter from '../components/ui/ConfidenceMeter';
-import { IssueSeverity, IssueStatus, IssueCategory } from '../types';
+import { Search, Send, RefreshCw, Loader2, X, Sparkles, Brain, Play, GitPullRequest, PartyPopper, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../api/client';
 
 interface Issue {
   id: number;
   github_id: number;
-  number: number;
   title: string;
-  body: string;
-  repo_full_name: string;
-  labels: string[];
-  state: string;
-  author: string;
-  created_at: string;
-  updated_at: string;
+  status: string;
   severity: string;
   category: string;
-  status: string;
-  ai_confidence: number;
-  ai_summary: string;
-  estimated_effort: string;
-  devin_session_id: string | null;
-  devin_session_url: string | null;
-  pr_url: string | null;
-  pr_number: number | null;
-  slack_notified: boolean;
-  video_url: string | null;
+  repo: string;
+  confidence: number;
+  effort_estimate: string;
+  description: string;
 }
 
-export default function IssueTriage() {
+const categoryChipClass: Record<string, string> = {
+  bug: 'chip-red', security: 'chip-red', feature: 'chip-blue',
+  enhancement: 'chip-amber', performance: 'chip-purple',
+};
+
+const severityChipClass: Record<string, string> = {
+  critical: 'chip-red', high: 'chip-red', medium: 'chip-amber', low: 'chip-dim',
+};
+
+export function IssueTriage() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
-  const [triaging, setTriaging] = useState(false);
-  const [error, setError] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [severityFilter, setSeverityFilter] = useState<IssueSeverity | 'all'>('all');
-  const [statusFilter, setStatusFilter] = useState<IssueStatus | 'all'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<IssueCategory | 'all'>('all');
-  const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
-  const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
-  const [successModal, setSuccessModal] = useState<{ count: number; show: boolean }>({ count: 0, show: false });
+  const [syncing, setSyncing] = useState(false);
   const [sending, setSending] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [severityFilter, setSeverityFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
+  const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
+  const [successModal, setSuccessModal] = useState({ show: false, count: 0 });
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadIssues();
-  }, []);
+  useEffect(() => { loadIssues(); }, []);
 
   const loadIssues = async () => {
-    try {
-      const data = await api.listIssues();
-      setIssues(data);
-    } catch {
-      setError('Failed to load issues. Is the backend running?');
-    } finally {
-      setLoading(false);
-    }
+    try { setIssues(await api.listIssues() as Issue[]); }
+    catch { setError('Failed to load issues'); }
+    finally { setLoading(false); }
   };
 
   const triageAll = async () => {
-    setTriaging(true);
-    try {
-      await api.triageAll();
-      await loadIssues();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to triage');
-    } finally {
-      setTriaging(false);
-    }
+    setSyncing(true);
+    try { await api.triageAll(); await loadIssues(); }
+    catch { setError('Failed to sync'); }
+    finally { setSyncing(false); }
   };
 
   const sendToDevin = async (issueIds?: number[]) => {
     const ids = issueIds || Array.from(selectedIssues);
-    const count = ids.length;
+    if (ids.length === 0) return;
     setSending(true);
     try {
       await api.approveIssues(ids);
+      setSuccessModal({ show: true, count: ids.length });
       setSelectedIssues(new Set());
-      setSuccessModal({ count, show: true });
       await loadIssues();
-    } catch (e: unknown) {
+    } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to send to Devin');
-    } finally {
-      setSending(false);
-    }
+    } finally { setSending(false); }
   };
 
-  const filteredIssues = issues.filter((issue) => {
+  const filtered = issues.filter(issue => {
     if (searchQuery && !issue.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     if (severityFilter !== 'all' && issue.severity !== severityFilter) return false;
     if (statusFilter !== 'all' && issue.status !== statusFilter) return false;
@@ -98,325 +77,144 @@ export default function IssueTriage() {
   });
 
   const toggleIssue = (id: number) => {
-    const newSelected = new Set(selectedIssues);
-    if (newSelected.has(id)) newSelected.delete(id);
-    else newSelected.add(id);
-    setSelectedIssues(newSelected);
+    const s = new Set(selectedIssues);
+    s.has(id) ? s.delete(id) : s.add(id);
+    setSelectedIssues(s);
   };
 
   const selectAll = () => {
-    if (selectedIssues.size === filteredIssues.length) setSelectedIssues(new Set());
-    else setSelectedIssues(new Set(filteredIssues.map(i => i.id)));
+    selectedIssues.size === filtered.length ? setSelectedIssues(new Set()) : setSelectedIssues(new Set(filtered.map(i => i.id)));
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-devin-blue animate-spin" />
-      </div>
-    );
-  }
+  const topbarEl = document.getElementById('topbar-actions');
+
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}><Loader2 size={24} style={{ color: 'var(--blue)' }} className="animate-spin" /></div>;
 
   return (
-    <div className="space-y-3 animate-fade-in">
-      {/* Success Modal - rendered via portal to escape overflow clipping */}
+    <div className="animate-fade-in">
+      {/* Success Modal */}
       {successModal.show && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-modal-bg" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setSuccessModal({ ...successModal, show: false })}>
-          <div className="relative rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl shadow-devin-purple/20 animate-modal-pop success-modal-card" style={{ backgroundColor: '#18181b', border: '1px solid rgba(57,105,202,0.3)' }} onClick={(e) => e.stopPropagation()}>
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-devin-purple to-devin-green flex items-center justify-center mx-auto mb-4 glow animate-confetti-pop">
-              <PartyPopper className="w-10 h-10 text-white" style={{ color: '#fff' }} />
+        <div className="animate-modal-bg" style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setSuccessModal({ ...successModal, show: false })}>
+          <div className="animate-modal-pop" style={{ position: 'relative', background: '#18181b', border: '1px solid rgba(57,105,202,0.3)', borderRadius: 16, padding: 24, maxWidth: 380, width: '100%', textAlign: 'center', boxShadow: '0 25px 50px rgba(57,105,202,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div className="animate-confetti-pop" style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, var(--purple), var(--green))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <PartyPopper size={32} color="#fff" />
             </div>
-            <h2 className="text-xl font-bold mb-2" style={{ color: '#fff' }}>
-              {successModal.count} issue{successModal.count !== 1 ? 's' : ''} off your plate!
-            </h2>
-            <p className="mb-1 text-sm" style={{ color: '#a1a1aa' }}>
-              That's {successModal.count} fewer thing{successModal.count !== 1 ? 's' : ''} you have to worry about.
-            </p>
-            <p className="text-devin-blue font-semibold text-base mb-4">
-              Devin takes it from here.
-            </p>
-            <div className="flex items-center justify-center gap-3 text-xs mb-4" style={{ color: '#71717a' }}>
-              {[
-                { Icon: Sparkles, label: 'Analyzing' },
-                { Icon: Brain, label: 'Writing fix' },
-                { Icon: Play, label: 'Testing' },
-                { Icon: GitPullRequest, label: 'Opening PR' },
-              ].map((step, i) => (
-                <div key={step.label} className="flex items-center gap-1.5">
-                  {i > 0 && <span className="mr-2" style={{ color: '#3f3f46' }}>→</span>}
-                  <step.Icon className="w-3.5 h-3.5 text-devin-blue" />
-                  <span>{step.label}</span>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginBottom: 8 }}>{successModal.count} issue{successModal.count !== 1 ? 's' : ''} off your plate!</h2>
+            <p style={{ fontSize: 13, color: '#a1a1aa', marginBottom: 4 }}>That{'\u2019'}s {successModal.count} fewer thing{successModal.count !== 1 ? 's' : ''} you have to worry about.</p>
+            <p style={{ color: 'var(--blue)', fontWeight: 600, fontSize: 15, marginBottom: 16 }}>Devin takes it from here.</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontSize: 11, color: '#71717a', marginBottom: 16 }}>
+              {[{ I: Sparkles, l: 'Analyzing' }, { I: Brain, l: 'Writing fix' }, { I: Play, l: 'Testing' }, { I: GitPullRequest, l: 'Opening PR' }].map((s, i) => (
+                <div key={s.l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {i > 0 && <span style={{ color: '#3f3f46', marginRight: 4 }}>{'\u2192'}</span>}
+                  <s.I size={14} style={{ color: 'var(--blue)' }} /><span>{s.l}</span>
                 </div>
               ))}
             </div>
-            <button
-              onClick={() => setSuccessModal({ ...successModal, show: false })}
-              className="bg-devin-purple hover:bg-devin-blue px-6 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-105" style={{ color: '#fff' }}
-            >
-              Got it!
-            </button>
-            <button
-              onClick={() => setSuccessModal({ ...successModal, show: false })}
-              className="absolute top-4 right-4 transition-colors" style={{ color: '#71717a' }}
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <button onClick={() => setSuccessModal({ ...successModal, show: false })} style={{ background: 'var(--purple)', color: '#fff', padding: '8px 24px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Got it!</button>
+            <button onClick={() => setSuccessModal({ ...successModal, show: false })} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#71717a', cursor: 'pointer' }}><X size={20} /></button>
           </div>
         </div>,
         document.body
       )}
 
-      {error && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          {error}
-          <button onClick={() => setError('')} className="ml-auto text-red-400/70 hover:text-red-400">dismiss</button>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-white">Issue Triage</h1>
-          <p className="text-xs text-zinc-500">Review, triage, and select issues to send to Devin for resolution</p>
-        </div>
-        <div className="flex items-center gap-3">
+      {/* Topbar actions */}
+      {topbarEl && createPortal(
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {selectedIssues.size > 0 && (
-            <button onClick={() => sendToDevin()} disabled={sending} className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              {sending ? 'Sending...' : `Send ${selectedIssues.size} to Devin`}
+            <button onClick={() => sendToDevin()} disabled={sending}
+              style={{ fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 7, cursor: 'pointer', border: 'none', background: 'var(--purple)', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Send size={14} /> Send {selectedIssues.size} to Devin
             </button>
           )}
-          <button onClick={loadIssues} className="glass glass-hover px-3 py-2 rounded-lg text-sm text-zinc-300 flex items-center gap-2">
-            <RefreshCw className="w-4 h-4" />
+          <button onClick={triageAll} disabled={syncing}
+            style={{ fontSize: 12, fontWeight: 600, padding: '7px 16px', borderRadius: 7, cursor: 'pointer', border: '1px solid var(--rule)', background: 'var(--bg2)', color: 'var(--mid)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Sync & Triage
           </button>
-          <button onClick={triageAll} disabled={triaging} className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-            {triaging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
-            {triaging ? 'Syncing...' : 'Sync & Triage'}
-          </button>
-        </div>
-      </div>
+        </div>,
+        topbarEl
+      )}
 
-      {issues.length === 0 ? (
-        <div className="glass rounded-xl p-12 text-center">
-          <Brain className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-zinc-300 mb-2">No Issues Yet</h3>
-          <p className="text-sm text-zinc-500 mb-4">Connect a GitHub repository in Settings and sync it to start seeing issues here.</p>
+      {error && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 12, borderRadius: 8, background: 'rgba(229,62,62,.1)', border: '1px solid rgba(229,62,62,.2)', color: '#c53030', fontSize: 13, marginBottom: 14 }}>
+          {error}
+          <button onClick={() => setError('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#c53030', cursor: 'pointer', fontSize: 12 }}>dismiss</button>
         </div>
-      ) : (
-        <>
-          {/* Stats Bar */}
-          <div className="grid grid-cols-6 gap-2">
-            {[
-              { label: 'Total', count: issues.length, color: 'text-zinc-300' },
-              { label: 'Critical', count: issues.filter(i => i.severity === 'critical').length, color: 'text-red-400' },
-              { label: 'Triaged', count: issues.filter(i => i.status === 'triaged').length, color: 'text-blue-400' },
-              { label: 'Approved', count: issues.filter(i => i.status === 'approved').length, color: 'text-devin-blue' },
-              { label: 'In Progress', count: issues.filter(i => i.status === 'in_progress').length, color: 'text-amber-400' },
-              { label: 'Resolved', count: issues.filter(i => i.status === 'resolved').length, color: 'text-emerald-400' },
-            ].map((stat) => (
-              <div key={stat.label} className="glass rounded-lg p-2 text-center">
-                <p className={`text-base font-bold ${stat.color}`}>{stat.count}</p>
-                <p className="text-xs text-zinc-500">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </>
       )}
 
       {/* Filters */}
-      <div className="glass rounded-lg p-2.5 flex items-center gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-          <input
-            type="text"
-            placeholder="Search issues..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
-          />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{ position: 'relative', flex: 1, maxWidth: 400 }}>
+          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--dim)' }} />
+          <input type="text" placeholder="Search issues..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+            style={{ width: '100%', padding: '8px 12px 8px 34px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--white)', fontSize: 13, color: 'var(--ink)', outline: 'none' }} />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-zinc-500" />
-          <select
-            value={severityFilter}
-            onChange={(e) => setSeverityFilter(e.target.value as IssueSeverity | 'all')}
-            className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-devin-purple/50"
-          >
-            <option value="all">All Severity</option>
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
+        {[
+          { val: severityFilter, set: setSeverityFilter, opts: ['all','critical','high','medium','low'], label: 'Severity' },
+          { val: statusFilter, set: setStatusFilter, opts: ['all','triaged','approved','in_progress','resolved'], label: 'Status' },
+          { val: categoryFilter, set: setCategoryFilter, opts: ['all','bug','security','feature','enhancement','performance'], label: 'Category' },
+        ].map(f => (
+          <select key={f.label} value={f.val} onChange={e => f.set(e.target.value)}
+            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--white)', fontSize: 12, color: 'var(--mid)', cursor: 'pointer' }}>
+            {f.opts.map(o => <option key={o} value={o}>{o === 'all' ? 'All ' + f.label : o.charAt(0).toUpperCase() + o.slice(1).replace('_', ' ')}</option>)}
           </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as IssueStatus | 'all')}
-            className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-devin-purple/50"
-          >
-            <option value="all">All Status</option>
-            <option value="open">Open</option>
-            <option value="triaged">Triaged</option>
-            <option value="approved">Approved</option>
-            <option value="in_progress">In Progress</option>
-            <option value="pr_open">PR Open</option>
-            <option value="resolved">Resolved</option>
-          </select>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value as IssueCategory | 'all')}
-            className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-devin-purple/50"
-          >
-            <option value="all">All Categories</option>
-            <option value="bug">Bug</option>
-            <option value="feature">Feature</option>
-            <option value="security">Security</option>
-            <option value="performance">Performance</option>
-            <option value="refactor">Refactor</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Issue List */}
-      {filteredIssues.length > 0 && (
-      <div className="space-y-1">
-        {/* Header row */}
-        <div className="flex items-center gap-3 px-3 py-1.5 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-          <div className="w-5">
-            <input
-              type="checkbox"
-              checked={selectedIssues.size === filteredIssues.length && filteredIssues.length > 0}
-              onChange={selectAll}
-              className="rounded bg-zinc-800 border-zinc-600 text-devin-purple focus:ring-devin-purple"
-            />
-          </div>
-          <div className="flex-1 min-w-0">Issue</div>
-          <div className="w-20">Severity</div>
-          <div className="w-20">Status</div>
-          <div className="w-20">Confidence</div>
-          <div className="w-16 hidden xl:block">Effort</div>
-          <div className="w-12">Actions</div>
-        </div>
-
-        {filteredIssues.map((issue, index) => (
-          <IssueRow
-            key={issue.id}
-            issue={issue}
-            index={index}
-            expanded={expandedIssue === issue.id}
-            selected={selectedIssues.has(issue.id)}
-            onToggleExpand={() => setExpandedIssue(expandedIssue === issue.id ? null : issue.id)}
-            onToggleSelect={() => toggleIssue(issue.id)}
-            onSendToDevin={(id) => sendToDevin([id])}
-          />
         ))}
       </div>
-      )}
-    </div>
-  );
-}
 
-function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSelect, onSendToDevin }: {
-  issue: Issue;
-  index: number;
-  expanded: boolean;
-  selected: boolean;
-  onToggleExpand: () => void;
-  onToggleSelect: () => void;
-  onSendToDevin: (id: number) => void;
-}) {
-  const categoryColors: Record<string, string> = {
-    bug: 'bg-red-500/15 text-red-400',
-    feature: 'bg-blue-500/15 text-blue-400',
-    security: 'bg-amber-500/15 text-amber-400',
-    performance: 'bg-devin-purple/15 text-devin-blue',
-    refactor: 'bg-cyan-500/15 text-cyan-400',
-    documentation: 'bg-emerald-500/15 text-emerald-400',
-  };
-
-  return (
-    <div className="glass rounded-lg overflow-hidden animate-slide-in" style={{ animationDelay: `${index * 30}ms` }}>
-      <div className="flex items-center gap-3 px-3 py-2 glass-hover cursor-pointer" onClick={onToggleExpand}>
-        <div className="w-5" onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}>
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={() => {}}
-            className="rounded bg-zinc-800 border-zinc-600 text-devin-purple focus:ring-devin-purple"
-          />
+      {/* Table */}
+      <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '40px 52px 1fr 90px 80px 90px 80px', padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--rule)' }}>
+          <div><input type="checkbox" checked={selectedIssues.size === filtered.length && filtered.length > 0} onChange={selectAll} style={{ cursor: 'pointer' }} /></div>
+          {['ID', 'Issue', 'Type', 'Score', 'Status', 'Action'].map(h => (
+            <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--dim)' }}>{h}</div>
+          ))}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-500 font-mono">#{issue.number}</span>
-            <span className={`text-xs px-1.5 py-0.5 rounded ${categoryColors[issue.category] || 'bg-zinc-500/15 text-zinc-400'}`}>{issue.category}</span>
+        {filtered.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--dim)', fontSize: 13 }}>No issues match your filters.</div>
+        ) : filtered.map(issue => (
+          <div key={issue.id}>
+            <div style={{ display: 'grid', gridTemplateColumns: '40px 52px 1fr 90px 80px 90px 80px', padding: '12px 16px', borderBottom: '1px solid var(--rule)', alignItems: 'center', cursor: 'pointer' }}
+              onClick={() => setExpandedIssue(expandedIssue === issue.id ? null : issue.id)}>
+              <div onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIssues.has(issue.id)} onChange={() => toggleIssue(issue.id)} style={{ cursor: 'pointer' }} /></div>
+              <div className="font-mono" style={{ fontSize: 11, fontWeight: 500, color: 'var(--dim)' }}>#{issue.github_id}</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.35, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {issue.title}
+                  {expandedIssue === issue.id ? <ChevronUp size={14} style={{ color: 'var(--dim)' }} /> : <ChevronDown size={14} style={{ color: 'var(--dim)' }} />}
+                </div>
+                <div className="font-mono" style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3 }}>{issue.repo}</div>
+              </div>
+              <div><span className={`chip ${categoryChipClass[issue.category] || 'chip-dim'}`}>{issue.category}</span></div>
+              <div><span className="font-mono" style={{ fontSize: 12, fontWeight: 700, color: issue.confidence >= 75 ? 'var(--green)' : '#d97706' }}>{issue.confidence}</span></div>
+              <div>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}>
+                  {issue.status === 'resolved' ? <><span className="dot dot-green" /><span style={{ color: 'var(--green)' }}>Merged</span></> :
+                   issue.status === 'in_progress' ? <><span className="dot dot-blue" /><span style={{ color: 'var(--blue)' }}>Running</span></> :
+                   issue.status === 'approved' ? <><span className="dot dot-amber" /><span style={{ color: '#d97706' }}>Approved</span></> :
+                   <><span className="dot dot-dim" /><span style={{ color: 'var(--dim)' }}>Queued</span></>}
+                </span>
+              </div>
+              <div onClick={e => e.stopPropagation()}>
+                {issue.status === 'triaged' ? (
+                  <button onClick={() => sendToDevin([issue.id])} style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: 'var(--green)', color: '#fff' }}>Approve {'\u2192'}</button>
+                ) : (issue.status === 'approved' || issue.status === 'in_progress') ? (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--green)' }}>{'\u2713'} Sent</span>
+                ) : <span style={{ color: 'var(--dim)' }}>{'\u2014'}</span>}
+              </div>
+            </div>
+            {expandedIssue === issue.id && (
+              <div style={{ padding: '12px 16px 12px 108px', borderBottom: '1px solid var(--rule)', background: 'var(--bg)', fontSize: 12, color: 'var(--mid)', lineHeight: 1.6 }}>
+                <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
+                  <span>Severity: <span className={`chip ${severityChipClass[issue.severity] || 'chip-dim'}`}>{issue.severity}</span></span>
+                  <span>Effort: <strong style={{ color: 'var(--ink)' }}>{issue.effort_estimate || 'Unknown'}</strong></span>
+                </div>
+                {issue.description && <p style={{ margin: 0 }}>{issue.description}</p>}
+              </div>
+            )}
           </div>
-          <p className="text-sm font-medium text-zinc-200 truncate">{issue.title}</p>
-          <p className="text-xs text-zinc-500">{issue.repo_full_name}</p>
-        </div>
-        <div className="w-20"><SeverityBadge severity={issue.severity} /></div>
-        <div className="w-20"><StatusBadge status={issue.status} /></div>
-        <div className="w-20"><ConfidenceMeter value={issue.ai_confidence} /></div>
-        <div className="w-16 text-xs text-zinc-400 hidden xl:block">{issue.estimated_effort}</div>
-        <div className="w-12 flex items-center gap-1">
-          {issue.pr_url && <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />}
-          {issue.video_url && <Play className="w-3.5 h-3.5 text-devin-blue" />}
-          {expanded ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
-        </div>
+        ))}
       </div>
-
-      {expanded && (
-        <div className="px-4 pb-4 pt-2 border-t border-zinc-800/50 space-y-3 animate-fade-in">
-          <div className="glass rounded-lg p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Brain className="w-4 h-4 text-devin-blue" />
-              <span className="text-xs font-semibold text-devin-blue uppercase tracking-wider">AI Analysis</span>
-            </div>
-            <p className="text-sm text-zinc-300 leading-relaxed">{issue.ai_summary || 'Not yet triaged. Click "Triage All" to analyze.'}</p>
-            <div className="flex items-center gap-4 text-xs text-zinc-500">
-              <span>Created by <span className="text-zinc-300">@{issue.author}</span></span>
-              <span>Created {issue.created_at}</span>
-              {issue.labels.length > 0 && <span>Labels: {issue.labels.join(', ')}</span>}
-            </div>
-          </div>
-
-          {issue.body && (
-            <div className="glass rounded-lg p-3">
-              <p className="text-xs text-zinc-500 mb-1">Description</p>
-              <p className="text-sm text-zinc-400 whitespace-pre-wrap line-clamp-6">{issue.body}</p>
-            </div>
-          )}
-
-          <div className="flex items-center gap-3">
-            {!['in_progress', 'pr_open', 'resolved'].includes(issue.status) && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onSendToDevin(issue.id); }}
-                className="bg-devin-purple hover:bg-devin-blue text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Send to Devin
-              </button>
-            )}
-            {issue.devin_session_url && (
-              <a href={issue.devin_session_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-devin-blue flex items-center gap-2">
-                <ExternalLink className="w-4 h-4" />
-                View Devin Session
-              </a>
-            )}
-            {issue.pr_url && (
-              <a href={issue.pr_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-cyan-400 flex items-center gap-2">
-                <GitPullRequest className="w-4 h-4" />
-                View PR #{issue.pr_number}
-              </a>
-            )}
-            {issue.video_url && (
-              <a href={issue.video_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-emerald-400 flex items-center gap-2">
-                <Play className="w-4 h-4" />
-                Watch Test Recording
-              </a>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
+
+export default IssueTriage;

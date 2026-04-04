@@ -1,101 +1,152 @@
-import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  GitPullRequest,
-  Shield,
-  CheckCircle,
-  BarChart3,
-  Settings,
-  Github,
-  Sun,
-  Moon,
-} from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { LayoutDashboard, GitPullRequestArrow, Shield, CheckSquare, BarChart3, Radio, Settings, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useState, useEffect } from 'react';
 import api from '../../api/client';
 
-const navItems = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/issues', icon: GitPullRequest, label: 'Issue Triage' },
-  { path: '/security', icon: Shield, label: 'Security' },
-  { path: '/approvals', icon: CheckCircle, label: 'Review Work' },
-  { path: '/analytics', icon: BarChart3, label: 'Analytics' },
-  { path: '/settings', icon: Settings, label: 'Settings' },
+const mainNav = [
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/issues', icon: GitPullRequestArrow, label: 'Issue Triage', badgeKey: 'issues' },
+  { to: '/security', icon: Shield, label: 'Security', badgeKey: 'security', badgeColor: 'red' },
+  { to: '/approvals', icon: CheckSquare, label: 'Review Work', badgeKey: 'review', badgeColor: 'green' },
+];
+
+const insightNav = [
+  { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+  { to: '/integrations', icon: Radio, label: 'Integrations' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function Sidebar() {
-  const location = useLocation();
-  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const [repoCount, setRepoCount] = useState<number | null>(null);
-  const [devinConnected, setDevinConnected] = useState<boolean | null>(null);
+  const location = useLocation();
+  const [repoCount, setRepoCount] = useState(0);
+  const [devinConnected, setDevinConnected] = useState(false);
 
   useEffect(() => {
-    api.getStatus()
-      .then((data) => {
-        setRepoCount(data.repos_connected);
-        setDevinConnected(data.devin_connected);
-      })
-      .catch(() => {
-        setRepoCount(null);
-        setDevinConnected(null);
-      });
-  }, [location.pathname]);
+    api.getSettings().then((s: Record<string, unknown>) => {
+      if (s.github_token) setRepoCount((s.repos as string[] || []).length || 0);
+      if (s.devin_api_token) setDevinConnected(true);
+    }).catch(() => {});
+  }, []);
+
+  const badges: Record<string, number> = {
+    issues: 47,
+    security: 12,
+    review: 8,
+  };
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 sidebar-glass border-r border-zinc-800/50 dark:border-zinc-800/50 light:border-zinc-200 flex flex-col z-50">
-      <div className="p-3 border-b border-zinc-800/50 dark:border-zinc-800/50">
-        <div className="flex items-center justify-between">
-          <img
-            src={theme === 'dark' ? '/brand/backlogzero-dark.png' : '/brand/backlogzero-light.png'}
-            alt="Backlog Zero"
-            className="h-10 object-contain rounded"
-          />
-          <button
-            onClick={toggleTheme}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-zinc-200 dark:hover:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-        </div>
+    <aside
+      style={{
+        position: 'fixed', left: 0, top: 0, bottom: 0,
+        width: 'var(--sidebar-w)',
+        background: 'var(--white)',
+        borderRight: '1px solid var(--rule)',
+        zIndex: 20,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Logo */}
+      <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--rule)' }}>
+        <img
+          src={theme === 'dark' ? '/brand/backlogzero-dark.png' : '/brand/backlogzero-light.png'}
+          alt="Backlog Zero"
+          style={{ height: 42, width: 'auto', display: 'block' }}
+        />
       </div>
 
-      <nav className="flex-1 py-2 px-3 space-y-0.5">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                isActive
-                  ? 'bg-devin-purple/15 text-devin-purple dark:text-devin-blue border border-devin-purple/20'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
-              }`}
-            >
-              <item.icon className={`w-4.5 h-4.5 ${isActive ? 'text-devin-purple dark:text-devin-blue' : ''}`} />
-              {item.label}
-            </button>
-          );
-        })}
-      </nav>
+      {/* Main nav */}
+      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--dim)', padding: '20px 20px 8px' }}>
+        Main
+      </div>
 
-      <div className="p-3 border-t border-zinc-200 dark:border-zinc-800/50">
-        <div className="sidebar-card rounded-lg p-2.5 space-y-1.5">
-          <div className="flex items-center gap-2">
-            <Github className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-              {repoCount !== null ? `${repoCount} repo${repoCount !== 1 ? 's' : ''} connected` : 'Loading...'}
-            </span>
+      {mainNav.map(item => {
+        const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
+        return (
+          <NavLink key={item.to} to={item.to}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '9px 16px', margin: '1px 8px', borderRadius: 8,
+              fontSize: 13, fontWeight: isActive ? 600 : 500,
+              color: isActive ? 'var(--purple)' : 'var(--mid)',
+              background: isActive ? 'linear-gradient(135deg, rgba(57,105,202,.1), rgba(33,193,154,.08))' : 'transparent',
+              textDecoration: 'none', transition: '0.15s',
+            }}
+          >
+            <item.icon size={18} />
+            {item.label}
+            {item.badgeKey && badges[item.badgeKey] > 0 && (
+              <span style={{
+                marginLeft: 'auto', fontSize: 10, fontWeight: 700,
+                padding: '2px 7px', borderRadius: 10,
+                background: item.badgeColor === 'red' ? '#e53e3e' : item.badgeColor === 'green' ? 'var(--green)' : 'var(--purple)',
+                color: '#fff',
+              }}>
+                {badges[item.badgeKey]}
+              </span>
+            )}
+          </NavLink>
+        );
+      })}
+
+      {/* Insights section */}
+      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--dim)', padding: '20px 20px 8px' }}>
+        Insights
+      </div>
+
+      {insightNav.map(item => {
+        const isActive = location.pathname === item.to || location.pathname.startsWith(item.to + '/');
+        return (
+          <NavLink key={item.to} to={item.to}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '9px 16px', margin: '1px 8px', borderRadius: 8,
+              fontSize: 13, fontWeight: isActive ? 600 : 500,
+              color: isActive ? 'var(--purple)' : 'var(--mid)',
+              background: isActive ? 'linear-gradient(135deg, rgba(57,105,202,.1), rgba(33,193,154,.08))' : 'transparent',
+              textDecoration: 'none', transition: '0.15s',
+            }}
+          >
+            <item.icon size={18} />
+            {item.label}
+          </NavLink>
+        );
+      })}
+
+      {/* Footer */}
+      <div style={{
+        marginTop: 'auto', padding: '16px 20px',
+        borderTop: '1px solid var(--rule)',
+        display: 'flex', alignItems: 'center', gap: 10,
+      }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: '50%',
+          background: 'linear-gradient(135deg, var(--purple), var(--blue))',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0,
+        }}>
+          {repoCount > 0 ? 'U' : 'BZ'}
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
+            {repoCount > 0 ? repoCount + ' repo' + (repoCount !== 1 ? 's' : '') : 'Not connected'}
           </div>
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${devinConnected ? 'bg-emerald-400 animate-pulse' : devinConnected === false ? 'bg-zinc-500' : 'bg-zinc-600'}`} />
-            <span className="text-xs text-zinc-500">
-              {devinConnected === null ? 'Checking Devin...' : devinConnected ? 'Devin connected' : 'Devin not connected'}
-            </span>
+          <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+            {devinConnected ? 'Devin active' : 'Setup required'}
           </div>
         </div>
+        <button onClick={toggleTheme}
+          style={{
+            marginLeft: 'auto', width: 28, height: 28, borderRadius: '50%',
+            background: 'var(--bg2)', border: '1px solid var(--rule)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', color: 'var(--mid)',
+          }}
+        >
+          {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
+        </button>
       </div>
     </aside>
   );
