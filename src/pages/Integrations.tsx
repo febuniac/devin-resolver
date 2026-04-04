@@ -14,17 +14,34 @@ export default function Integrations() {
   const [showDevin, setShowDevin] = useState(false);
   const [ghValid, setGhValid] = useState<boolean | null>(null);
   const [devinValid, setDevinValid] = useState<boolean | null>(null);
+  const [slackValid, setSlackValid] = useState<boolean | null>(null);
   const [showGHGuide, setShowGHGuide] = useState(false);
   const [showDevinGuide, setShowDevinGuide] = useState(false);
+  const [validating, setValidating] = useState(false);
 
   useEffect(() => {
-    api.getSettings().then((s: Record<string, unknown>) => {
+    api.getSettings().then(async (s: Record<string, unknown>) => {
       if (s.github_token) setGithubToken(s.github_token as string);
       if (s.devin_api_token) setDevinToken(s.devin_api_token as string);
       if (s.devin_org_id) setOrgId(s.devin_org_id as string);
-      if (s.slack_webhook) setSlackWebhook(s.slack_webhook as string);
-      if (s.github_token) setGhValid(true);
-      if (s.devin_api_token) setDevinValid(true);
+      if (s.slack_webhook_url) setSlackWebhook(s.slack_webhook_url as string);
+      // Validate all configured tokens
+      setValidating(true);
+      try {
+        if (s.github_token_set) {
+          const gh = await api.validateGithub() as Record<string, unknown>;
+          setGhValid(!!gh.valid);
+        }
+        if (s.devin_api_token_set) {
+          const dv = await api.validateDevin() as Record<string, unknown>;
+          setDevinValid(!!dv.valid);
+        }
+        if (s.slack_webhook_url) {
+          const sl = await api.validateSlack() as Record<string, unknown>;
+          setSlackValid(!!sl.valid);
+        }
+      } catch { /* ignore */ }
+      setValidating(false);
     }).catch(() => {});
   }, []);
 
@@ -35,10 +52,13 @@ export default function Integrations() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       if (githubToken) {
-        try { await api.validateGithub(); setGhValid(true); } catch { setGhValid(false); }
+        try { const r = await api.validateGithub() as Record<string, unknown>; setGhValid(!!r.valid); } catch { setGhValid(false); }
       }
       if (devinToken && orgId) {
-        try { await api.validateDevin(); setDevinValid(true); } catch { setDevinValid(false); }
+        try { const r = await api.validateDevin() as Record<string, unknown>; setDevinValid(!!r.valid); } catch { setDevinValid(false); }
+      }
+      if (slackWebhook) {
+        try { const r = await api.validateSlack() as Record<string, unknown>; setSlackValid(!!r.valid); } catch { setSlackValid(false); }
       }
     } catch { /* ignore */ }
     finally { setSaving(false); }
@@ -65,8 +85,9 @@ export default function Integrations() {
         <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
           <div style={labelStyle}>
             GitHub Token
-            {ghValid === true && <CheckCircle size={14} style={{ color: 'var(--green)' }} />}
-            {ghValid === false && <XCircle size={14} style={{ color: '#e53e3e' }} />}
+            {ghValid === true && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, background: 'rgba(33,193,154,.12)', color: 'var(--green)', fontSize: 10, fontWeight: 700 }}><CheckCircle size={11} /> Connected</span>}
+            {ghValid === false && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, background: 'rgba(229,62,62,.1)', color: '#e53e3e', fontSize: 10, fontWeight: 700 }}><XCircle size={11} /> Not connected</span>}
+            {ghValid === null && validating && <Loader2 size={12} className="animate-spin" style={{ color: 'var(--dim)' }} />}
             <button onClick={() => setShowGHGuide(!showGHGuide)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
               <HelpCircle size={13} /> How to get this
             </button>
@@ -92,8 +113,9 @@ export default function Integrations() {
         <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
           <div style={labelStyle}>
             Devin API Token
-            {devinValid === true && <CheckCircle size={14} style={{ color: 'var(--green)' }} />}
-            {devinValid === false && <XCircle size={14} style={{ color: '#e53e3e' }} />}
+            {devinValid === true && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, background: 'rgba(33,193,154,.12)', color: 'var(--green)', fontSize: 10, fontWeight: 700 }}><CheckCircle size={11} /> Connected</span>}
+            {devinValid === false && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, background: 'rgba(229,62,62,.1)', color: '#e53e3e', fontSize: 10, fontWeight: 700 }}><XCircle size={11} /> Not connected</span>}
+            {devinValid === null && validating && <Loader2 size={12} className="animate-spin" style={{ color: 'var(--dim)' }} />}
             <button onClick={() => setShowDevinGuide(!showDevinGuide)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
               <HelpCircle size={13} /> How to get this
             </button>
@@ -122,7 +144,12 @@ export default function Integrations() {
 
         {/* Slack Webhook */}
         <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px' }}>
-          <div style={labelStyle}>Slack Webhook URL <span style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 400 }}>(optional)</span></div>
+          <div style={labelStyle}>
+            Slack Webhook URL <span style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 400 }}>(optional)</span>
+            {slackValid === true && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, background: 'rgba(33,193,154,.12)', color: 'var(--green)', fontSize: 10, fontWeight: 700 }}><CheckCircle size={11} /> Connected</span>}
+            {slackValid === false && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, background: 'rgba(229,62,62,.1)', color: '#e53e3e', fontSize: 10, fontWeight: 700 }}><XCircle size={11} /> Not connected</span>}
+            {slackValid === null && slackWebhook && validating && <Loader2 size={12} className="animate-spin" style={{ color: 'var(--dim)' }} />}
+          </div>
           <input type="text" value={slackWebhook} onChange={e => setSlackWebhook(e.target.value)} placeholder="https://hooks.slack.com/services/..." style={inputStyle} />
           <div style={{ marginTop: 8, fontSize: 11, color: 'var(--dim)', lineHeight: 1.5 }}>
             Get notified in Slack when Devin opens PRs or completes work. <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--blue)' }}>Learn how to create a webhook</a>
