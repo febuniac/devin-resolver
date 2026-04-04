@@ -338,8 +338,8 @@ export default function Approvals() {
                           {session.issue_title || 'Issue details loading...'}
                         </div>
                         {session.issue_body && (
-                          <div style={{ fontSize: 11, color: 'var(--mid)', lineHeight: 1.6, maxHeight: 80, overflow: 'hidden', position: 'relative' }}>
-                            {session.issue_body.length > 250 ? session.issue_body.slice(0, 250) + '...' : session.issue_body}
+                          <div style={{ fontSize: 11, color: 'var(--mid)', lineHeight: 1.5, maxHeight: 48, overflow: 'hidden', position: 'relative' }}>
+                            {session.issue_body.length > 150 ? session.issue_body.slice(0, 150) + '...' : session.issue_body}
                           </div>
                         )}
                         <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
@@ -427,11 +427,11 @@ export default function Approvals() {
                     </div>
                   </div>
 
-                  {/* Right column: Video / Recording */}
+                  {/* Right column: Video / Recording / Devin Session Embed */}
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', marginBottom: 10, textTransform: 'uppercase' as const, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Video size={12} />
-                      {session.recording_url || liveData[session.id]?.playback_url ? "Devin's Test Recording" : 'Live Preview'}
+                      {(session.recording_url || liveData[session.id]?.playback_url) ? "Devin's Test Recording" : session.session_url ? "Devin's Live Session" : 'Preview'}
                     </div>
                     {(session.recording_url || liveData[session.id]?.playback_url) ? (
                       <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--rule)', background: '#0d1117' }}>
@@ -442,31 +442,29 @@ export default function Approvals() {
                           preload="metadata"
                           poster=""
                         />
-                        <div style={{ padding: '10px 14px', background: 'var(--bg)', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 11, color: 'var(--dim)' }}>Devin recorded this test run</span>
+                        <div style={{ padding: '8px 14px', background: 'var(--bg)', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 10, color: 'var(--dim)' }}>Devin recorded this test run</span>
                           <a href={session.recording_url || liveData[session.id]?.playback_url || undefined} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            style={{ fontSize: 10, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
                             <Play size={10} /> Full screen
                           </a>
                         </div>
                       </div>
                     ) : session.session_url ? (
-                      <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden', height: '100%', minHeight: 200 }}>
-                        <div style={{ padding: '24px 20px', textAlign: 'center', background: 'var(--white)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 }}>
-                          <div style={{ width: 48, height: 48, borderRadius: '50%', background: session.status_detail === 'waiting_for_user' ? 'rgba(233,168,32,0.1)' : 'rgba(2,148,222,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {session.status_detail === 'waiting_for_user' ? <Eye size={22} style={{ color: '#e9a820' }} /> : <Play size={22} style={{ color: 'var(--blue)' }} />}
-                          </div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
-                            {session.status_detail === 'waiting_for_user' ? "Review Devin's work" : 'Session in progress'}
-                          </div>
-                          <div style={{ fontSize: 11, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 240 }}>
-                            {session.status_detail === 'waiting_for_user'
-                              ? 'See what Devin has analyzed and planned before approving'
-                              : 'Video will appear here when Devin finishes testing'}
-                          </div>
+                      <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden' }}>
+                        <iframe
+                          src={session.session_url}
+                          style={{ width: '100%', height: 320, border: 'none', display: 'block', background: '#0d1117' }}
+                          title={`Devin Session - ${session.issue_title || session.id}`}
+                          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                        />
+                        <div style={{ padding: '8px 14px', background: 'var(--bg)', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 10, color: 'var(--dim)' }}>
+                            {session.status_detail === 'waiting_for_user' ? "Review Devin's work before approving" : 'Live Devin session'}
+                          </span>
                           <a href={session.session_url} target="_blank" rel="noopener noreferrer"
-                            style={{ marginTop: 4, fontSize: 12, fontWeight: 600, padding: '8px 24px', borderRadius: 8, background: session.status_detail === 'waiting_for_user' ? '#e9a820' : 'var(--blue)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, transition: 'opacity 0.15s' }}>
-                            <ExternalLink size={12} /> Open in Devin
+                            style={{ fontSize: 10, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <ExternalLink size={10} /> Open full view
                           </a>
                         </div>
                       </div>
