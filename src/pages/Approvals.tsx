@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck } from 'lucide-react';
+import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare } from 'lucide-react';
 import api from '../api/client';
 
 interface Session {
@@ -44,6 +44,7 @@ export default function Approvals() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [approving, setApproving] = useState<Set<string>>(new Set());
 
   useEffect(() => { loadSessions(); }, []);
 
@@ -69,8 +70,21 @@ export default function Approvals() {
     });
   };
 
+  const approveSession = async (sessionId: string) => {
+    setApproving(prev => new Set(prev).add(sessionId));
+    try {
+      await api.approveSession(sessionId);
+      await loadSessions();
+    } catch (e) {
+      console.error('Failed to approve session:', e);
+    } finally {
+      setApproving(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
+    }
+  };
+
   const topbarEl = document.getElementById('topbar-actions');
   const running = sessions.filter(s => s.status === 'running' || s.status === 'pending').length;
+  const needsInput = sessions.filter(s => s.status_detail === 'waiting_for_user').length;
   const completed = sessions.filter(s => ['completed', 'succeeded', 'finished', 'stopped'].includes(s.status)).length;
   const withPR = sessions.filter(s => s.pr_url).length;
 
@@ -88,12 +102,13 @@ export default function Approvals() {
       )}
 
       {/* Stat Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 28 }}>
         {[
           { label: 'Total Sessions', value: sessions.length, color: 'var(--purple)' },
           { label: 'Running', value: running, color: 'var(--blue)' },
+          { label: 'Needs Input', value: needsInput, color: '#e9a820' },
           { label: 'Completed', value: completed, color: 'var(--green)' },
-          { label: 'PRs Opened', value: withPR, color: '#e9a820' },
+          { label: 'PRs Opened', value: withPR, color: '#f59e0b' },
         ].map((s, i) => (
           <div key={i} style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: '12px 12px 0 0', background: s.color }} />
@@ -165,10 +180,16 @@ export default function Approvals() {
                   )}
                 </span>
               </div>
-              <div>
-                {session.pr_url ? (
+              <div onClick={e => e.stopPropagation()}>
+                {session.status_detail === 'waiting_for_user' ? (
+                  <button
+                    onClick={() => approveSession(session.id)}
+                    disabled={approving.has(session.id)}
+                    style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: approving.has(session.id) ? 0.6 : 1 }}>
+                    {approving.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <MessageSquare size={10} />} Approve
+                  </button>
+                ) : session.pr_url ? (
                   <a href={session.pr_url} target="_blank" rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
                     style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--green)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     Review PR <ExternalLink size={10} />
                   </a>

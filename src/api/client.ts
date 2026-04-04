@@ -83,6 +83,8 @@ export const api = {
     request<any>(`/api/devin/sessions/${sessionId}/refresh`, { method: 'POST' }),
   pollSessions: () =>
     request<any>('/api/devin/sessions/poll', { method: 'POST' }),
+  approveSession: (sessionId: string) =>
+    request<any>(`/api/devin/sessions/${sessionId}/approve`, { method: 'POST' }),
 
   // Settings
   getSettings: () => request<any>('/api/settings'),
