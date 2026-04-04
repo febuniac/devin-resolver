@@ -69,7 +69,20 @@ export default function Approvals() {
   const [liveData, setLiveData] = useState<Record<string, LiveData>>({});
   const [loadingLive, setLoadingLive] = useState<Set<string>>(new Set());
 
-  useEffect(() => { loadSessions(); }, []);
+  useEffect(() => {
+    // Auto-poll on page load + every 30s
+    const initialRefresh = async () => {
+      try { await api.pollSessions(); } catch { /* ignore */ }
+      try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
+      setLoading(false);
+    };
+    initialRefresh();
+    const interval = setInterval(async () => {
+      try { await api.pollSessions(); } catch { /* ignore */ }
+      try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const loadSessions = async () => {
     try { setSessions(await api.listSessions() as Session[]); }
