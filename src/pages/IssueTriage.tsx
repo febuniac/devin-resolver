@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, RefreshCw, Loader2, X, Sparkles, Cpu, Play, GitPullRequest, ChevronDown, ChevronUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
 interface Issue {
@@ -33,7 +34,7 @@ const severityChipClass: Record<string, string> = {
 };
 
 /* ---- Success Modal Component ---- */
-function SuccessModal({ count, issues, onClose }: { count: number; issues: Issue[]; onClose: () => void }) {
+function SuccessModal({ count, issues, onClose, onViewProgress }: { count: number; issues: Issue[]; onClose: () => void; onViewProgress: () => void }) {
   const firstIssue = issues[0];
   const issueNum = firstIssue ? (firstIssue.number || firstIssue.github_id) : 0;
   const issueTitle = firstIssue ? firstIssue.title : 'Issue';
@@ -127,7 +128,7 @@ function SuccessModal({ count, issues, onClose }: { count: number; issues: Issue
 
           {/* Link */}
           <div style={{ textAlign: 'center', marginTop: 14 }}>
-            <a href="#" onClick={e => { e.preventDefault(); onClose(); }} style={{ fontSize: 12, color: '#9ca3af', textDecoration: 'none' }}>
+            <a href="#" onClick={e => { e.preventDefault(); onViewProgress(); }} style={{ fontSize: 12, color: '#9ca3af', textDecoration: 'none', cursor: 'pointer' }}>
               View Devin{'\u2019'}s progress in real time {'\u2192'}
             </a>
           </div>
@@ -144,6 +145,7 @@ function SuccessModal({ count, issues, onClose }: { count: number; issues: Issue
 }
 
 export function IssueTriage() {
+  const navigate = useNavigate();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -227,7 +229,7 @@ export function IssueTriage() {
   return (
     <div className="animate-fade-in">
       {/* Success Modal */}
-      {successModal.show && <SuccessModal count={successModal.count} issues={successModal.issues} onClose={() => setSuccessModal({ ...successModal, show: false })} />}
+      {successModal.show && <SuccessModal count={successModal.count} issues={successModal.issues} onClose={() => setSuccessModal({ ...successModal, show: false })} onViewProgress={() => { setSuccessModal({ ...successModal, show: false }); navigate('/approvals'); }} />}
 
       {/* Topbar actions */}
       {topbarEl && createPortal(
