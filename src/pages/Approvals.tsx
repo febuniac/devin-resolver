@@ -465,8 +465,12 @@ export default function Approvals() {
               </div>
               <div onClick={e => e.stopPropagation()}>
                 {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.12)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <CheckCircle size={10} /> No action needed
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: approved.has(session.id) ? 'rgba(33,193,154,0.12)' : 'rgba(57,105,202,0.1)', color: approved.has(session.id) ? 'var(--green)' : '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    {approved.has(session.id) ? (
+                      <><CheckCircle size={10} /> Manually Approved</>
+                    ) : (
+                      <><DevinIcon size={12} /> Auto-Approved by Devin</>
+                    )}
                   </span>
                 ) : session.pr_url ? (
                   <button
