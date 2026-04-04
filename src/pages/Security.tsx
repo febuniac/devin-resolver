@@ -210,16 +210,16 @@ export default function Security() {
 
       {/* Findings List */}
       <div className="space-y-1">
-        <div className="flex items-center gap-4 px-3 py-1.5 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-          <div className="w-6">
+        <div className="flex items-center gap-3 px-3 py-1.5 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+          <div className="w-5">
             <input type="checkbox" checked={selectedFindings.size === filteredFindings.length && filteredFindings.length > 0} onChange={selectAll} className="rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500" />
           </div>
-          <div className="flex-1">Finding</div>
-          <div className="w-28">Severity</div>
-          <div className="w-28">Status</div>
-          <div className="w-24">Confidence</div>
-          <div className="w-20">CWE</div>
-          <div className="w-8"></div>
+          <div className="flex-1 min-w-0">Finding</div>
+          <div className="w-20">Severity</div>
+          <div className="w-20">Status</div>
+          <div className="w-20">Confidence</div>
+          <div className="w-16 hidden xl:block">CWE</div>
+          <div className="w-6"></div>
         </div>
 
         {filteredFindings.map((finding, index) => (
@@ -248,8 +248,8 @@ function FindingRow({ finding, index, expanded, selected, onToggleExpand, onTogg
 }) {
   return (
     <div className="glass rounded-lg overflow-hidden animate-slide-in" style={{ animationDelay: `${index * 30}ms` }}>
-      <div className="flex items-center gap-4 px-3 py-2 glass-hover cursor-pointer" onClick={onToggleExpand}>
-        <div className="w-6" onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}>
+      <div className="flex items-center gap-3 px-3 py-2 glass-hover cursor-pointer" onClick={onToggleExpand}>
+        <div className="w-5" onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}>
           <input type="checkbox" checked={selected} onChange={() => {}} className="rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500" />
         </div>
         <div className="flex-1 min-w-0">
@@ -263,11 +263,11 @@ function FindingRow({ finding, index, expanded, selected, onToggleExpand, onTogg
             <p className="text-xs text-zinc-500 truncate">{finding.file}:{finding.line}</p>
           </div>
         </div>
-        <div className="w-28"><SeverityBadge severity={finding.severity} /></div>
-        <div className="w-28"><StatusBadge status={finding.status} /></div>
-        <div className="w-24"><ConfidenceMeter value={finding.ai_confidence} /></div>
-        <div className="w-20 text-xs text-zinc-400 font-mono">{finding.cwe_id}</div>
-        <div className="w-8">
+        <div className="w-20"><SeverityBadge severity={finding.severity} /></div>
+        <div className="w-20"><StatusBadge status={finding.status} /></div>
+        <div className="w-20"><ConfidenceMeter value={finding.ai_confidence} /></div>
+        <div className="w-16 text-xs text-zinc-400 font-mono hidden xl:block">{finding.cwe_id}</div>
+        <div className="w-6">
           {expanded ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
         </div>
       </div>

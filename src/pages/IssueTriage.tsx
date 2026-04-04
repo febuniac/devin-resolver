@@ -121,20 +121,20 @@ export default function IssueTriage() {
       {/* Success Modal */}
       {successModal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-modal-bg" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setSuccessModal({ ...successModal, show: false })}>
-          <div className="relative bg-zinc-900 border border-violet-500/30 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl shadow-violet-500/20 animate-modal-pop success-modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-500 to-emerald-500 flex items-center justify-center mx-auto mb-6 glow animate-confetti-pop">
+          <div className="relative bg-zinc-900 border border-violet-500/30 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl shadow-violet-500/20 animate-modal-pop success-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-emerald-500 flex items-center justify-center mx-auto mb-4 glow animate-confetti-pop">
               <PartyPopper className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-3">
+            <h2 className="text-xl font-bold text-white mb-2">
               {successModal.count} issue{successModal.count !== 1 ? 's' : ''} off your plate!
             </h2>
-            <p className="text-zinc-400 mb-1 text-base">
+            <p className="text-zinc-400 mb-1 text-sm">
               That's {successModal.count} fewer thing{successModal.count !== 1 ? 's' : ''} you have to worry about.
             </p>
-            <p className="text-violet-400 font-semibold text-lg mb-8">
+            <p className="text-violet-400 font-semibold text-base mb-4">
               Devin takes it from here.
             </p>
-            <div className="flex items-center justify-center gap-4 text-xs text-zinc-500 mb-8">
+            <div className="flex items-center justify-center gap-3 text-xs text-zinc-500 mb-4">
               {[
                 { Icon: Sparkles, label: 'Analyzing' },
                 { Icon: Brain, label: 'Writing fix' },
@@ -150,7 +150,7 @@ export default function IssueTriage() {
             </div>
             <button
               onClick={() => setSuccessModal({ ...successModal, show: false })}
-              className="bg-violet-600 hover:bg-violet-500 text-white px-8 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105"
+              className="bg-violet-600 hover:bg-violet-500 text-white px-6 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-105"
             >
               Got it!
             </button>
@@ -279,8 +279,8 @@ export default function IssueTriage() {
       {filteredIssues.length > 0 && (
       <div className="space-y-1">
         {/* Header row */}
-        <div className="flex items-center gap-4 px-3 py-1.5 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-          <div className="w-6">
+        <div className="flex items-center gap-3 px-3 py-1.5 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+          <div className="w-5">
             <input
               type="checkbox"
               checked={selectedIssues.size === filteredIssues.length && filteredIssues.length > 0}
@@ -288,12 +288,12 @@ export default function IssueTriage() {
               className="rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500"
             />
           </div>
-          <div className="flex-1">Issue</div>
-          <div className="w-28">Severity</div>
-          <div className="w-28">Status</div>
-          <div className="w-24">Confidence</div>
-          <div className="w-20">Effort</div>
-          <div className="w-20">Actions</div>
+          <div className="flex-1 min-w-0">Issue</div>
+          <div className="w-20">Severity</div>
+          <div className="w-20">Status</div>
+          <div className="w-20">Confidence</div>
+          <div className="w-16 hidden xl:block">Effort</div>
+          <div className="w-12">Actions</div>
         </div>
 
         {filteredIssues.map((issue, index) => (
@@ -334,8 +334,8 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
 
   return (
     <div className="glass rounded-lg overflow-hidden animate-slide-in" style={{ animationDelay: `${index * 30}ms` }}>
-      <div className="flex items-center gap-4 px-3 py-2 glass-hover cursor-pointer" onClick={onToggleExpand}>
-        <div className="w-6" onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}>
+      <div className="flex items-center gap-3 px-3 py-2 glass-hover cursor-pointer" onClick={onToggleExpand}>
+        <div className="w-5" onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}>
           <input
             type="checkbox"
             checked={selected}
@@ -351,11 +351,11 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
           <p className="text-sm font-medium text-zinc-200 truncate">{issue.title}</p>
           <p className="text-xs text-zinc-500">{issue.repo_full_name}</p>
         </div>
-        <div className="w-28"><SeverityBadge severity={issue.severity} /></div>
-        <div className="w-28"><StatusBadge status={issue.status} /></div>
-        <div className="w-24"><ConfidenceMeter value={issue.ai_confidence} /></div>
-        <div className="w-20 text-xs text-zinc-400">{issue.estimated_effort}</div>
-        <div className="w-20 flex items-center gap-1">
+        <div className="w-20"><SeverityBadge severity={issue.severity} /></div>
+        <div className="w-20"><StatusBadge status={issue.status} /></div>
+        <div className="w-20"><ConfidenceMeter value={issue.ai_confidence} /></div>
+        <div className="w-16 text-xs text-zinc-400 hidden xl:block">{issue.estimated_effort}</div>
+        <div className="w-12 flex items-center gap-1">
           {issue.pr_url && <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />}
           {issue.video_url && <Play className="w-3.5 h-3.5 text-violet-400" />}
           {expanded ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
