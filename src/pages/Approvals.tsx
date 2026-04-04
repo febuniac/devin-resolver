@@ -407,7 +407,9 @@ export default function Approvals() {
                 <span className="font-mono" style={{ fontSize: 10 }}>{formatTimestamp(session.created_at)}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dim)' }}>
-                {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
+                  <><CheckCheck size={10} style={{ color: '#8b5cf6', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: '#8b5cf6' }}>{formatTimestamp(session.updated_at)}</span></>
+                ) : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                   <><CheckCheck size={10} style={{ color: 'var(--green)', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: 'var(--green)' }}>{formatTimestamp(session.updated_at)}</span></>
                 ) : session.status_detail === 'waiting_for_user' ? (
                   <span style={{ fontSize: 10, color: '#e9a820', fontWeight: 600 }}>Waiting...</span>
@@ -434,7 +436,9 @@ export default function Approvals() {
               </div>
               <div>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}>
-                  {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                  {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
+                    <><GitMerge size={14} style={{ color: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>Merged</span></>
+                  ) : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                     <><CheckCircle size={14} style={{ color: 'var(--green)' }} /><span style={{ color: 'var(--green)' }}>Done</span></>
                   ) : session.status_detail === 'waiting_for_user' ? (
                     <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Needs Input</span></>
