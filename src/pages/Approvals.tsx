@@ -63,6 +63,8 @@ export default function Approvals() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [approving, setApproving] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [approved, setApproved] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterType>('all');
   const [liveData, setLiveData] = useState<Record<string, LiveData>>({});
   const [loadingLive, setLoadingLive] = useState<Set<string>>(new Set());
@@ -107,9 +109,14 @@ export default function Approvals() {
     setApproving(prev => new Set(prev).add(sessionId));
     try {
       await api.approveSession(sessionId);
+      setApproved(prev => new Set(prev).add(sessionId));
+      setToast({ message: 'Approved! Devin is now proceeding with the fix.', type: 'success' });
+      setTimeout(() => setToast(null), 4000);
       await loadSessions();
     } catch (e) {
       console.error('Failed to approve session:', e);
+      setToast({ message: 'Failed to approve — check Devin connection.', type: 'error' });
+      setTimeout(() => setToast(null), 4000);
     } finally {
       setApproving(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
     }
@@ -269,13 +276,17 @@ export default function Approvals() {
                 </span>
               </div>
               <div onClick={e => e.stopPropagation()}>
-                {session.status_detail === 'waiting_for_user' ? (
+                {(session.status_detail === 'waiting_for_user' && !approved.has(session.id)) ? (
                   <button
                     onClick={() => approveSession(session.id)}
                     disabled={approving.has(session.id)}
                     style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: approving.has(session.id) ? 0.6 : 1 }}>
-                    {approving.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <MessageSquare size={10} />} Approve
+                    {approving.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <MessageSquare size={10} />} {approving.has(session.id) ? 'Approving...' : 'Approve'}
                   </button>
+                ) : approved.has(session.id) ? (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.15)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <CheckCircle size={10} /> Approved
+                  </span>
                 ) : session.pr_url ? (
                   <a href={session.pr_url} target="_blank" rel="noopener noreferrer"
                     style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--green)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -288,22 +299,32 @@ export default function Approvals() {
             {/* Expanded Details */}
             {expanded.has(session.id) && (
               <div style={{ padding: '16px 16px 16px 44px', borderBottom: '1px solid var(--rule)', background: 'var(--bg)' }}>
-                {/* Waiting for User - Prominent approval banner */}
-                {session.status_detail === 'waiting_for_user' && (
-                  <div style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 10, background: '#e9a82015', border: '1px solid #e9a82040', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <MessageSquare size={20} style={{ color: '#e9a820', flexShrink: 0, marginTop: 2 }} />
+                {/* Waiting for User / Approved banner */}
+                {(session.status_detail === 'waiting_for_user' || approved.has(session.id)) && (
+                  <div style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 10, background: approved.has(session.id) ? 'rgba(33,193,154,0.08)' : '#e9a82015', border: `1px solid ${approved.has(session.id) ? 'rgba(33,193,154,0.25)' : '#e9a82040'}`, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    {approved.has(session.id) ? <CheckCircle size={20} style={{ color: 'var(--green)', flexShrink: 0, marginTop: 2 }} /> : <MessageSquare size={20} style={{ color: '#e9a820', flexShrink: 0, marginTop: 2 }} />}
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#e9a820', marginBottom: 4 }}>Devin needs your approval to proceed</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: approved.has(session.id) ? 'var(--green)' : '#e9a820', marginBottom: 4 }}>
+                        {approved.has(session.id) ? 'Approved! Devin is now working on the fix.' : 'Devin needs your approval to proceed'}
+                      </div>
                       <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.5, marginBottom: 10 }}>
-                        Devin has analyzed the issue and prepared a plan. Review the details below and click Approve to let Devin proceed with the fix, PR creation, and testing.
+                        {approved.has(session.id)
+                          ? 'Devin will implement the fix, create a PR, and run tests. You can track progress below or on the Devin session page.'
+                          : 'Devin has analyzed the issue and prepared a plan. Review the details below and click Approve to let Devin proceed with the fix, PR creation, and testing.'}
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <button
-                          onClick={() => approveSession(session.id)}
-                          disabled={approving.has(session.id)}
-                          style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: approving.has(session.id) ? 0.6 : 1 }}>
-                          {approving.has(session.id) ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} Approve &amp; Proceed
-                        </button>
+                        {!approved.has(session.id) ? (
+                          <button
+                            onClick={() => approveSession(session.id)}
+                            disabled={approving.has(session.id)}
+                            style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: approving.has(session.id) ? 0.6 : 1 }}>
+                            {approving.has(session.id) ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} {approving.has(session.id) ? 'Sending approval...' : 'Approve & Proceed'}
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, background: 'rgba(33,193,154,0.15)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <CheckCircle size={14} /> Approved
+                          </span>
+                        )}
                         {session.session_url && (
                           <a href={session.session_url} target="_blank" rel="noopener noreferrer"
                             style={{ fontSize: 12, fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--white)', color: 'var(--blue)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -524,6 +545,22 @@ export default function Approvals() {
           </div>
         ))}
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+          padding: '12px 20px', borderRadius: 10,
+          background: toast.type === 'success' ? '#21C19A' : '#e53e3e',
+          color: '#fff', fontSize: 13, fontWeight: 600,
+          display: 'flex', alignItems: 'center', gap: 8,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          animation: 'slideIn 0.3s ease-out',
+        }}>
+          {toast.type === 'success' ? <CheckCircle size={16} /> : <Eye size={16} />}
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }
