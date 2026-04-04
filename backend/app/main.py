@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import aiosqlite
 
 from app.db.database import init_db, get_db
-from app.routers import repos, issues, security, devin_sessions, settings, analytics, slack
+from app.routers import repos, issues, security, devin_sessions, settings, analytics, slack, github_pr
 from app.services.devin_service import DevinService
 
 
@@ -33,6 +33,7 @@ app.include_router(devin_sessions.router)
 app.include_router(settings.router)
 app.include_router(analytics.router)
 app.include_router(slack.router)
+app.include_router(github_pr.router)
 
 
 @app.get("/healthz")

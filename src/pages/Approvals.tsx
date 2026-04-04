@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video, FileDiff, Plus, Minus } from 'lucide-react';
+import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video, FileDiff, Plus, Minus, GitMerge, AlertCircle } from 'lucide-react';
 import api from '../api/client';
 
 interface Session {
@@ -44,6 +44,32 @@ interface FileChange {
   lines_added: number;
   lines_removed: number;
   description: string;
+}
+
+interface PrFile {
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  changes: number;
+  patch: string;
+}
+
+interface PrDiffData {
+  title: string;
+  body: string;
+  state: string;
+  mergeable: boolean | null;
+  merged: boolean;
+  html_url: string;
+  head_branch: string;
+  base_branch: string;
+  user: string;
+  additions: number;
+  deletions: number;
+  changed_files: number;
+  files: PrFile[];
+  raw_diff: string;
 }
 
 interface LiveData {
@@ -96,6 +122,11 @@ export default function Approvals() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [liveData, setLiveData] = useState<Record<string, LiveData>>({});
   const [loadingLive, setLoadingLive] = useState<Set<string>>(new Set());
+  const [prDiffs, setPrDiffs] = useState<Record<string, PrDiffData>>({});
+  const [loadingDiff, setLoadingDiff] = useState<Set<string>>(new Set());
+  const [merging, setMerging] = useState<Set<string>>(new Set());
+  const [merged, setMerged] = useState<Set<string>>(new Set());
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Auto-poll on page load + every 30s
@@ -150,6 +181,12 @@ export default function Approvals() {
       } finally {
         setLoadingLive(prev => { const next = new Set(prev); next.delete(id); return next; });
       }
+      // Also fetch PR diff if session has a PR
+      const session = sessions.find(s => s.id === id);
+      const prUrl = session?.pr_url || liveData[id]?.pr_url;
+      if (prUrl && !prDiffs[id]) {
+        fetchPrDiff(id, prUrl);
+      }
     }
   };
 
@@ -176,6 +213,49 @@ export default function Approvals() {
       setTimeout(() => setToast(null), 4000);
     } finally {
       setApproving(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
+    }
+  };
+
+  // Parse PR URL to extract owner/repo/number
+  const parsePrUrl = (url: string): { owner: string; repo: string; number: number } | null => {
+    const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+    if (!match) return null;
+    return { owner: match[1], repo: match[2], number: parseInt(match[3]) };
+  };
+
+  // Fetch PR diff from GitHub
+  const fetchPrDiff = async (sessionId: string, prUrl: string) => {
+    const parsed = parsePrUrl(prUrl);
+    if (!parsed) return;
+    setLoadingDiff(prev => new Set(prev).add(sessionId));
+    try {
+      const data = await api.getPrDiff(parsed.owner, parsed.repo, parsed.number) as PrDiffData;
+      setPrDiffs(prev => ({ ...prev, [sessionId]: data }));
+    } catch (e) {
+      console.error('Failed to fetch PR diff:', e);
+    } finally {
+      setLoadingDiff(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
+    }
+  };
+
+  // Merge PR via GitHub API
+  const mergePr = async (sessionId: string, prUrl: string) => {
+    const parsed = parsePrUrl(prUrl);
+    if (!parsed) return;
+    setMerging(prev => new Set(prev).add(sessionId));
+    try {
+      await api.mergePr(parsed.owner, parsed.repo, parsed.number);
+      setMerged(prev => new Set(prev).add(sessionId));
+      setToast({ message: 'PR merged successfully! Issue resolved.', type: 'success' });
+      setTimeout(() => setToast(null), 5000);
+      await loadSessions();
+    } catch (e: unknown) {
+      console.error('Failed to merge PR:', e);
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setToast({ message: `Failed to merge PR: ${msg}`, type: 'error' });
+      setTimeout(() => setToast(null), 5000);
+    } finally {
+      setMerging(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
     }
   };
 
@@ -344,7 +424,18 @@ export default function Approvals() {
                 </span>
               </div>
               <div onClick={e => e.stopPropagation()}>
-                {(session.status_detail === 'waiting_for_user' && !approved.has(session.id)) ? (
+                {merged.has(session.id) || session.status === 'merged' ? (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <GitMerge size={10} /> Merged
+                  </span>
+                ) : session.pr_url ? (
+                  <button
+                    onClick={() => mergePr(session.id, session.pr_url!)}
+                    disabled={merging.has(session.id)}
+                    style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: merging.has(session.id) ? 0.6 : 1 }}>
+                    {merging.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {merging.has(session.id) ? 'Merging...' : 'Approve & Merge'}
+                  </button>
+                ) : (session.status_detail === 'waiting_for_user' && !approved.has(session.id)) ? (
                   <button
                     onClick={() => approveSession(session.id)}
                     disabled={approving.has(session.id)}
@@ -355,11 +446,6 @@ export default function Approvals() {
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.15)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <CheckCircle size={10} /> Approved
                   </span>
-                ) : session.pr_url ? (
-                  <a href={session.pr_url} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--green)', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    Review PR <ExternalLink size={10} />
-                  </a>
                 ) : <span style={{ color: 'var(--dim)' }}>{'\u2014'}</span>}
               </div>
             </div>
@@ -367,8 +453,66 @@ export default function Approvals() {
             {/* Expanded Details */}
             {expanded.has(session.id) && (
               <div style={{ padding: '16px 16px 16px 44px', borderBottom: '1px solid var(--rule)', background: 'var(--bg)' }}>
-                {/* Waiting for User / Approved banner */}
-                {(session.status_detail === 'waiting_for_user' || approved.has(session.id)) && (
+
+                {/* PR Review Banner - shown when PR exists */}
+                {(session.pr_url || liveData[session.id]?.pr_url) && (() => {
+                  const prUrl = session.pr_url || liveData[session.id]?.pr_url || '';
+                  const diff = prDiffs[session.id];
+                  const isMerged = merged.has(session.id) || session.status === 'merged' || diff?.merged;
+                  return (
+                    <div style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 10, background: isMerged ? 'rgba(139,92,246,0.06)' : 'rgba(139,92,246,0.04)', border: `1px solid ${isMerged ? 'rgba(139,92,246,0.25)' : 'rgba(139,92,246,0.2)'}` }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                        {isMerged ? <GitMerge size={20} style={{ color: '#8b5cf6', flexShrink: 0, marginTop: 2 }} /> : <GitPullRequest size={20} style={{ color: '#8b5cf6', flexShrink: 0, marginTop: 2 }} />}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: isMerged ? '#8b5cf6' : 'var(--ink)', marginBottom: 4 }}>
+                            {isMerged ? 'PR Merged! Issue resolved.' : 'Pull Request Ready for Review'}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.5, marginBottom: 10 }}>
+                            {isMerged
+                              ? `PR was merged successfully. The code changes are now in the main branch.`
+                              : `Devin has created a PR. Review the code changes and recording below, then click "Approve & Merge" to merge it.`}
+                          </div>
+                          {diff && !isMerged && (
+                            <div style={{ display: 'flex', gap: 12, marginBottom: 10, fontSize: 11, color: 'var(--dim)' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><FileCode size={11} /> {diff.changed_files} file{diff.changed_files !== 1 ? 's' : ''} changed</span>
+                              <span style={{ color: '#3fb950', fontFamily: 'monospace', fontWeight: 700 }}>+{diff.additions}</span>
+                              <span style={{ color: '#f85149', fontFamily: 'monospace', fontWeight: 700 }}>-{diff.deletions}</span>
+                              <span>{diff.head_branch} → {diff.base_branch}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            {!isMerged && (
+                              <button
+                                onClick={() => mergePr(session.id, prUrl)}
+                                disabled={merging.has(session.id)}
+                                style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: merging.has(session.id) ? 0.6 : 1 }}>
+                                {merging.has(session.id) ? <Loader2 size={14} className="animate-spin" /> : <GitMerge size={14} />} {merging.has(session.id) ? 'Merging...' : 'Approve & Merge'}
+                              </button>
+                            )}
+                            {isMerged && (
+                              <span style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <GitMerge size={14} /> Merged
+                              </span>
+                            )}
+                            <a href={prUrl} target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: 12, fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--white)', color: 'var(--blue)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <ExternalLink size={14} /> View on GitHub
+                            </a>
+                            {session.session_url && (
+                              <a href={session.session_url} target="_blank" rel="noopener noreferrer"
+                                style={{ fontSize: 12, fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--white)', color: 'var(--mid)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <Eye size={14} /> View on Devin
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Waiting for User / Approved banner (no PR yet) */}
+                {!(session.pr_url || liveData[session.id]?.pr_url) && (session.status_detail === 'waiting_for_user' || approved.has(session.id)) && (
                   <div style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 10, background: approved.has(session.id) ? 'rgba(33,193,154,0.08)' : '#e9a82015', border: `1px solid ${approved.has(session.id) ? 'rgba(33,193,154,0.25)' : '#e9a82040'}`, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                     {approved.has(session.id) ? <CheckCircle size={20} style={{ color: 'var(--green)', flexShrink: 0, marginTop: 2 }} /> : <MessageSquare size={20} style={{ color: '#e9a820', flexShrink: 0, marginTop: 2 }} />}
                     <div style={{ flex: 1 }}>
@@ -582,8 +726,88 @@ export default function Approvals() {
                     </div>
                   </div>
 
-                  {/* Right column: Video / Recording / Devin Session Embed */}
+                  {/* Right column: PR Diff + Video / Recording / Devin Session Embed */}
                   <div>
+                    {/* PR Diff Section - GitHub code changes */}
+                    {(session.pr_url || liveData[session.id]?.pr_url) && (() => {
+                      const diff = prDiffs[session.id];
+                      const isLoadingDiff = loadingDiff.has(session.id);
+                      return (
+                        <div style={{ marginBottom: 14 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', marginBottom: 10, textTransform: 'uppercase' as const, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <FileDiff size={12} />
+                            Code Changes (PR Diff)
+                            {diff && <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 500, color: 'var(--blue)' }}>{diff.changed_files} file{diff.changed_files !== 1 ? 's' : ''}</span>}
+                          </div>
+                          {isLoadingDiff ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 16, background: '#0d1117', borderRadius: 10, border: '1px solid #21262d' }}>
+                              <Loader2 size={14} className="animate-spin" style={{ color: '#58a6ff' }} />
+                              <span style={{ fontSize: 12, color: '#8b949e' }}>Loading PR diff from GitHub...</span>
+                            </div>
+                          ) : diff ? (
+                            <div style={{ borderRadius: 10, border: '1px solid #21262d', overflow: 'hidden', background: '#0d1117', maxHeight: 400, overflowY: 'auto' }}>
+                              {/* Diff summary header */}
+                              <div style={{ padding: '8px 14px', background: '#161b22', borderBottom: '1px solid #21262d', display: 'flex', alignItems: 'center', gap: 12, fontSize: 11 }}>
+                                <span style={{ color: '#e6edf3', fontWeight: 600 }}>{diff.title}</span>
+                                <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                                  <span style={{ color: '#3fb950', fontFamily: 'monospace', fontWeight: 700 }}>+{diff.additions}</span>
+                                  <span style={{ color: '#f85149', fontFamily: 'monospace', fontWeight: 700 }}>-{diff.deletions}</span>
+                                </span>
+                              </div>
+                              {/* File list with expandable patches */}
+                              {diff.files.map((file, fi) => {
+                                const fileKey = `${session.id}-${fi}`;
+                                const isExpanded = expandedFiles.has(fileKey);
+                                return (
+                                  <div key={fi} style={{ borderBottom: fi < diff.files.length - 1 ? '1px solid #21262d' : 'none' }}>
+                                    <div
+                                      onClick={() => setExpandedFiles(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(fileKey)) next.delete(fileKey); else next.add(fileKey);
+                                        return next;
+                                      })}
+                                      style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: isExpanded ? '#161b22' : 'transparent' }}
+                                      onMouseEnter={e => (e.currentTarget.style.background = '#161b22')}
+                                      onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent'; }}
+                                    >
+                                      {isExpanded ? <ChevronDown size={10} style={{ color: '#8b949e' }} /> : <ChevronRight size={10} style={{ color: '#8b949e' }} />}
+                                      <FileCode size={10} style={{ color: file.status === 'added' ? '#3fb950' : file.status === 'removed' ? '#f85149' : '#58a6ff', flexShrink: 0 }} />
+                                      <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#e6edf3', fontWeight: 500 }}>{file.filename}</span>
+                                      <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, fontSize: 10 }}>
+                                        <span style={{ color: '#3fb950', fontFamily: 'monospace' }}>+{file.additions}</span>
+                                        <span style={{ color: '#f85149', fontFamily: 'monospace' }}>-{file.deletions}</span>
+                                      </span>
+                                    </div>
+                                    {isExpanded && file.patch && (
+                                      <div style={{ padding: '0', background: '#0d1117', overflowX: 'auto' }}>
+                                        <pre style={{ margin: 0, padding: '8px 14px', fontSize: 10, lineHeight: 1.6, fontFamily: 'monospace', color: '#e6edf3' }}>
+                                          {file.patch.split('\n').map((line, li) => (
+                                            <div key={li} style={{
+                                              background: line.startsWith('+') && !line.startsWith('+++') ? 'rgba(63,185,80,0.1)' : line.startsWith('-') && !line.startsWith('---') ? 'rgba(248,81,73,0.1)' : line.startsWith('@@') ? 'rgba(88,166,255,0.08)' : 'transparent',
+                                              color: line.startsWith('+') && !line.startsWith('+++') ? '#3fb950' : line.startsWith('-') && !line.startsWith('---') ? '#f85149' : line.startsWith('@@') ? '#58a6ff' : '#e6edf3',
+                                              padding: '0 4px',
+                                            }}>
+                                              {line}
+                                            </div>
+                                          ))}
+                                        </pre>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div style={{ padding: 16, textAlign: 'center', borderRadius: 10, border: '1px dashed #21262d', background: '#0d1117', color: '#8b949e', fontSize: 11 }}>
+                              <AlertCircle size={16} style={{ display: 'block', margin: '0 auto 6px', opacity: 0.4 }} />
+                              Could not load PR diff
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Recording / Session header */}
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', marginBottom: 10, textTransform: 'uppercase' as const, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Video size={12} />
                       {(session.recording_url || liveData[session.id]?.playback_url) ? "Devin's Test Recording" : session.session_url ? "Devin's Live Session" : 'Preview'}
