@@ -455,8 +455,8 @@ export default function Approvals() {
               </div>
               <div onClick={e => e.stopPropagation()}>
                 {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <GitMerge size={10} /> Merged
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.12)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <CheckCircle size={10} /> No action needed
                   </span>
                 ) : session.pr_url ? (
                   <button
