@@ -387,7 +387,7 @@ export default function Approvals() {
                   {/* Left column: Problem + Solution cards */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-                    {/* THE PROBLEM card */}
+                    {/* THE PROBLEM card — bug title + description only */}
                     <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden' }}>
                       <div style={{ padding: '8px 14px', background: 'rgba(229,62,62,0.08)', borderBottom: '1px solid rgba(229,62,62,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
                         {session.issue_category === 'security' ? <Shield size={14} style={{ color: '#e53e3e' }} /> : <Bug size={14} style={{ color: '#e53e3e' }} />}
@@ -403,11 +403,16 @@ export default function Approvals() {
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 6, lineHeight: 1.4 }}>
                           {session.issue_title || 'Issue details loading...'}
                         </div>
-                        {session.issue_body && (
-                          <div style={{ fontSize: 11, color: 'var(--mid)', lineHeight: 1.5, maxHeight: 48, overflow: 'hidden', position: 'relative' }}>
-                            {session.issue_body.length > 150 ? session.issue_body.slice(0, 150) + '...' : session.issue_body}
-                          </div>
-                        )}
+                        {session.issue_body && (() => {
+                          const body = session.issue_body || '';
+                          const descMatch = body.match(/##?\s*Description\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
+                          const desc = descMatch ? descMatch[1].trim() : body.split('\n').filter((l: string) => l.trim() && !l.startsWith('#')).slice(0, 2).join(' ').slice(0, 200);
+                          return desc ? (
+                            <div style={{ fontSize: 11, color: 'var(--mid)', lineHeight: 1.5, marginBottom: 6 }}>
+                              {desc}
+                            </div>
+                          ) : null;
+                        })()}
                         <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                           {session.issue_category && (
                             <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', background: 'var(--bg)', color: 'var(--dim)', border: '1px solid var(--rule)' }}>{session.issue_category}</span>
@@ -447,49 +452,48 @@ export default function Approvals() {
                           </div>
                         ) : (
                           <>
-                            {/* Description */}
+                            {/* Impact, File, Recommended Fix from issue body */}
                             {session.issue_body && (() => {
                               const body = session.issue_body || '';
-                              // Try to extract sections from the issue body
-                              const descMatch = body.match(/##?\s*Description\s*\n([\s\S]*?)(?=\n##?\s|\n\*\*Impact|$)/i);
-                              const impactMatch = body.match(/(?:##?\s*Impact|(?:\*\*Impact\*\*))\s*:?\s*\n?([\s\S]*?)(?=\n##?\s|\n\*\*Recommended|\n\*\*Steps|$)/i);
-                              const fixMatch = body.match(/(?:##?\s*Recommended\s*Fix|(?:\*\*Recommended\s*Fix\*\*))\s*:?\s*\n?([\s\S]*?)(?=\n##?\s|\n\*\*|$)/i);
-                              const hasStructured = descMatch || impactMatch || fixMatch;
+                              const impactMatch = body.match(/##?\s*Impact\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
+                              const fileMatch = body.match(/##?\s*File\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
+                              const fixMatch = body.match(/##?\s*Recommended\s*Fix\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
 
-                              return hasStructured ? (
+                              return (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 10 }}>
-                                  {descMatch && (
-                                    <div>
-                                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Description</div>
-                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{descMatch[1].trim().slice(0, 200)}</div>
-                                    </div>
-                                  )}
                                   {impactMatch && (
                                     <div>
                                       <div style={{ fontSize: 10, fontWeight: 700, color: '#e53e3e', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Impact</div>
-                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{impactMatch[1].trim().slice(0, 200)}</div>
+                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{impactMatch[1].trim()}</div>
+                                    </div>
+                                  )}
+                                  {fileMatch && (
+                                    <div>
+                                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>File</div>
+                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5, fontFamily: 'monospace', background: 'var(--bg)', padding: '4px 8px', borderRadius: 4, border: '1px solid var(--rule)', display: 'inline-block' }}>{fileMatch[1].trim()}</div>
                                     </div>
                                   )}
                                   {fixMatch && (
                                     <div>
                                       <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Recommended Fix</div>
-                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{fixMatch[1].trim().slice(0, 200)}</div>
+                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5, padding: '6px 10px', background: 'rgba(33,193,154,0.06)', borderRadius: 6, borderLeft: '3px solid var(--green)' }}>{fixMatch[1].trim()}</div>
                                     </div>
                                   )}
-                                </div>
-                              ) : (
-                                <div style={{ marginBottom: 10 }}>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Description</div>
-                                  <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{body.slice(0, 300)}{body.length > 300 ? '...' : ''}</div>
+                                  {!impactMatch && !fileMatch && !fixMatch && session.ai_summary && (
+                                    <div>
+                                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>AI Analysis</div>
+                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{session.ai_summary}</div>
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })()}
 
-                            {/* AI Summary as recommended fix fallback */}
-                            {session.ai_summary && !session.issue_body?.match(/Recommended\s*Fix/i) && (
-                              <div style={{ marginBottom: 10 }}>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>AI Analysis</div>
-                                <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{session.ai_summary}</div>
+                            {/* Instructions sent to Devin */}
+                            {liveData[session.id]?.title && (
+                              <div style={{ marginBottom: 10, padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--rule)' }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Instructions to Devin</div>
+                                <div style={{ fontSize: 11, color: 'var(--ink)', lineHeight: 1.5 }}>{liveData[session.id].title}</div>
                               </div>
                             )}
 
