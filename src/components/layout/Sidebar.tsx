@@ -48,9 +48,9 @@ export default function Sidebar() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img
-              src={theme === 'dark' ? '/brand/devin-logo-white.png' : '/brand/devin-logo-black.png'}
-              alt="Devin"
-              className="h-6 object-contain"
+              src={theme === 'dark' ? '/brand/backlogzero-dark.png' : '/brand/backlogzero-light.png'}
+              alt="Backlog Zero"
+              className="h-7 object-contain"
             />
           </div>
           <button
