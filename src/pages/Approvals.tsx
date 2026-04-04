@@ -239,8 +239,16 @@ export default function Approvals() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dim)' }}>
                 {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                   <><CheckCheck size={10} style={{ color: 'var(--green)', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: 'var(--green)' }}>{formatTimestamp(session.updated_at)}</span></>
+                ) : session.status_detail === 'waiting_for_user' ? (
+                  <span style={{ fontSize: 10, color: '#e9a820', fontWeight: 600 }}>Waiting...</span>
+                ) : session.status === 'running' ? (
+                  <span style={{ fontSize: 10, color: 'var(--blue)' }}>In progress...</span>
+                ) : session.status === 'suspended' ? (
+                  <span style={{ fontSize: 10, color: '#e53e3e' }}>Suspended</span>
+                ) : session.status === 'blocked' ? (
+                  <span style={{ fontSize: 10, color: '#e53e3e' }}>Blocked</span>
                 ) : (
-                  <span style={{ fontSize: 10, color: 'var(--dim)' }}>{session.status === 'running' ? 'In progress...' : '—'}</span>
+                  <span style={{ fontSize: 10, color: 'var(--dim)' }}>{session.status || '\u2014'}</span>
                 )}
               </div>
               <div>
@@ -251,6 +259,8 @@ export default function Approvals() {
                     <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Needs Input</span></>
                   ) : (session.status === 'running' || session.status === 'pending') ? (
                     <><span className="dot dot-blue" /><span style={{ color: 'var(--blue)' }}>Running</span></>
+                  ) : session.status === 'suspended' ? (
+                    <><span className="dot" style={{ background: '#9ca3af' }} /><span style={{ color: '#9ca3af' }}>Suspended</span></>
                   ) : session.status === 'blocked' ? (
                     <><span className="dot" style={{ background: '#e53e3e' }} /><span style={{ color: '#e53e3e' }}>Blocked</span></>
                   ) : (
