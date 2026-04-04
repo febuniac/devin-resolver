@@ -314,7 +314,7 @@ export function IssueTriage() {
               </div>
               <div onClick={e => e.stopPropagation()}>
                 {issue.status === 'triaged' ? (
-                  <button onClick={() => sendToDevin([issue.id])} style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: 'var(--green)', color: '#fff' }}>Approve {'\u2192'}</button>
+                  <button onClick={() => sendToDevin([issue.id])} style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: 'var(--green)', color: '#fff', display: 'flex', alignItems: 'center', gap: 4 }}><Send size={10} /> Send {'\u2192'}</button>
                 ) : (issue.status === 'approved' || issue.status === 'in_progress') ? (
                   <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--green)' }}>{'\u2713'} Sent</span>
                 ) : <span style={{ color: 'var(--dim)' }}>{'\u2014'}</span>}
