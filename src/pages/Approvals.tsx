@@ -643,6 +643,49 @@ export default function Approvals() {
                               </div>
                             )}
                           </div>
+
+                          {/* Worklog: Description, Impact, Recommended Fix */}
+                          {session.issue_body && (() => {
+                            const body = session.issue_body || '';
+                            const descMatch = body.match(/##?\s*Description\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
+                            const impactMatch = body.match(/##?\s*Impact\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
+                            const fileMatch = body.match(/##?\s*File\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
+                            const fixMatch = body.match(/##?\s*Recommended\s*Fix\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
+                            return (
+                              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {descMatch && (
+                                  <div>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Description</div>
+                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5 }}>{descMatch[1].trim()}</div>
+                                  </div>
+                                )}
+                                {impactMatch && (
+                                  <div>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#f85149', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Impact</div>
+                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5 }}>{impactMatch[1].trim()}</div>
+                                  </div>
+                                )}
+                                {fileMatch && (
+                                  <div>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#58a6ff', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>File</div>
+                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5, fontFamily: 'monospace' }}>{fileMatch[1].trim()}</div>
+                                  </div>
+                                )}
+                                {fixMatch && (
+                                  <div>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#3fb950', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Recommended Fix</div>
+                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5 }}>{fixMatch[1].trim()}</div>
+                                  </div>
+                                )}
+                                {!descMatch && !impactMatch && !fixMatch && (
+                                  <div>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Details</div>
+                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5 }}>{body.slice(0, 300)}{body.length > 300 ? '...' : ''}</div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         {/* Footer with link */}
