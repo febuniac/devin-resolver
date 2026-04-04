@@ -29,6 +29,24 @@ async def get_slack_service(db: aiosqlite.Connection = Depends(get_db)) -> Slack
 
 
 def parse_session_row(row) -> DevinSessionResponse:
+    # Use dict-like access to handle column order differences between new/migrated DBs
+    if hasattr(row, 'keys'):
+        d = dict(row)
+        return DevinSessionResponse(
+            id=d.get("id", 0),
+            session_id=d.get("session_id"),
+            session_url=d.get("session_url"),
+            issue_id=d.get("issue_id"),
+            finding_id=d.get("finding_id"),
+            status=d.get("status") or "pending",
+            status_detail=d.get("status_detail") or "",
+            created_at=d.get("created_at") or "",
+            updated_at=d.get("updated_at"),
+            pr_url=d.get("pr_url"),
+            pr_number=d.get("pr_number"),
+            recording_url=d.get("recording_url"),
+        )
+    # Fallback for plain tuples (original column order without status_detail)
     return DevinSessionResponse(
         id=row[0],
         session_id=row[1],
@@ -40,11 +58,36 @@ def parse_session_row(row) -> DevinSessionResponse:
         updated_at=row[7],
         pr_url=row[8],
         pr_number=row[9],
-        recording_url=row[10],
+        recording_url=row[10] if len(row) > 10 else None,
     )
 
 
 def parse_session_row_with_issue(row) -> DevinSessionResponse:
+    # Use dict-like access to handle column order differences between new/migrated DBs
+    if hasattr(row, 'keys'):
+        d = dict(row)
+        return DevinSessionResponse(
+            id=d.get("id", 0),
+            session_id=d.get("session_id"),
+            session_url=d.get("session_url"),
+            issue_id=d.get("issue_id"),
+            finding_id=d.get("finding_id"),
+            status=d.get("status") or "pending",
+            status_detail=d.get("status_detail") or "",
+            created_at=d.get("created_at") or "",
+            updated_at=d.get("updated_at"),
+            pr_url=d.get("pr_url"),
+            pr_number=d.get("pr_number"),
+            recording_url=d.get("recording_url"),
+            issue_title=d.get("title"),
+            issue_number=d.get("number"),
+            repo_full_name=d.get("repo_full_name"),
+            issue_body=d.get("body"),
+            ai_summary=d.get("ai_summary"),
+            issue_severity=d.get("severity"),
+            issue_category=d.get("category"),
+        )
+    # Fallback for plain tuples (ds.* columns + joined issue columns at the end)
     return DevinSessionResponse(
         id=row[0],
         session_id=row[1],
@@ -56,17 +99,14 @@ def parse_session_row_with_issue(row) -> DevinSessionResponse:
         updated_at=row[7],
         pr_url=row[8],
         pr_number=row[9],
-        recording_url=row[10],
-        issue_title=row[11] if len(row) > 11 else None,
-        issue_number=row[12] if len(row) > 12 else None,
-        repo_full_name=row[13] if len(row) > 13 else None,
+        recording_url=row[10] if len(row) > 10 else None,
     )
 
 
 @router.get("/sessions", response_model=list[DevinSessionResponse])
 async def list_sessions(db: aiosqlite.Connection = Depends(get_db)):
     cursor = await db.execute(
-        """SELECT ds.*, i.title, i.number, i.repo_full_name
+        """SELECT ds.*, i.title, i.number, i.repo_full_name, i.body, i.ai_summary, i.severity, i.category
         FROM devin_sessions ds
         LEFT JOIN issues i ON ds.issue_id = i.id
         ORDER BY ds.created_at DESC"""
@@ -103,12 +143,21 @@ async def get_session(
         result = parse_session_row(row).model_dump()
 
     if live_status:
-        result["live_status"] = live_status.get("status_enum", "unknown")
+        result["live_status"] = live_status.get("status", live_status.get("status_enum", "unknown"))
+        result["status_detail"] = live_status.get("status_detail", "")
         result["session_url"] = live_status.get("url", result.get("session_url"))
+        # Extract PR URLs from pull_requests array
+        prs = live_status.get("pull_requests") or []
+        if prs and isinstance(prs, list) and len(prs) > 0:
+            pr_data = prs[0] if isinstance(prs[0], dict) else {"url": prs[0]}
+            result["pr_url"] = pr_data.get("url", pr_data.get("html_url", str(prs[0])))
+        # Extract playback URL
+        if live_status.get("playback_url"):
+            result["recording_url"] = live_status["playback_url"]
 
         # Update local DB with live status
         if row:
-            new_status = live_status.get("status_enum", row[5])
+            new_status = live_status.get("status", live_status.get("status_enum", row[5]))
             await db.execute(
                 "UPDATE devin_sessions SET status = ?, updated_at = datetime('now') WHERE session_id = ?",
                 (new_status, session_id),
@@ -130,6 +179,13 @@ async def create_session(
             detail="Devin API token not configured. Go to Settings to add it.",
         )
 
+    # Fetch GitHub PAT for repo write access
+    pat_cursor = await db.execute("SELECT github_pat FROM settings WHERE id = 1")
+    pat_row = await pat_cursor.fetchone()
+    github_pat = ""
+    if pat_row:
+        github_pat = (pat_row["github_pat"] if hasattr(pat_row, 'keys') else pat_row[0]) or ""
+
     # Build prompt based on issue or finding
     prompt = request.prompt or ""
 
@@ -146,7 +202,7 @@ async def create_session(
             "body": issue_row[4] or "",
             "labels": labels,
         }
-        prompt = devin.build_issue_prompt(issue_dict, issue_row[5])
+        prompt = devin.build_issue_prompt(issue_dict, issue_row[5], github_pat=github_pat)
 
         # Update issue status
         await db.execute(
@@ -170,7 +226,7 @@ async def create_session(
             "description": finding_row[7],
             "cwe_id": finding_row[10],
         }
-        prompt = devin.build_security_prompt(finding_dict, finding_row[8])
+        prompt = devin.build_security_prompt(finding_dict, finding_row[8], github_pat=github_pat)
 
         # Update finding status
         await db.execute(
@@ -233,19 +289,26 @@ async def refresh_session(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch session: {str(e)}")
 
-    status = live_data.get("status_enum", "unknown")
+    status = live_data.get("status", live_data.get("status_enum", "unknown"))
+    status_detail = live_data.get("status_detail", "")
 
     # Update local DB
     await db.execute(
-        "UPDATE devin_sessions SET status = ?, updated_at = datetime('now') WHERE session_id = ?",
-        (status, session_id),
+        "UPDATE devin_sessions SET status = ?, status_detail = ?, updated_at = datetime('now') WHERE session_id = ?",
+        (status, status_detail, session_id),
     )
 
     # If session is finished, check for PR
     if status in ("finished", "stopped"):
-        # Check if there's a structured output with PR info
-        structured = live_data.get("structured_output", {})
-        pr_url = structured.get("pr_url", "")
+        # Check pull_requests array first, then structured_output
+        prs = live_data.get("pull_requests") or []
+        pr_url = ""
+        if prs and isinstance(prs, list) and len(prs) > 0:
+            pr_data = prs[0] if isinstance(prs[0], dict) else {"url": prs[0]}
+            pr_url = pr_data.get("url", pr_data.get("html_url", str(prs[0])))
+        if not pr_url:
+            structured = live_data.get("structured_output") or {}
+            pr_url = structured.get("pr_url", "")
         if pr_url:
             await db.execute(
                 "UPDATE devin_sessions SET pr_url = ? WHERE session_id = ?",
@@ -299,17 +362,24 @@ async def poll_all_sessions(
 
         try:
             live_data = await devin.get_session(sid)
-            new_status = live_data.get("status_enum", old_status)
+            new_status = live_data.get("status", live_data.get("status_enum", old_status))
 
-            # Update session status
+            # Update session status and status_detail
+            status_detail = live_data.get("status_detail", "")
             await db.execute(
-                "UPDATE devin_sessions SET status = ?, updated_at = datetime('now') WHERE session_id = ?",
-                (new_status, sid),
+                "UPDATE devin_sessions SET status = ?, status_detail = ?, updated_at = datetime('now') WHERE session_id = ?",
+                (new_status, status_detail, sid),
             )
 
-            # Extract PR URL and recording URL from session data
-            structured = live_data.get("structured_output") or {}
-            pr_url = structured.get("pr_url", "")
+            # Extract PR URL from pull_requests array first, then structured_output
+            prs = live_data.get("pull_requests") or []
+            pr_url = ""
+            if prs and isinstance(prs, list) and len(prs) > 0:
+                pr_data = prs[0] if isinstance(prs[0], dict) else {"url": prs[0]}
+                pr_url = pr_data.get("url", pr_data.get("html_url", str(prs[0])))
+            if not pr_url:
+                structured = live_data.get("structured_output") or {}
+                pr_url = structured.get("pr_url", "")
             playback_url = live_data.get("playback_url", "")
 
             # Update recording URL on the session
@@ -319,14 +389,43 @@ async def poll_all_sessions(
                     (playback_url, sid),
                 )
 
-            # If session finished/stopped and has a PR
-            if new_status in ("finished", "stopped"):
-                if pr_url:
-                    await db.execute(
-                        "UPDATE devin_sessions SET pr_url = ? WHERE session_id = ?",
-                        (pr_url, sid),
-                    )
+            # Update PR URL on session if found (even while running)
+            if pr_url:
+                await db.execute(
+                    "UPDATE devin_sessions SET pr_url = ? WHERE session_id = ?",
+                    (pr_url, sid),
+                )
 
+            # Send Slack notification when session needs user input
+            if status_detail == 'waiting_for_user' and slack.webhook_url:
+                # Check if we already notified for this waiting state
+                notif_cursor = await db.execute(
+                    "SELECT status_detail FROM devin_sessions WHERE session_id = ?",
+                    (sid,),
+                )
+                notif_row = await notif_cursor.fetchone()
+                old_detail = notif_row[0] if notif_row else ""
+                if old_detail != 'waiting_for_user':
+                    # First time seeing waiting_for_user - send notification
+                    if issue_id:
+                        issue_cursor2 = await db.execute(
+                            "SELECT title, number, repo_full_name, devin_session_url FROM issues WHERE id = ?",
+                            (issue_id,),
+                        )
+                        issue_row2 = await issue_cursor2.fetchone()
+                        if issue_row2:
+                            session_url = issue_row2[3] or f"https://app.devin.ai/sessions/{sid}"
+                            await slack.send_issue_notification(
+                                issue_title=issue_row2[0],
+                                issue_number=issue_row2[1],
+                                repo=issue_row2[2],
+                                action="Needs Your Input",
+                                devin_session_url=session_url,
+                            )
+                            logger.info(f"Slack notification sent: waiting_for_user for issue #{issue_id}")
+
+            # If session finished/stopped, update linked issues/findings
+            if new_status in ("finished", "stopped"):
                 # Update linked issue
                 if issue_id:
                     update_fields = {"status": "pr_open" if pr_url else "resolved"}
@@ -417,3 +516,241 @@ async def poll_all_sessions(
 
     await db.commit()
     return {"polled": len(results), "results": results}
+
+
+@router.get("/sessions/{session_id}/live")
+async def get_session_live(
+    session_id: str,
+    db: aiosqlite.Connection = Depends(get_db),
+    devin: DevinService = Depends(get_devin_service),
+):
+    """Fetch live session details from Devin API + cached events."""
+    if not devin.token:
+        raise HTTPException(status_code=400, detail="Devin API token not configured")
+
+    # Resolve DB integer id to actual Devin session UUID if needed
+    actual_session_id = session_id
+    try:
+        row_id = int(session_id)
+        cursor = await db.execute("SELECT session_id FROM devin_sessions WHERE id = ?", (row_id,))
+        row = await cursor.fetchone()
+        if row and row[0]:
+            actual_session_id = row[0]
+    except (ValueError, TypeError):
+        pass  # Not an integer, use as-is (it's already a UUID)
+
+    try:
+        live_data = await devin.get_session(actual_session_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch from Devin API: {str(e)}")
+
+    # Extract useful fields for the frontend
+    structured = live_data.get("structured_output") or {}
+    prs = live_data.get("pull_requests") or []
+    pr_url = ""
+    if prs and isinstance(prs, list) and len(prs) > 0:
+        pr_data = prs[0] if isinstance(prs[0], dict) else {"url": prs[0]}
+        pr_url = pr_data.get("url", pr_data.get("html_url", str(prs[0])))
+
+    status = live_data.get("status", live_data.get("status_enum", "unknown"))
+    status_detail = live_data.get("status_detail", "")
+    title = live_data.get("title", "")
+
+    # Load cached events from DB (todos, messages, file_changes, status updates)
+    cached_todos = []
+    cached_messages = []
+    cached_file_changes = []
+    try:
+        cursor = await db.execute(
+            "SELECT event_type, event_data, created_at FROM session_events WHERE session_id = ? ORDER BY created_at DESC",
+            (actual_session_id,),
+        )
+        rows = await cursor.fetchall()
+        for row in rows:
+            evt_type = row[0]
+            evt_data = json.loads(row[1]) if row[1] else {}
+            if evt_type == "todo_update":
+                # Only keep the latest todo snapshot
+                if not cached_todos:
+                    cached_todos = evt_data.get("todos", [])
+            elif evt_type == "devin_message":
+                cached_messages.append({
+                    "message": evt_data.get("message", ""),
+                    "timestamp": row[2],
+                })
+            elif evt_type == "file_changes":
+                if not cached_file_changes:
+                    cached_file_changes = evt_data.get("files", [])
+    except Exception:
+        pass
+
+    # Build timeline from cached todos (real Devin task list)
+    timeline = []
+    if cached_todos:
+        for todo in cached_todos:
+            todo_status = todo.get("status", "pending")
+            timeline_status = "done" if todo_status == "completed" else "running" if todo_status == "in_progress" else "waiting"
+            timeline.append({
+                "step": todo.get("content", "Task"),
+                "status": timeline_status,
+                "detail": "",
+            })
+    else:
+        # Fallback: infer timeline from session data
+        timeline.append({"step": "Session started", "status": "done", "detail": title or "Analyzing issue..."})
+
+        if isinstance(structured, dict):
+            plan = structured.get("plan", structured.get("summary", ""))
+            if plan:
+                timeline.append({"step": "Plan created", "status": "done", "detail": plan[:200]})
+            steps = structured.get("steps", structured.get("tasks", []))
+            if isinstance(steps, list):
+                for s in steps[:8]:
+                    if isinstance(s, dict):
+                        timeline.append({
+                            "step": s.get("title", s.get("name", s.get("description", "Step"))),
+                            "status": s.get("status", "done"),
+                            "detail": s.get("description", s.get("detail", "")),
+                        })
+                    elif isinstance(s, str):
+                        timeline.append({"step": s, "status": "done", "detail": ""})
+
+        if status in ("running",) and not structured and not cached_todos:
+            if status_detail == "waiting_for_user":
+                timeline.append({"step": "Analysis complete", "status": "done", "detail": "Waiting for your approval"})
+            else:
+                timeline.append({"step": "Working on fix", "status": "running", "detail": "Devin is writing code..."})
+
+    if status_detail == "waiting_for_user":
+        timeline.append({"step": "Awaiting approval", "status": "waiting", "detail": "Review the plan and approve to proceed"})
+
+    if prs:
+        timeline.append({"step": "Pull request created", "status": "done", "detail": pr_url})
+
+    if status in ("completed", "succeeded", "finished", "stopped"):
+        timeline.append({"step": "Completed", "status": "done", "detail": "Fix has been implemented"})
+
+    return {
+        "session_id": session_id,
+        "status": status,
+        "status_detail": status_detail,
+        "title": title,
+        "url": live_data.get("url", f"https://app.devin.ai/sessions/{session_id}"),
+        "playback_url": live_data.get("playback_url", ""),
+        "pr_url": pr_url,
+        "structured_output": structured,
+        "timeline": timeline,
+        "todos": cached_todos,
+        "messages": cached_messages[:5],
+        "file_changes": cached_file_changes,
+        "created_at": live_data.get("created_at", ""),
+        "updated_at": live_data.get("updated_at", ""),
+    }
+
+
+@router.post("/sessions/{session_id}/events")
+async def store_session_events(
+    session_id: str,
+    events: list[dict],
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Store cached events for a Devin session (called by sync process)."""
+    for evt in events:
+        evt_type = evt.get("type", "unknown")
+        evt_data = json.dumps(evt.get("data", evt))
+        evt_time = evt.get("created_at", None)
+        await db.execute(
+            "INSERT INTO session_events (session_id, event_type, event_data, created_at) VALUES (?, ?, ?, COALESCE(?, datetime('now')))",
+            (session_id, evt_type, evt_data, evt_time),
+        )
+    await db.commit()
+    return {"stored": len(events)}
+
+
+@router.get("/sessions/{session_id}/events")
+async def get_session_events(
+    session_id: str,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Get cached events for a Devin session."""
+    cursor = await db.execute(
+        "SELECT event_type, event_data, created_at FROM session_events WHERE session_id = ? ORDER BY created_at ASC",
+        (session_id,),
+    )
+    rows = await cursor.fetchall()
+    return [
+        {"type": row[0], "data": json.loads(row[1]) if row[1] else {}, "created_at": row[2]}
+        for row in rows
+    ]
+
+
+@router.post("/sessions/{session_id}/approve")
+async def approve_session(
+    session_id: str,
+    db: aiosqlite.Connection = Depends(get_db),
+    devin: DevinService = Depends(get_devin_service),
+):
+    """Send approval message to a Devin session that is waiting for user input."""
+    if not devin.token:
+        raise HTTPException(status_code=400, detail="Devin API token not configured")
+
+    # session_id could be db row id (integer) or actual devin session uuid
+    # Look up the actual devin session_id from the database
+    actual_session_id = session_id
+    try:
+        row_id = int(session_id)
+        cursor = await db.execute("SELECT session_id FROM devin_sessions WHERE id = ?", (row_id,))
+        row = await cursor.fetchone()
+        if row and row[0]:
+            actual_session_id = row[0]
+    except (ValueError, TypeError):
+        pass  # Not an integer, use as-is (it's already a UUID)
+
+    # Fetch GitHub PAT to include in approval message
+    pat_cursor = await db.execute("SELECT github_pat FROM settings WHERE id = 1")
+    pat_row = await pat_cursor.fetchone()
+    github_pat = ""
+    if pat_row:
+        github_pat = (pat_row["github_pat"] if hasattr(pat_row, 'keys') else pat_row[0]) or ""
+
+    # Also get the repo name for this session's issue
+    repo_name = ""
+    issue_cursor = await db.execute(
+        "SELECT i.repo_full_name FROM devin_sessions ds JOIN issues i ON ds.issue_id = i.id WHERE ds.session_id = ? OR ds.id = ?",
+        (actual_session_id, session_id),
+    )
+    issue_row = await issue_cursor.fetchone()
+    if issue_row:
+        repo_name = issue_row[0] or ""
+
+    # Build approval message with PAT instructions
+    pat_instructions = ""
+    if github_pat and repo_name:
+        owner = repo_name.split("/")[0] if "/" in repo_name else ""
+        pat_instructions = (
+            f"\n\nIMPORTANT - Git Authentication:\n"
+            f"Run this command IMMEDIATELY before pushing or creating a PR:\n"
+            f"  git remote set-url origin https://{owner}:{github_pat}@github.com/{repo_name}.git\n"
+            f"Do NOT use git_create_pr - it will fail. Use curl instead:\n"
+            f"  curl -X POST https://api.github.com/repos/{repo_name}/pulls "
+            f'-H "Authorization: token {github_pat}" '
+            f'-H "Accept: application/vnd.github.v3+json" '
+            f"-d '{{\"title\": \"your title\", \"head\": \"your-branch\", \"base\": \"initial-setup\"}}'"
+            f"\nDo NOT ask for repo access. You have it via this PAT."
+        )
+
+    approval_msg = f"Approved. Please proceed with implementing the fix, create a PR, and record a test.{pat_instructions}"
+
+    try:
+        result = await devin.send_message(actual_session_id, approval_msg)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send message to Devin: {str(e)}")
+
+    # Update status_detail in DB (try both id and session_id)
+    await db.execute(
+        "UPDATE devin_sessions SET status_detail = 'approved', updated_at = datetime('now') WHERE id = ? OR session_id = ?",
+        (session_id, actual_session_id),
+    )
+    await db.commit()
+
+    return {"session_id": actual_session_id, "status": "approved", "result": result}
