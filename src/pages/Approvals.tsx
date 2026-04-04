@@ -131,12 +131,14 @@ export default function Approvals() {
   useEffect(() => {
     // Auto-poll on page load + every 30s
     const initialRefresh = async () => {
+      try { await api.syncPrs(); } catch { /* ignore - sync PRs from GitHub */ }
       try { await api.pollSessions(); } catch { /* ignore */ }
       try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
       setLoading(false);
     };
     initialRefresh();
     const interval = setInterval(async () => {
+      try { await api.syncPrs(); } catch { /* ignore */ }
       try { await api.pollSessions(); } catch { /* ignore */ }
       try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
     }, 30000);
@@ -151,6 +153,7 @@ export default function Approvals() {
 
   const refreshStatus = async () => {
     setLoading(true);
+    try { await api.syncPrs(); } catch { /* ignore */ }
     try { await api.pollSessions(); await loadSessions(); }
     catch { /* ignore */ }
     finally { setLoading(false); }
@@ -433,7 +436,7 @@ export default function Approvals() {
                     onClick={() => mergePr(session.id, session.pr_url!)}
                     disabled={merging.has(session.id)}
                     style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: merging.has(session.id) ? 0.6 : 1 }}>
-                    {merging.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {merging.has(session.id) ? 'Merging...' : 'Approve & Merge'}
+                    {merging.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {merging.has(session.id) ? 'Merging...' : 'Validate & Approve'}
                   </button>
                 ) : (session.status_detail === 'waiting_for_user' && !approved.has(session.id)) ? (
                   <button
@@ -465,12 +468,12 @@ export default function Approvals() {
                         {isMerged ? <GitMerge size={20} style={{ color: '#8b5cf6', flexShrink: 0, marginTop: 2 }} /> : <GitPullRequest size={20} style={{ color: '#8b5cf6', flexShrink: 0, marginTop: 2 }} />}
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: isMerged ? '#8b5cf6' : 'var(--ink)', marginBottom: 4 }}>
-                            {isMerged ? 'PR Merged! Issue resolved.' : 'Pull Request Ready for Review'}
+                            {isMerged ? 'PR Merged! Issue resolved.' : 'Review PR Before Approving'}
                           </div>
                           <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.5, marginBottom: 10 }}>
                             {isMerged
                               ? `PR was merged successfully. The code changes are now in the main branch.`
-                              : `Devin has created a PR. Review the code changes and recording below, then click "Approve & Merge" to merge it.`}
+                              : `Devin has created a PR with the fix. Review the code diff and test recording below, then click "Validate & Approve" to merge the PR.`}
                           </div>
                           {diff && !isMerged && (
                             <div style={{ display: 'flex', gap: 12, marginBottom: 10, fontSize: 11, color: 'var(--dim)' }}>
@@ -486,7 +489,7 @@ export default function Approvals() {
                                 onClick={() => mergePr(session.id, prUrl)}
                                 disabled={merging.has(session.id)}
                                 style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: merging.has(session.id) ? 0.6 : 1 }}>
-                                {merging.has(session.id) ? <Loader2 size={14} className="animate-spin" /> : <GitMerge size={14} />} {merging.has(session.id) ? 'Merging...' : 'Approve & Merge'}
+                                {merging.has(session.id) ? <Loader2 size={14} className="animate-spin" /> : <GitMerge size={14} />} {merging.has(session.id) ? 'Merging...' : 'Validate & Approve'}
                               </button>
                             )}
                             {isMerged && (

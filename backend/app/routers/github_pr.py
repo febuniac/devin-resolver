@@ -1,4 +1,5 @@
 import logging
+import re
 from fastapi import APIRouter, Depends, HTTPException
 import httpx
 import aiosqlite
@@ -88,6 +89,117 @@ async def get_pr_diff(
         "files": files,
         "raw_diff": raw_diff[:50000],  # Limit diff size
     }
+
+
+@router.post("/sync-prs")
+async def sync_prs_from_github(
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Scan all connected repos on GitHub for open PRs and match them to Devin sessions by issue number.
+    This fixes the case where Devin created PRs but the PR URLs weren't stored in the sessions DB."""
+    pat = await get_github_pat(db)
+    headers = {
+        "Authorization": f"token {pat}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+
+    # Get all connected repos
+    cursor = await db.execute("SELECT owner, name FROM connected_repos")
+    repos = await cursor.fetchall()
+    if not repos:
+        return {"synced": 0, "message": "No connected repos"}
+
+    # Get all sessions that don't have PR URLs yet
+    cursor = await db.execute(
+        """SELECT ds.id, ds.session_id, ds.issue_id, i.number as issue_number, i.repo_full_name
+        FROM devin_sessions ds
+        LEFT JOIN issues i ON ds.issue_id = i.id
+        WHERE ds.pr_url IS NULL OR ds.pr_url = ''"""
+    )
+    sessions_without_pr = await cursor.fetchall()
+    if not sessions_without_pr:
+        return {"synced": 0, "message": "All sessions already have PR URLs"}
+
+    # Build a lookup: (repo_full_name, issue_number) -> session db id
+    session_lookup = {}
+    for row in sessions_without_pr:
+        if hasattr(row, 'keys'):
+            d = dict(row)
+            repo = d.get("repo_full_name", "")
+            issue_num = d.get("issue_number")
+            db_id = d.get("id")
+        else:
+            db_id = row[0]
+            issue_num = row[3]
+            repo = row[4]
+        if repo and issue_num:
+            session_lookup[(repo, int(issue_num))] = db_id
+
+    updated = 0
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for repo_row in repos:
+            owner = repo_row[0] if not hasattr(repo_row, 'keys') else repo_row["owner"]
+            name = repo_row[1] if not hasattr(repo_row, 'keys') else repo_row["name"]
+            repo_full = f"{owner}/{name}"
+
+            # Fetch open PRs for this repo
+            try:
+                resp = await client.get(
+                    f"https://api.github.com/repos/{owner}/{name}/pulls?state=open&per_page=50",
+                    headers=headers,
+                )
+                if resp.status_code != 200:
+                    logger.warning(f"Failed to fetch PRs for {repo_full}: {resp.status_code}")
+                    continue
+                prs = resp.json()
+            except Exception as e:
+                logger.error(f"Error fetching PRs for {repo_full}: {e}")
+                continue
+
+            for pr in prs:
+                pr_title = pr.get("title", "")
+                pr_body = pr.get("body", "") or ""
+                pr_url = pr.get("html_url", "")
+                pr_number = pr.get("number")
+
+                # Try to extract issue number from PR title or body
+                # Patterns: "Fixes #31", "(#31)", "Issue #31", "#31"
+                issue_nums_found = set()
+                for text in [pr_title, pr_body]:
+                    matches = re.findall(r'#(\d+)', text)
+                    for m in matches:
+                        issue_nums_found.add(int(m))
+
+                # Also check if the PR branch name has an issue number
+                branch = pr.get("head", {}).get("ref", "")
+                branch_matches = re.findall(r'(\d+)', branch)
+                for m in branch_matches:
+                    num = int(m)
+                    if num < 1000:  # Likely an issue number, not a timestamp
+                        issue_nums_found.add(num)
+
+                # Match against sessions
+                for issue_num in issue_nums_found:
+                    key = (repo_full, issue_num)
+                    if key in session_lookup:
+                        db_id = session_lookup[key]
+                        # Update the session with PR URL
+                        await db.execute(
+                            "UPDATE devin_sessions SET pr_url = ?, updated_at = datetime('now') WHERE id = ?",
+                            (pr_url, db_id),
+                        )
+                        # Also update the linked issue
+                        await db.execute(
+                            "UPDATE issues SET pr_url = ?, status = 'pr_open' WHERE number = ? AND repo_full_name = ?",
+                            (pr_url, issue_num, repo_full),
+                        )
+                        updated += 1
+                        logger.info(f"Synced PR #{pr_number} -> session {db_id} (issue #{issue_num} in {repo_full})")
+                        # Remove from lookup so we don't double-match
+                        del session_lookup[key]
+
+    await db.commit()
+    return {"synced": updated, "message": f"Synced {updated} PRs from GitHub to sessions"}
 
 
 @router.post("/pr-merge/{owner}/{repo}/{pr_number}")
