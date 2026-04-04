@@ -10,12 +10,7 @@ const GitHubIcon = ({ size = 14 }: { size?: number }) => (
 );
 
 const DevinIcon = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <rect width="24" height="24" rx="6" fill="#1a1f2e" />
-    <path d="M7 8.5C7 7.67 7.67 7 8.5 7h7c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5h-7c-.83 0-1.5-.67-1.5-1.5v-7z" fill="#6C63FF" opacity=".3" />
-    <circle cx="12" cy="12" r="3.5" fill="#6C63FF" />
-    <circle cx="12" cy="12" r="1.5" fill="#fff" />
-  </svg>
+  <img src="/brand/devin-logo.png" alt="Devin" style={{ width: size, height: size, borderRadius: 3, objectFit: 'contain' }} />
 );
 
 interface Session {
@@ -740,28 +735,22 @@ export default function Approvals() {
                               <ExternalLink size={11} /> Open full session
                             </a>
                           </div>
-                          <a
-                            href={session.session_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                              padding: '24px 16px', background: '#0d1117', color: '#8b949e',
-                              textDecoration: 'none', cursor: 'pointer', transition: 'background 0.2s',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = '#161b22')}
-                            onMouseLeave={e => (e.currentTarget.style.background = '#0d1117')}
-                          >
-                            <Play size={20} style={{ color: '#58a6ff' }} />
-                            <span style={{ fontSize: 13, fontWeight: 600, color: '#c9d1d9' }}>Watch Devin&apos;s desktop recording</span>
-                          </a>
+                          {/* Embed Devin session as iframe so user can watch inline */}
+                          <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', background: '#0d1117' }}>
+                            <iframe
+                              src={`${session.session_url}?embed=true`}
+                              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+                              allow="autoplay; fullscreen"
+                              title="Devin Desktop Recording"
+                            />
+                          </div>
                           <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <span style={{ fontSize: 11, color: 'var(--mid)', display: 'flex', alignItems: 'center', gap: 6 }}>
                               <Clock size={12} style={{ color: 'var(--dim)' }} /> Session {formatTimestamp(session.updated_at)}
                             </span>
-                            <span style={{ fontSize: 10, fontWeight: 600, color: '#58a6ff', background: 'rgba(88,166,255,0.1)', padding: '2px 8px', borderRadius: 10 }}>
-                              Available on Devin
-                            </span>
+                            <a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 600, color: '#58a6ff', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <ExternalLink size={10} /> Open on Devin
+                            </a>
                           </div>
                         </div>
                       ) : (
