@@ -447,11 +447,37 @@ export default function Approvals() {
                           </div>
                         ) : (
                           <>
-                            {(liveData[session.id]?.title || session.ai_summary) && (
+                            {/* Devin's solution plan from timeline */}
+                            {(liveData[session.id]?.timeline || []).length > 0 ? (
+                              <div style={{ marginBottom: 10 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
+                                  {liveData[session.id]?.title && liveData[session.id].title !== session.issue_title
+                                    ? liveData[session.id].title
+                                    : "Devin's solution steps:"}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                  {(liveData[session.id]?.timeline || []).map((step, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 11, color: 'var(--ink)' }}>
+                                      <span style={{
+                                        width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1, fontSize: 9, fontWeight: 700,
+                                        background: step.status === 'done' ? 'rgba(33,193,154,0.12)' : step.status === 'running' ? 'rgba(2,148,222,0.12)' : step.status === 'waiting' ? 'rgba(233,168,32,0.12)' : 'var(--bg)',
+                                        color: step.status === 'done' ? 'var(--green)' : step.status === 'running' ? 'var(--blue)' : step.status === 'waiting' ? '#e9a820' : 'var(--dim)',
+                                      }}>
+                                        {step.status === 'done' ? '✓' : step.status === 'running' ? '⟳' : step.status === 'waiting' ? '!' : (i + 1)}
+                                      </span>
+                                      <div style={{ lineHeight: 1.4 }}>
+                                        <span style={{ fontWeight: 600 }}>{step.step}</span>
+                                        {step.detail && <span style={{ color: 'var(--dim)', marginLeft: 4 }}>— {step.detail.slice(0, 100)}</span>}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (liveData[session.id]?.title || session.ai_summary) ? (
                               <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5, marginBottom: 10 }}>
                                 {liveData[session.id]?.title || session.ai_summary}
                               </div>
-                            )}
+                            ) : null}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                               <div style={{ display: 'flex', gap: 6, fontSize: 11, color: 'var(--dim)' }}>
                                 <span style={{ fontWeight: 600, width: 52, flexShrink: 0 }}>Sent:</span>
@@ -474,8 +500,8 @@ export default function Approvals() {
                             </div>
                             {/* PR + Session links */}
                             <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                              {session.pr_url && (
-                                <a href={session.pr_url} target="_blank" rel="noopener noreferrer"
+                              {(session.pr_url || liveData[session.id]?.pr_url) && (
+                                <a href={session.pr_url || liveData[session.id]?.pr_url} target="_blank" rel="noopener noreferrer"
                                   style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.1)', color: 'var(--green)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid rgba(33,193,154,0.2)' }}>
                                   <GitPullRequest size={11} /> View PR
                                 </a>
