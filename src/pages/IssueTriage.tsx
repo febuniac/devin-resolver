@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Filter, Send, ExternalLink, Play, GitPullRequest, ChevronDown, ChevronUp, Brain, Loader2, AlertCircle, RefreshCw, Sparkles, X, PartyPopper } from 'lucide-react';
 import { StatusBadge, SeverityBadge } from '../components/ui/StatusBadge';
 import ConfidenceMeter from '../components/ui/ConfidenceMeter';
@@ -118,23 +119,23 @@ export default function IssueTriage() {
 
   return (
     <div className="space-y-3 animate-fade-in">
-      {/* Success Modal */}
-      {successModal.show && (
+      {/* Success Modal - rendered via portal to escape overflow clipping */}
+      {successModal.show && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-modal-bg" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setSuccessModal({ ...successModal, show: false })}>
-          <div className="relative bg-zinc-900 border border-devin-purple/30 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl shadow-devin-purple/20 animate-modal-pop success-modal-card" onClick={(e) => e.stopPropagation()}>
+          <div className="relative rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl shadow-devin-purple/20 animate-modal-pop success-modal-card" style={{ backgroundColor: '#18181b', border: '1px solid rgba(57,105,202,0.3)' }} onClick={(e) => e.stopPropagation()}>
             <div className="w-14 h-14 rounded-full bg-gradient-to-br from-devin-purple to-devin-green flex items-center justify-center mx-auto mb-4 glow animate-confetti-pop">
-              <PartyPopper className="w-10 h-10 text-white" />
+              <PartyPopper className="w-10 h-10 text-white" style={{ color: '#fff' }} />
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">
+            <h2 className="text-xl font-bold mb-2" style={{ color: '#fff' }}>
               {successModal.count} issue{successModal.count !== 1 ? 's' : ''} off your plate!
             </h2>
-            <p className="text-zinc-400 mb-1 text-sm">
+            <p className="mb-1 text-sm" style={{ color: '#a1a1aa' }}>
               That's {successModal.count} fewer thing{successModal.count !== 1 ? 's' : ''} you have to worry about.
             </p>
             <p className="text-devin-blue font-semibold text-base mb-4">
               Devin takes it from here.
             </p>
-            <div className="flex items-center justify-center gap-3 text-xs text-zinc-500 mb-4">
+            <div className="flex items-center justify-center gap-3 text-xs mb-4" style={{ color: '#71717a' }}>
               {[
                 { Icon: Sparkles, label: 'Analyzing' },
                 { Icon: Brain, label: 'Writing fix' },
@@ -142,7 +143,7 @@ export default function IssueTriage() {
                 { Icon: GitPullRequest, label: 'Opening PR' },
               ].map((step, i) => (
                 <div key={step.label} className="flex items-center gap-1.5">
-                  {i > 0 && <span className="text-zinc-700 mr-2">→</span>}
+                  {i > 0 && <span className="mr-2" style={{ color: '#3f3f46' }}>→</span>}
                   <step.Icon className="w-3.5 h-3.5 text-devin-blue" />
                   <span>{step.label}</span>
                 </div>
@@ -150,18 +151,19 @@ export default function IssueTriage() {
             </div>
             <button
               onClick={() => setSuccessModal({ ...successModal, show: false })}
-              className="bg-devin-purple hover:bg-devin-blue text-white px-6 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-105"
+              className="bg-devin-purple hover:bg-devin-blue px-6 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-105" style={{ color: '#fff' }}
             >
               Got it!
             </button>
             <button
               onClick={() => setSuccessModal({ ...successModal, show: false })}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors"
+              className="absolute top-4 right-4 transition-colors" style={{ color: '#71717a' }}
             >
               <X className="w-5 h-5" />
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {error && (
