@@ -220,9 +220,9 @@ export default function Approvals() {
       </div>
 
       <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 110px 110px 100px 100px', padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--rule)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 110px 110px 90px 100px 100px', padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--rule)' }}>
           <div />
-          {['Issue', 'Sent', 'Solved', 'Status', 'Action'].map(h => (
+          {['Issue', 'Sent', 'Solved', 'Time to Correct', 'Status', 'Action'].map(h => (
             <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--dim)' }}>{h}</div>
           ))}
         </div>
@@ -236,7 +236,7 @@ export default function Approvals() {
             {/* Session Row */}
             <div
               onClick={() => toggleExpand(session.id)}
-              style={{ display: 'grid', gridTemplateColumns: '28px 1fr 110px 110px 100px 100px', padding: '14px 16px', borderBottom: '1px solid var(--rule)', alignItems: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
+              style={{ display: 'grid', gridTemplateColumns: '28px 1fr 110px 110px 90px 100px 100px', padding: '14px 16px', borderBottom: '1px solid var(--rule)', alignItems: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
@@ -269,6 +269,15 @@ export default function Approvals() {
                   <span style={{ fontSize: 10, color: '#e53e3e' }}>Blocked</span>
                 ) : (
                   <span style={{ fontSize: 10, color: 'var(--dim)' }}>{session.status || '\u2014'}</span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dim)' }}>
+                {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                  <span className="font-mono" style={{ fontSize: 10, color: 'var(--green)', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at)}</span>
+                ) : (session.status === 'running' || session.status === 'pending') ? (
+                  <span className="font-mono" style={{ fontSize: 10, color: 'var(--blue)' }}>{timeDiff(session.created_at, new Date().toISOString())}...</span>
+                ) : (
+                  <span style={{ fontSize: 10, color: 'var(--dim)' }}>{'—'}</span>
                 )}
               </div>
               <div>
