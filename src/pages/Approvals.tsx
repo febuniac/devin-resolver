@@ -10,6 +10,7 @@ interface Session {
   issue_number: number | null;
   repo_full_name: string | null;
   status: string;
+  status_detail: string | null;
   pr_url: string | null;
   created_at: string;
   session_url: string;
@@ -129,8 +130,12 @@ export default function Approvals() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}>
                   {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                     <><CheckCircle size={14} style={{ color: 'var(--green)' }} /><span style={{ color: 'var(--green)' }}>Done</span></>
+                  ) : session.status_detail === 'waiting_for_user' ? (
+                    <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Needs Input</span></>
                   ) : (session.status === 'running' || session.status === 'pending') ? (
                     <><span className="dot dot-blue" /><span style={{ color: 'var(--blue)' }}>Running</span></>
+                  ) : session.status === 'blocked' ? (
+                    <><span className="dot" style={{ background: '#e53e3e' }} /><span style={{ color: '#e53e3e' }}>Blocked</span></>
                   ) : (
                     <><span className="dot dot-dim" /><span style={{ color: 'var(--dim)' }}>{session.status}</span></>
                   )}
