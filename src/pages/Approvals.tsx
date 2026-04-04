@@ -88,7 +88,7 @@ interface LiveData {
   updated_at: string;
 }
 
-type FilterType = 'all' | 'running' | 'needs_input' | 'completed' | 'has_pr';
+type FilterType = 'all' | 'running' | 'needs_input' | 'needs_pr_approval' | 'approved_solved';
 
 function formatTimestamp(ts: string | null): string {
   if (!ts) return '—';
@@ -263,17 +263,17 @@ export default function Approvals() {
   };
 
   const topbarEl = document.getElementById('topbar-actions');
-  const running = sessions.filter(s => s.status === 'running' || s.status === 'pending').length;
-  const needsInput = sessions.filter(s => s.status_detail === 'waiting_for_user').length;
-  const completed = sessions.filter(s => ['completed', 'succeeded', 'finished', 'stopped'].includes(s.status)).length;
-  const withPR = sessions.filter(s => s.pr_url).length;
+  const running = sessions.filter(s => (s.status === 'running' || s.status === 'pending') && s.status_detail !== 'waiting_for_user' && !s.pr_url).length;
+  const needsInput = sessions.filter(s => s.status_detail === 'waiting_for_user' && !s.pr_url).length;
+  const needsPrApproval = sessions.filter(s => !!s.pr_url && s.status !== 'merged' && !merged.has(s.id)).length;
+  const approvedSolved = sessions.filter(s => s.status === 'merged' || merged.has(s.id) || ['completed', 'succeeded', 'finished', 'stopped'].includes(s.status)).length;
 
   const filteredSessions = sessions.filter(s => {
     switch (filter) {
-      case 'running': return s.status === 'running' || s.status === 'pending';
-      case 'needs_input': return s.status_detail === 'waiting_for_user';
-      case 'completed': return ['completed', 'succeeded', 'finished', 'stopped'].includes(s.status);
-      case 'has_pr': return !!s.pr_url;
+      case 'running': return (s.status === 'running' || s.status === 'pending') && s.status_detail !== 'waiting_for_user' && !s.pr_url;
+      case 'needs_input': return s.status_detail === 'waiting_for_user' && !s.pr_url;
+      case 'needs_pr_approval': return !!s.pr_url && s.status !== 'merged' && !merged.has(s.id);
+      case 'approved_solved': return s.status === 'merged' || merged.has(s.id) || ['completed', 'succeeded', 'finished', 'stopped'].includes(s.status);
       default: return true;
     }
   });
@@ -283,9 +283,9 @@ export default function Approvals() {
   const filters: { key: FilterType; label: string; count: number; color: string }[] = [
     { key: 'all', label: 'All', count: sessions.length, color: 'var(--purple)' },
     { key: 'running', label: 'Running', count: running, color: 'var(--blue)' },
-    { key: 'needs_input', label: 'Needs Input', count: needsInput, color: '#e9a820' },
-    { key: 'completed', label: 'Completed', count: completed, color: 'var(--green)' },
-    { key: 'has_pr', label: 'Has PR', count: withPR, color: '#f59e0b' },
+    { key: 'needs_input', label: 'Needs User Input', count: needsInput, color: '#e9a820' },
+    { key: 'needs_pr_approval', label: 'Needs PR Approval', count: needsPrApproval, color: '#8b5cf6' },
+    { key: 'approved_solved', label: 'Approved & Solved', count: approvedSolved, color: 'var(--green)' },
   ];
 
   return (
@@ -304,9 +304,9 @@ export default function Approvals() {
         {[
           { label: 'Total Sessions', value: sessions.length, color: 'var(--purple)' },
           { label: 'Running', value: running, color: 'var(--blue)' },
-          { label: 'Needs Input', value: needsInput, color: '#e9a820' },
-          { label: 'Completed', value: completed, color: 'var(--green)' },
-          { label: 'PRs Opened', value: withPR, color: '#f59e0b' },
+          { label: 'Needs User Input', value: needsInput, color: '#e9a820' },
+          { label: 'Needs PR Approval', value: needsPrApproval, color: '#8b5cf6' },
+          { label: 'Approved & Solved', value: approvedSolved, color: 'var(--green)' },
         ].map((s, i) => (
           <div key={i} style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: '12px 12px 0 0', background: s.color }} />
