@@ -9,6 +9,7 @@ from app.db.database import get_db, get_db_connection
 from app.models.schemas import IssueResponse, IssueApproval, IssueRejection
 from app.services.devin_service import DevinService
 from app.services.slack_service import SlackService
+from app.services.github_service import GitHubService
 
 logger = logging.getLogger(__name__)
 
@@ -92,14 +93,15 @@ async def _create_devin_sessions(issue_ids: list[int]):
     logger.info(f"Starting Devin session creation for issues: {issue_ids}")
     db = await get_db_connection()
     try:
-        # Get Devin token + org_id + slack webhook from settings
+        # Get Devin token + org_id + slack webhook + github_pat from settings
         cursor = await db.execute(
-            "SELECT devin_api_token, devin_org_id, slack_webhook_url FROM settings WHERE id = 1"
+            "SELECT devin_api_token, devin_org_id, slack_webhook_url, github_pat FROM settings WHERE id = 1"
         )
         settings_row = await cursor.fetchone()
         token = settings_row[0] if settings_row and settings_row[0] else ""
         org_id = settings_row[1] if settings_row and settings_row[1] else ""
         slack_webhook = settings_row[2] if settings_row and settings_row[2] else ""
+        github_pat = settings_row[3] if settings_row and settings_row[3] else ""
 
         if not token:
             logger.warning("No Devin API token configured — skipping session creation")
@@ -129,6 +131,7 @@ async def _create_devin_sessions(issue_ids: list[int]):
                         "labels": json.loads(issue_row[6]) if issue_row[6] else [],
                     },
                     repo,
+                    github_pat=github_pat,
                 )
 
                 result = await devin.create_session(
@@ -367,3 +370,175 @@ async def triage_all_issues(db: aiosqlite.Connection = Depends(get_db)):
 
     await db.commit()
     return {"triaged": len(results), "results": results}
+
+
+@router.post("/sync-and-triage")
+async def sync_and_triage(db: aiosqlite.Connection = Depends(get_db)):
+    """Sync all connected repos from GitHub, then triage new issues."""
+    # Get GitHub token
+    cursor = await db.execute("SELECT github_token FROM settings WHERE id = 1")
+    row = await cursor.fetchone()
+    gh_token = row[0] if row and row[0] else ""
+    if not gh_token:
+        return {"error": "No GitHub token configured", "synced": 0, "triaged": 0}
+
+    github = GitHubService(gh_token)
+
+    # Get all connected repos
+    cursor = await db.execute("SELECT * FROM connected_repos")
+    repos = await cursor.fetchall()
+    if not repos:
+        return {"error": "No repos connected", "synced": 0, "triaged": 0}
+
+    total_synced = 0
+    total_security = 0
+
+    for repo_row in repos:
+        owner, name, full_name = repo_row[1], repo_row[2], repo_row[3]
+        repo_id = repo_row[0]
+
+        # Fetch latest issues from GitHub
+        try:
+            issues = await github.list_issues(owner, name)
+        except Exception as e:
+            logger.error(f"Failed to sync {full_name}: {e}")
+            continue
+
+        synced_count = 0
+        for issue in issues:
+            github_id = issue["id"]
+            cursor = await db.execute("SELECT id FROM issues WHERE github_id = ?", (github_id,))
+            existing = await cursor.fetchone()
+
+            labels = json.dumps([l["name"] for l in issue.get("labels", [])])
+
+            if existing:
+                await db.execute(
+                    """UPDATE issues SET title = ?, body = ?, labels = ?, state = ?,
+                    updated_at = ? WHERE github_id = ?""",
+                    (issue["title"], issue.get("body", ""), labels, issue["state"],
+                     issue.get("updated_at", ""), github_id),
+                )
+            else:
+                await db.execute(
+                    """INSERT INTO issues (github_id, number, title, body, repo_full_name,
+                    labels, state, author, created_at, updated_at, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')""",
+                    (github_id, issue["number"], issue["title"], issue.get("body", ""),
+                     full_name, labels, issue["state"],
+                     issue.get("user", {}).get("login", ""),
+                     issue.get("created_at", ""), issue.get("updated_at", "")),
+                )
+                synced_count += 1
+
+        # Sync security findings
+        security_count = 0
+        try:
+            alerts = await github.list_code_scanning_alerts(owner, name)
+            for alert in alerts:
+                alert_number = alert["number"]
+                cursor = await db.execute(
+                    "SELECT id FROM security_findings WHERE alert_number = ? AND repo_full_name = ?",
+                    (alert_number, full_name),
+                )
+                existing = await cursor.fetchone()
+                rule = alert.get("rule", {})
+                location = alert.get("most_recent_instance", {}).get("location", {})
+                if not existing:
+                    await db.execute(
+                        """INSERT INTO security_findings
+                        (alert_number, rule, rule_id, severity, file_path, line_number,
+                        description, repo_full_name, category, cwe_id, status, detected_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)""",
+                        (alert_number, rule.get("description", ""), rule.get("id", ""),
+                         alert.get("rule", {}).get("security_severity_level", "medium"),
+                         location.get("path", ""), location.get("start_line", 0),
+                         rule.get("full_description", rule.get("description", "")),
+                         full_name, rule.get("tags", [""])[0] if rule.get("tags") else "",
+                         ",".join(f"CWE-{c.get('cwe_id', '')}" for c in rule.get("cwes", [])) if rule.get("cwes") else "",
+                         alert.get("created_at", "")),
+                    )
+                    security_count += 1
+        except Exception:
+            pass
+
+        # Update last_sync
+        await db.execute(
+            """UPDATE connected_repos SET last_sync = datetime('now'),
+            open_issues_count = ? WHERE id = ?""",
+            (len(issues), repo_id),
+        )
+        total_synced += synced_count
+        total_security += security_count
+
+    await db.commit()
+
+    # Now triage all open issues
+    cursor = await db.execute("SELECT id FROM issues WHERE status = 'open'")
+    rows = await cursor.fetchall()
+    triaged_count = 0
+    for row in rows:
+        cursor2 = await db.execute("SELECT * FROM issues WHERE id = ?", (row[0],))
+        issue_row = await cursor2.fetchone()
+        if issue_row:
+            title = (issue_row[3] or "").lower()
+            labels = json.loads(issue_row[6] or "[]")
+            labels_lower = [l.lower() for l in labels]
+
+            category = "bug"
+            if any(k in title for k in ["feature", "add", "implement"]):
+                category = "feature"
+            elif any(k in title for k in ["security", "vulnerability"]):
+                category = "security"
+            elif any(k in title for k in ["slow", "performance", "memory"]):
+                category = "performance"
+
+            severity = "medium"
+            if any(k in labels_lower for k in ["p0", "critical"]):
+                severity = "critical"
+            elif any(k in labels_lower for k in ["p1", "high"]):
+                severity = "high"
+            elif any(k in labels_lower for k in ["p3", "low"]):
+                severity = "low"
+            elif "crash" in title or "broken" in title or "security" in title:
+                severity = "high"
+
+            body_len = len(issue_row[4] or "")
+            effort = "1-2 hours" if body_len < 200 else "2-4 hours" if body_len < 500 else "4-8 hours"
+            confidence = 85 if body_len < 200 else 80 if body_len < 500 else 75
+
+            ai_summary = f"Issue in {issue_row[5]}: {issue_row[3]}. Categorized as {category} ({severity}). Est: {effort}."
+
+            await db.execute(
+                """UPDATE issues SET severity = ?, category = ?, status = 'triaged',
+                ai_confidence = ?, ai_summary = ?, estimated_effort = ?,
+                triaged_at = datetime('now') WHERE id = ?""",
+                (severity, category, confidence, ai_summary, effort, row[0]),
+            )
+            triaged_count += 1
+
+    await db.commit()
+    return {
+        "synced": total_synced,
+        "security_synced": total_security,
+        "triaged": triaged_count,
+        "message": f"Synced {total_synced} new issues, {total_security} security findings, triaged {triaged_count} issues",
+    }
+
+
+@router.post("/retry-stuck")
+async def retry_stuck_issues(
+    background_tasks: BackgroundTasks,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Retry issues stuck in 'approved' status without a Devin session."""
+    cursor = await db.execute(
+        "SELECT id FROM issues WHERE status = 'approved' AND (devin_session_id IS NULL OR devin_session_id = '')"
+    )
+    rows = await cursor.fetchall()
+    stuck_ids = [row[0] for row in rows]
+
+    if stuck_ids:
+        background_tasks.add_task(_create_devin_sessions, stuck_ids)
+
+    return {"retrying": len(stuck_ids), "issue_ids": stuck_ids}
