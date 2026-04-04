@@ -44,23 +44,19 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 sidebar-glass border-r border-zinc-800/50 dark:border-zinc-800/50 light:border-zinc-200 flex flex-col z-50">
-      <div className="p-3 border-b border-zinc-800/50 dark:border-zinc-800/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img
-              src={theme === 'dark' ? '/brand/backlogzero-dark.png' : '/brand/backlogzero-light.png'}
-              alt="Backlog Zero"
-              className="h-7 object-contain"
-            />
-          </div>
-          <button
-            onClick={toggleTheme}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-zinc-200 dark:hover:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-        </div>
+      <div className="border-b border-zinc-800/50 dark:border-zinc-800/50 relative">
+        <img
+          src={theme === 'dark' ? '/brand/backlogzero-dark.png' : '/brand/backlogzero-light.png'}
+          alt="Backlog Zero"
+          className="w-full object-cover rounded-none"
+        />
+        <button
+          onClick={toggleTheme}
+          className="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 bg-zinc-800/40 dark:bg-zinc-700/40 hover:bg-zinc-700/60 dark:hover:bg-zinc-600/60 text-zinc-300 dark:text-zinc-300 hover:text-white"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+        </button>
       </div>
 
       <nav className="flex-1 py-2 px-3 space-y-0.5">
