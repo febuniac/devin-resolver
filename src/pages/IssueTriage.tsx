@@ -295,7 +295,7 @@ export function IssueTriage() {
                 </div>
                 <div className="font-mono" style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{issue.repo_full_name}</div>
               </div>
-              <div><span className={`chip ${categoryChipClass[issue.category] || 'chip-dim'}`}>{issue.category}</span></div>
+              <div><span className={`chip ${categoryChipClass[issue.category] || 'chip-dim'}`} style={{ maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', fontSize: 9 }}>{issue.category}</span></div>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <div style={{ width: 32, height: 4, borderRadius: 2, background: 'var(--rule)', overflow: 'hidden' }}>
@@ -329,8 +329,28 @@ export function IssueTriage() {
                   {issue.devin_session_url && <a href={issue.devin_session_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--purple)', textDecoration: 'none', fontWeight: 600 }}>View Devin Session →</a>}
                   {issue.pr_url && <a href={issue.pr_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--green)', textDecoration: 'none', fontWeight: 600 }}>View PR →</a>}
                 </div>
-                {issue.ai_summary && <p style={{ margin: '0 0 6px', fontStyle: 'italic', color: 'var(--dim)' }}>{issue.ai_summary}</p>}
-                {issue.body && <p style={{ margin: 0 }}>{issue.body.length > 300 ? issue.body.slice(0, 300) + '...' : issue.body}</p>}
+                {issue.ai_summary && <p style={{ margin: '0 0 10px', fontStyle: 'italic', color: 'var(--dim)', fontSize: 11 }}>{issue.ai_summary}</p>}
+                {issue.body && (() => {
+                  const sections = issue.body.split(/##\s+/).filter(Boolean);
+                  if (sections.length > 1) {
+                    return (
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        {sections.map((section, i) => {
+                          const lines = section.trim().split('\n');
+                          const heading = lines[0].trim();
+                          const content = lines.slice(1).join(' ').trim();
+                          return (
+                            <div key={i} style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 8, padding: '8px 12px' }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--purple)', marginBottom: 4 }}>{heading}</div>
+                              <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{content || heading}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
+                  return <p style={{ margin: 0 }}>{issue.body.length > 400 ? issue.body.slice(0, 400) + '...' : issue.body}</p>;
+                })()}
               </div>
             )}
           </div>
