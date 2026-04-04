@@ -22,6 +22,12 @@ interface Session {
   issue_category: string | null;
 }
 
+interface TimelineStep {
+  step: string;
+  status: string;
+  detail: string;
+}
+
 interface LiveData {
   title: string;
   status: string;
@@ -30,6 +36,7 @@ interface LiveData {
   playback_url: string;
   pr_url: string;
   structured_output: Record<string, unknown>;
+  timeline: TimelineStep[];
   created_at: string;
   updated_at: string;
 }
@@ -97,6 +104,13 @@ export default function Approvals() {
     finally { setLoading(false); }
   };
 
+  const fetchLiveData = async (id: string) => {
+    try {
+      const data = await api.getSessionLive(id) as LiveData;
+      setLiveData(prev => ({ ...prev, [id]: data }));
+    } catch { /* ignore */ }
+  };
+
   const toggleExpand = async (id: string) => {
     const wasExpanded = expanded.has(id);
     setExpanded(prev => {
@@ -105,7 +119,7 @@ export default function Approvals() {
       else next.add(id);
       return next;
     });
-    if (!wasExpanded && !liveData[id]) {
+    if (!wasExpanded) {
       setLoadingLive(prev => new Set(prev).add(id));
       try {
         const data = await api.getSessionLive(id) as LiveData;
@@ -117,6 +131,15 @@ export default function Approvals() {
       }
     }
   };
+
+  // Auto-refresh live data for expanded sessions every 15s
+  useEffect(() => {
+    if (expanded.size === 0) return;
+    const liveInterval = setInterval(() => {
+      expanded.forEach(id => fetchLiveData(id));
+    }, 15000);
+    return () => clearInterval(liveInterval);
+  }, [expanded]);
 
   const approveSession = async (sessionId: string) => {
     setApproving(prev => new Set(prev).add(sessionId));
@@ -512,31 +535,50 @@ export default function Approvals() {
                             </div>
                           </div>
 
-                          {/* Terminal-like activity log */}
-                          <div style={{ background: '#161b22', borderRadius: 8, padding: '12px 14px', fontFamily: 'monospace', fontSize: 11, color: '#8b949e', lineHeight: 1.8 }}>
-                            {liveData[session.id]?.title ? (
-                              <>
-                                <div><span style={{ color: '#3fb950' }}>$</span> <span style={{ color: '#e6edf3' }}>analyzing issue...</span></div>
-                                <div style={{ color: '#58a6ff', paddingLeft: 14 }}>Found: {session.issue_title}</div>
-                                <div><span style={{ color: '#3fb950' }}>$</span> <span style={{ color: '#e6edf3' }}>planning solution</span></div>
-                                <div style={{ color: '#58a6ff', paddingLeft: 14 }}>{liveData[session.id].title}</div>
-                                {session.status_detail === 'waiting_for_user' && (
-                                  <div style={{ marginTop: 6 }}><span style={{ color: '#e9a820' }}>?</span> <span style={{ color: '#e9a820' }}>Awaiting user approval to proceed...</span></div>
-                                )}
-                                {session.pr_url && (
-                                  <div><span style={{ color: '#3fb950' }}>$</span> <span style={{ color: '#3fb950' }}>PR created successfully</span></div>
-                                )}
-                              </>
-                            ) : loadingLive.has(session.id) ? (
-                              <>
-                                <div><span style={{ color: '#3fb950' }}>$</span> <span style={{ color: '#e6edf3' }}>connecting to Devin...</span></div>
-                                <div style={{ color: '#8b949e', paddingLeft: 14 }}>Loading session data...</div>
-                              </>
+                          {/* Timeline activity log */}
+                          <div style={{ background: '#161b22', borderRadius: 8, padding: '14px 16px', fontSize: 12, color: '#8b949e', lineHeight: 1.6 }}>
+                            {loadingLive.has(session.id) ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8 }}>
+                                <Loader2 size={14} className="animate-spin" style={{ color: '#58a6ff' }} />
+                                <span style={{ color: '#e6edf3' }}>Connecting to Devin...</span>
+                              </div>
+                            ) : (liveData[session.id]?.timeline || []).length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                {(liveData[session.id]?.timeline || []).map((step, i, arr) => (
+                                  <div key={i} style={{ display: 'flex', gap: 10, position: 'relative' }}>
+                                    {/* Vertical line connector */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16, flexShrink: 0 }}>
+                                      <div style={{
+                                        width: 10, height: 10, borderRadius: '50%', marginTop: 4, flexShrink: 0,
+                                        background: step.status === 'done' ? '#3fb950' : step.status === 'running' ? '#58a6ff' : step.status === 'waiting' ? '#e9a820' : '#484f58',
+                                        boxShadow: step.status === 'running' ? '0 0 8px rgba(88,166,255,0.5)' : step.status === 'waiting' ? '0 0 8px rgba(233,168,32,0.5)' : 'none',
+                                        animation: step.status === 'running' ? 'pulse 2s infinite' : 'none',
+                                      }} />
+                                      {i < arr.length - 1 && <div style={{ width: 2, flex: 1, minHeight: 12, background: '#21262d' }} />}
+                                    </div>
+                                    {/* Step content */}
+                                    <div style={{ paddingBottom: i < arr.length - 1 ? 10 : 0, flex: 1, minWidth: 0 }}>
+                                      <div style={{
+                                        fontSize: 11, fontWeight: 600,
+                                        color: step.status === 'done' ? '#e6edf3' : step.status === 'running' ? '#58a6ff' : step.status === 'waiting' ? '#e9a820' : '#8b949e',
+                                      }}>
+                                        {step.step}
+                                        {step.status === 'running' && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.7 }}>...</span>}
+                                      </div>
+                                      {step.detail && (
+                                        <div style={{ fontSize: 10, color: '#8b949e', marginTop: 2, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                          {step.detail}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             ) : (
-                              <>
-                                <div><span style={{ color: '#3fb950' }}>$</span> <span style={{ color: '#e6edf3' }}>session initialized</span></div>
-                                <div style={{ color: '#8b949e', paddingLeft: 14 }}>Working on: {session.issue_title || 'issue fix'}</div>
-                              </>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#3fb950', animation: 'pulse 2s infinite' }} />
+                                <span style={{ color: '#e6edf3', fontSize: 11 }}>Working on: {session.issue_title || 'issue fix'}</span>
+                              </div>
                             )}
                           </div>
                         </div>
