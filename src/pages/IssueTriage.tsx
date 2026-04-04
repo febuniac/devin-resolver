@@ -185,7 +185,7 @@ export function IssueTriage() {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('triaged');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
   const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
