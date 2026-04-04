@@ -5,17 +5,21 @@ import api from '../api/client';
 
 export default function Integrations() {
   const [githubToken, setGithubToken] = useState('');
+  const [githubPat, setGithubPat] = useState('');
   const [devinToken, setDevinToken] = useState('');
   const [orgId, setOrgId] = useState('');
   const [slackWebhook, setSlackWebhook] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showGH, setShowGH] = useState(false);
+  const [showPAT, setShowPAT] = useState(false);
   const [showDevin, setShowDevin] = useState(false);
   const [ghValid, setGhValid] = useState<boolean | null>(null);
+  const [patSet, setPatSet] = useState<boolean>(false);
   const [devinValid, setDevinValid] = useState<boolean | null>(null);
   const [slackValid, setSlackValid] = useState<boolean | null>(null);
   const [showGHGuide, setShowGHGuide] = useState(false);
+  const [showPATGuide, setShowPATGuide] = useState(false);
   const [showDevinGuide, setShowDevinGuide] = useState(false);
   const [validating, setValidating] = useState(false);
 
@@ -25,6 +29,7 @@ export default function Integrations() {
       if (s.devin_api_token) setDevinToken(s.devin_api_token as string);
       if (s.devin_org_id) setOrgId(s.devin_org_id as string);
       if (s.slack_webhook_url) setSlackWebhook(s.slack_webhook_url as string);
+      if (s.github_pat_set) setPatSet(true);
       // Validate all configured tokens
       setValidating(true);
       try {
@@ -48,7 +53,8 @@ export default function Integrations() {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      await api.updateSettings({ github_token: githubToken, devin_api_token: devinToken, devin_org_id: orgId, slack_webhook: slackWebhook });
+      await api.updateSettings({ github_token: githubToken, github_pat: githubPat || undefined, devin_api_token: devinToken, devin_org_id: orgId, slack_webhook: slackWebhook });
+      if (githubPat) setPatSet(true);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       if (githubToken) {
@@ -105,6 +111,34 @@ export default function Integrations() {
               2. Click <strong>{'\u201c'}Generate new token (classic){'\u201d'}</strong><br />
               3. Select scopes: <code style={{ background: 'var(--bg2)', padding: '1px 4px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>repo</code>, <code style={{ background: 'var(--bg2)', padding: '1px 4px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>security_events</code><br />
               4. Click <strong>{'\u201c'}Generate token{'\u201d'}</strong> and copy it
+            </div>
+          )}
+        </div>
+
+        {/* GitHub PAT for Devin Push Access */}
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
+          <div style={labelStyle}>
+            GitHub PAT (for Devin write access)
+            {patSet && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, background: 'rgba(33,193,154,.12)', color: 'var(--green)', fontSize: 10, fontWeight: 700 }}><CheckCircle size={11} /> Configured</span>}
+            <button onClick={() => setShowPATGuide(!showPATGuide)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <HelpCircle size={13} /> Why is this needed?
+            </button>
+          </div>
+          <div style={{ position: 'relative' }}>
+            <input type={showPAT ? 'text' : 'password'} value={githubPat} onChange={e => setGithubPat(e.target.value)} placeholder={patSet ? '••••••••  (already set, enter new value to update)' : 'ghp_...'} style={inputStyle} />
+            <button onClick={() => setShowPAT(!showPAT)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--dim)', cursor: 'pointer' }}>
+              {showPAT ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          {showPATGuide && (
+            <div style={{ marginTop: 12, padding: 14, borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--rule)', fontSize: 12, color: 'var(--mid)', lineHeight: 1.7 }}>
+              <strong style={{ color: 'var(--ink)' }}>Why a separate PAT?</strong><br />
+              The GitHub token above is used by Backlog Zero to read issues and sync repos. This PAT is injected into Devin sessions so they can <strong>push code and create PRs</strong> on your behalf.<br /><br />
+              <strong style={{ color: 'var(--ink)' }}>How to create it:</strong><br />
+              1. Go to <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--blue)' }}>github.com/settings/tokens</a><br />
+              2. Click <strong>{"\u201c"}Generate new token (classic){"\u201d"}</strong><br />
+              3. Select scope: <code style={{ background: 'var(--bg2)', padding: '1px 4px', borderRadius: 3, fontFamily: 'var(--mono)', fontSize: 11 }}>repo</code> (full access)<br />
+              4. Copy the token and paste it here
             </div>
           )}
         </div>
