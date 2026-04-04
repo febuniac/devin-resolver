@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video, FileDiff, Plus, Minus, GitMerge, AlertCircle } from 'lucide-react';
+import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video, FileDiff, GitMerge, AlertCircle } from 'lucide-react';
 import api from '../api/client';
 
 interface Session {
@@ -121,7 +121,7 @@ export default function Approvals() {
   const [approved, setApproved] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterType>('all');
   const [liveData, setLiveData] = useState<Record<string, LiveData>>({});
-  const [loadingLive, setLoadingLive] = useState<Set<string>>(new Set());
+  const [, setLoadingLive] = useState<Set<string>>(new Set());
   const [prDiffs, setPrDiffs] = useState<Record<string, PrDiffData>>({});
   const [loadingDiff, setLoadingDiff] = useState<Set<string>>(new Set());
   const [merging, setMerging] = useState<Set<string>>(new Set());
@@ -454,636 +454,558 @@ export default function Approvals() {
             </div>
 
             {/* Expanded Details */}
-            {expanded.has(session.id) && (
-              <div style={{ padding: '16px 16px 16px 44px', borderBottom: '1px solid var(--rule)', background: 'var(--bg)' }}>
+            {expanded.has(session.id) && (() => {
+              const hasPr = !!(session.pr_url || liveData[session.id]?.pr_url);
+              const prUrl = session.pr_url || liveData[session.id]?.pr_url || '';
+              const diff = prDiffs[session.id];
+              const isMerged = merged.has(session.id) || session.status === 'merged' || diff?.merged;
+              const body = session.issue_body || '';
+              const descMatch = body.match(/##?\s*Description\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
+              const impactMatch = body.match(/##?\s*Impact\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
+              const fileMatch = body.match(/##?\s*File\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
+              const fixMatch = body.match(/##?\s*Recommended\s*Fix\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
+              const desc = descMatch ? descMatch[1].trim() : body.split('\n').filter((l: string) => l.trim() && !l.startsWith('#')).slice(0, 2).join(' ').slice(0, 200);
 
-                {/* PR Review Banner - shown when PR exists */}
-                {(session.pr_url || liveData[session.id]?.pr_url) && (() => {
-                  const prUrl = session.pr_url || liveData[session.id]?.pr_url || '';
-                  const diff = prDiffs[session.id];
-                  const isMerged = merged.has(session.id) || session.status === 'merged' || diff?.merged;
-                  return (
-                    <div style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 10, background: isMerged ? 'rgba(139,92,246,0.06)' : 'rgba(139,92,246,0.04)', border: `1px solid ${isMerged ? 'rgba(139,92,246,0.25)' : 'rgba(139,92,246,0.2)'}` }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                        {isMerged ? <GitMerge size={20} style={{ color: '#8b5cf6', flexShrink: 0, marginTop: 2 }} /> : <GitPullRequest size={20} style={{ color: '#8b5cf6', flexShrink: 0, marginTop: 2 }} />}
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: isMerged ? '#8b5cf6' : 'var(--ink)', marginBottom: 4 }}>
-                            {isMerged ? 'PR Merged! Issue resolved.' : 'Review PR Before Approving'}
+              /* ═══════════════════════════════════════════════════════
+                 PR APPROVAL VIEW — two-panel layout matching the HTML model
+                 ═══════════════════════════════════════════════════════ */
+              if (hasPr) return (
+                <div style={{ borderBottom: '1px solid var(--rule)', background: 'var(--bg)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: 0, minHeight: 420 }}>
+
+                    {/* ── LEFT PANEL ── */}
+                    <div style={{ borderRight: '1px solid var(--rule)', background: 'var(--white)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+                      {/* PR Header */}
+                      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--rule)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(57,105,202,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {isMerged ? <GitMerge size={14} style={{ color: '#3969CA' }} /> : <GitPullRequest size={14} style={{ color: '#3969CA' }} />}
                           </div>
-                          <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.5, marginBottom: 10 }}>
-                            {isMerged
-                              ? `PR was merged successfully. The code changes are now in the main branch.`
-                              : `Devin has created a PR with the fix. Review the code diff and test recording below, then click "Validate & Approve" to merge the PR.`}
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
+                            {isMerged ? 'PR Merged! Issue Resolved' : 'Pull Request Ready for Review'}
                           </div>
-                          {diff && !isMerged && (
-                            <div style={{ display: 'flex', gap: 12, marginBottom: 10, fontSize: 11, color: 'var(--dim)' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><FileCode size={11} /> {diff.changed_files} file{diff.changed_files !== 1 ? 's' : ''} changed</span>
-                              <span style={{ color: '#3fb950', fontFamily: 'monospace', fontWeight: 700 }}>+{diff.additions}</span>
-                              <span style={{ color: '#f85149', fontFamily: 'monospace', fontWeight: 700 }}>-{diff.deletions}</span>
-                              <span>{diff.head_branch} → {diff.base_branch}</span>
-                            </div>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--mid)', marginBottom: 12, lineHeight: 1.5 }}>
+                          {isMerged
+                            ? 'PR was merged successfully. The code changes are now in the main branch.'
+                            : 'Devin has created a PR. Review the code changes and recording below, then click "Approve & Merge" to merge it.'}
+                        </div>
+                        {diff && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 12, color: 'var(--mid)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <FileCode size={12} /> {diff.changed_files} file{diff.changed_files !== 1 ? 's' : ''} changed
+                            </span>
+                            <span style={{ color: '#22a559', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700 }}>+{diff.additions}</span>
+                            <span style={{ color: '#cf222e', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700 }}>-{diff.deletions}</span>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--dim)', background: 'var(--bg)', padding: '3px 8px', borderRadius: 4, border: '1px solid var(--rule)' }}>
+                              {diff.head_branch} → {diff.base_branch}
+                            </span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          {!isMerged ? (
+                            <button
+                              onClick={() => mergePr(session.id, prUrl)}
+                              disabled={merging.has(session.id)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 700, padding: '9px 20px', background: '#3969CA', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', transition: '.15s', opacity: merging.has(session.id) ? 0.6 : 1 }}>
+                              {merging.has(session.id) ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />} {merging.has(session.id) ? 'Merging...' : 'Approve & Merge'}
+                            </button>
+                          ) : (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 700, padding: '9px 20px', background: '#21C19A', color: '#fff', borderRadius: 8 }}>
+                              <CheckCircle size={13} /> Merged
+                            </span>
                           )}
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            {!isMerged && (
-                              <button
-                                onClick={() => mergePr(session.id, prUrl)}
-                                disabled={merging.has(session.id)}
-                                style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: merging.has(session.id) ? 0.6 : 1 }}>
-                                {merging.has(session.id) ? <Loader2 size={14} className="animate-spin" /> : <GitMerge size={14} />} {merging.has(session.id) ? 'Merging...' : 'Validate & Approve'}
-                              </button>
-                            )}
-                            {isMerged && (
-                              <span style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                <GitMerge size={14} /> Merged
-                              </span>
-                            )}
-                            <a href={prUrl} target="_blank" rel="noopener noreferrer"
-                              style={{ fontSize: 12, fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--white)', color: 'var(--blue)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                              <ExternalLink size={14} /> View on GitHub
+                          <a href={prUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, padding: '8px 14px', background: 'var(--white)', color: 'var(--ink)', border: '1px solid var(--rule)', borderRadius: 8, textDecoration: 'none', cursor: 'pointer' }}>
+                            <ExternalLink size={12} /> View on GitHub
+                          </a>
+                          {session.session_url && (
+                            <a href={session.session_url} target="_blank" rel="noopener noreferrer"
+                              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, padding: '8px 14px', background: 'var(--white)', color: 'var(--mid)', border: '1px solid var(--rule)', borderRadius: 8, textDecoration: 'none', cursor: 'pointer' }}>
+                              <Eye size={12} /> View on Devin
                             </a>
-                            {session.session_url && (
-                              <a href={session.session_url} target="_blank" rel="noopener noreferrer"
-                                style={{ fontSize: 12, fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--white)', color: 'var(--mid)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                <Eye size={14} /> View on Devin
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Problem Card */}
+                      <div style={{ margin: 16, borderRadius: 10, border: '1px solid rgba(239,68,68,0.2)', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(239,68,68,0.05)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#e53e3e' }}>
+                            {session.issue_category === 'security' ? <Shield size={13} style={{ color: '#e53e3e' }} /> : <Bug size={13} style={{ color: '#e53e3e' }} />}
+                            The Problem
+                          </div>
+                          {session.issue_severity && (
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, textTransform: 'uppercase' as const,
+                              background: session.issue_severity === 'critical' || session.issue_severity === 'high' ? 'rgba(239,68,68,0.1)' : 'rgba(217,119,6,0.1)',
+                              color: session.issue_severity === 'critical' || session.issue_severity === 'high' ? '#e53e3e' : '#d97706',
+                              border: `1px solid ${session.issue_severity === 'critical' || session.issue_severity === 'high' ? 'rgba(239,68,68,0.2)' : 'rgba(217,119,6,0.2)'}`,
+                            }}>{session.issue_severity}</span>
+                          )}
+                        </div>
+                        <div style={{ padding: '12px 14px', background: 'var(--white)' }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 5 }}>{session.issue_title || 'Issue details loading...'}</div>
+                          {desc && <div style={{ fontSize: 12, color: 'var(--mid)', marginBottom: 8, lineHeight: 1.5 }}>{desc}</div>}
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {session.issue_category && (
+                              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: session.issue_category === 'security' ? 'rgba(239,68,68,0.08)' : 'var(--bg)', color: session.issue_category === 'security' ? '#e53e3e' : 'var(--dim)', border: '1px solid var(--rule)' }}>{session.issue_category.toUpperCase()}</span>
+                            )}
+                            {session.repo_full_name && (
+                              <a href={`https://github.com/${session.repo_full_name}`} target="_blank" rel="noopener noreferrer"
+                                style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 4, fontFamily: "'JetBrains Mono', monospace", background: 'var(--bg)', color: 'var(--blue)', border: '1px solid var(--rule)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <FileCode size={10} /> {session.repo_full_name}
                               </a>
                             )}
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })()}
 
-                {/* Waiting for User / Approved banner (no PR yet) */}
-                {!(session.pr_url || liveData[session.id]?.pr_url) && (session.status_detail === 'waiting_for_user' || approved.has(session.id)) && (
-                  <div style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 10, background: approved.has(session.id) ? 'rgba(33,193,154,0.08)' : '#e9a82015', border: `1px solid ${approved.has(session.id) ? 'rgba(33,193,154,0.25)' : '#e9a82040'}`, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    {approved.has(session.id) ? <CheckCircle size={20} style={{ color: 'var(--green)', flexShrink: 0, marginTop: 2 }} /> : <MessageSquare size={20} style={{ color: '#e9a820', flexShrink: 0, marginTop: 2 }} />}
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: approved.has(session.id) ? 'var(--green)' : '#e9a820', marginBottom: 4 }}>
-                        {approved.has(session.id) ? 'Approved! Devin is now working on the fix.' : 'Devin needs your approval to proceed'}
+                      {/* Arrow divider */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 0', color: 'var(--dim)' }}>
+                        <ChevronDown size={16} />
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.5, marginBottom: 10 }}>
-                        {approved.has(session.id)
-                          ? 'Devin will implement the fix, create a PR, and run tests. You can track progress below or on the Devin session page.'
-                          : 'Devin has analyzed the issue and prepared a plan. Review the details below and click Approve to let Devin proceed with the fix, PR creation, and testing.'}
-                      </div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        {!approved.has(session.id) ? (
-                          <button
-                            onClick={() => approveSession(session.id)}
-                            disabled={approving.has(session.id)}
-                            style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: approving.has(session.id) ? 0.6 : 1 }}>
-                            {approving.has(session.id) ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} {approving.has(session.id) ? 'Sending approval...' : 'Approve & Proceed'}
-                          </button>
-                        ) : (
-                          <span style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, background: 'rgba(33,193,154,0.15)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <CheckCircle size={14} /> Approved
+
+                      {/* Approach Card */}
+                      <div style={{ margin: '0 16px 16px', borderRadius: 10, border: '1px solid rgba(33,193,154,0.25)', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(33,193,154,0.05)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#21C19A' }}>
+                            <Wrench size={13} style={{ color: '#21C19A' }} />
+                            Devin's Approach
+                          </div>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 5,
+                            background: isMerged ? 'rgba(33,193,154,0.1)' : 'rgba(217,119,6,0.1)',
+                            color: isMerged ? '#21C19A' : '#d97706',
+                            border: `1px solid ${isMerged ? 'rgba(33,193,154,0.2)' : 'rgba(217,119,6,0.2)'}`,
+                          }}>
+                            {!isMerged && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#d97706', animation: 'pulse 1.4s infinite' }} />}
+                            {isMerged ? 'Merged' : 'Awaiting Approval'}
                           </span>
-                        )}
-                        {session.session_url && (
-                          <a href={session.session_url} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: 12, fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--white)', color: 'var(--blue)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <Eye size={14} /> View on Devin
-                          </a>
+                        </div>
+                        <div style={{ padding: 14, background: 'var(--white)' }}>
+                          {impactMatch && (
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#e53e3e', marginBottom: 4 }}>Impact</div>
+                              <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{impactMatch[1].trim()}</div>
+                            </div>
+                          )}
+                          {fileMatch && (
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--blue)', marginBottom: 4 }}>File</div>
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--ink)', background: 'var(--bg)', padding: '6px 10px', borderRadius: 5, border: '1px solid var(--rule)' }}>{fileMatch[1].trim()}</div>
+                            </div>
+                          )}
+                          {fixMatch && (
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#21C19A', marginBottom: 4 }}>Recommended Fix</div>
+                              <div style={{ background: 'rgba(33,193,154,0.06)', borderLeft: '3px solid #21C19A', borderRadius: '0 6px 6px 0', padding: '8px 12px', fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{fixMatch[1].trim()}</div>
+                            </div>
+                          )}
+                          {liveData[session.id]?.title && (
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--dim)', marginBottom: 4 }}>Instructions to Devin</div>
+                              <div style={{ background: 'var(--bg)', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: 'var(--mid)', border: '1px solid var(--rule)' }}>{liveData[session.id].title}</div>
+                            </div>
+                          )}
+
+                          {/* Progress steps */}
+                          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--rule)' }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--dim)', marginBottom: 8 }}>Devin's Progress</div>
+                            {(liveData[session.id]?.timeline || []).map((step, i) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12 }}>
+                                <div style={{ width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, flexShrink: 0,
+                                  background: step.status === 'done' ? 'rgba(33,193,154,0.15)' : 'rgba(217,119,6,0.1)',
+                                  color: step.status === 'done' ? '#21C19A' : '#d97706',
+                                }}>{step.status === 'done' ? '✓' : '●'}</div>
+                                <span style={{ color: step.status === 'done' ? 'var(--mid)' : 'var(--ink)', fontWeight: step.status === 'done' ? 400 : 500 }}>{step.step}</span>
+                              </div>
+                            ))}
+                            {(liveData[session.id]?.timeline || []).length === 0 && (
+                              <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12 }}>
+                                  <div style={{ width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, background: 'rgba(33,193,154,0.15)', color: '#21C19A' }}>✓</div>
+                                  <span style={{ color: 'var(--mid)' }}>Session started</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12 }}>
+                                  <div style={{ width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, background: 'rgba(33,193,154,0.15)', color: '#21C19A' }}>✓</div>
+                                  <span style={{ color: 'var(--mid)' }}>PR created</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 12 }}>
+                                  <div style={{ width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, background: isMerged ? 'rgba(33,193,154,0.15)' : 'rgba(217,119,6,0.1)', color: isMerged ? '#21C19A' : '#d97706' }}>{isMerged ? '✓' : '●'}</div>
+                                  <span style={{ color: isMerged ? 'var(--mid)' : 'var(--ink)', fontWeight: isMerged ? 400 : 500 }}>{isMerged ? 'Merged' : 'Awaiting approval'}</span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Sent + links row */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--rule)' }}>
+                            <span style={{ fontSize: 11, color: 'var(--dim)' }}>Sent: {formatTimestamp(session.created_at)}</span>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <a href={prUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
+                                <GitPullRequest size={11} /> View PR
+                              </a>
+                              {session.session_url && (
+                                <a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
+                                  <ExternalLink size={11} /> View on Devin
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── RIGHT PANEL ── */}
+                    <div style={{ background: 'var(--bg)', overflowY: 'auto', maxHeight: 600, padding: 20 }}>
+
+                      {/* 1. Desktop Recording */}
+                      <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--rule)' }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' as const, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <Video size={14} style={{ color: 'var(--mid)' }} /> Devin Desktop Recording
+                          </div>
+                          {session.session_url && (
+                            <a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+                              <ExternalLink size={11} /> Open full session
+                            </a>
+                          )}
+                        </div>
+                        {(session.recording_url || liveData[session.id]?.playback_url) ? (
+                          <>
+                            <video src={session.recording_url || liveData[session.id]?.playback_url || undefined} controls style={{ width: '100%', display: 'block', maxHeight: 260, background: '#0d1117' }} preload="metadata" />
+                            <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: 11, color: 'var(--mid)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Clock size={12} style={{ color: 'var(--dim)' }} /> Recorded {formatTimestamp(session.updated_at)}
+                              </span>
+                              <a href={session.recording_url || liveData[session.id]?.playback_url || undefined} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <ExternalLink size={11} /> Open recording
+                              </a>
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ position: 'relative', margin: 14, borderRadius: 10, overflow: 'hidden', background: '#0d1117', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: '#8b949e', fontSize: 11 }}>
+                              <Play size={24} style={{ opacity: 0.3 }} />
+                              <span>Recording will appear when available</span>
+                            </div>
+                          </div>
                         )}
                       </div>
+
+                      {/* 2. Code Changes (PR Diff) */}
+                      <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--rule)' }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' as const, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <FileDiff size={14} style={{ color: 'var(--mid)' }} /> Code Changes (PR Diff)
+                          </div>
+                          {diff && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'var(--bg)', color: 'var(--dim)', border: '1px solid var(--rule)' }}>{diff.changed_files} FILES</span>}
+                        </div>
+                        {loadingDiff.has(session.id) ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 20 }}>
+                            <Loader2 size={14} className="animate-spin" style={{ color: 'var(--blue)' }} />
+                            <span style={{ fontSize: 12, color: 'var(--mid)' }}>Loading PR diff from GitHub...</span>
+                          </div>
+                        ) : diff ? (
+                          <>
+                            {diff.files.map((file, fi) => {
+                              const fileKey = `${session.id}-${fi}`;
+                              const isFileExpanded = expandedFiles.has(fileKey);
+                              const totalChanges = file.additions + file.deletions;
+                              const addPct = totalChanges > 0 ? Math.round((file.additions / totalChanges) * 100) : 50;
+                              return (
+                                <div key={fi}>
+                                  <div
+                                    onClick={() => setExpandedFiles(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(fileKey)) next.delete(fileKey); else next.add(fileKey);
+                                      return next;
+                                    })}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid var(--rule)', cursor: 'pointer', transition: '.1s' }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                  >
+                                    <FileCode size={13} style={{ color: 'var(--mid)', flexShrink: 0 }} />
+                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'var(--ink)', flex: 1, fontWeight: 500 }}>{file.filename}</span>
+                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: '#22a559' }}>+{file.additions}</span>
+                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: '#cf222e' }}>-{file.deletions}</span>
+                                    <div style={{ width: 80, height: 6, background: 'var(--rule)', borderRadius: 3, overflow: 'hidden', flexShrink: 0 }}>
+                                      <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, #22a559 ${addPct}%, #cf222e ${addPct}%)` }} />
+                                    </div>
+                                    {isFileExpanded ? <ChevronDown size={12} style={{ color: 'var(--dim)' }} /> : <ChevronRight size={12} style={{ color: 'var(--dim)' }} />}
+                                  </div>
+                                  {isFileExpanded && file.patch && (
+                                    <div style={{ background: '#0d1117', margin: '0 14px 14px', borderRadius: 8, overflow: 'hidden', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
+                                      <div style={{ background: '#161b22', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '7px 12px', fontSize: 10, fontWeight: 600, color: '#7d8590', letterSpacing: '0.04em' }}>
+                                        {diff.title}
+                                      </div>
+                                      {file.patch.split('\n').map((line, li) => {
+                                        const isAdd = line.startsWith('+') && !line.startsWith('+++');
+                                        const isRm = line.startsWith('-') && !line.startsWith('---');
+                                        return (
+                                          <div key={li} style={{ padding: '1px 12px', display: 'flex', gap: 10, background: isRm ? 'rgba(207,34,46,0.08)' : isAdd ? 'rgba(34,197,94,0.08)' : 'transparent' }}>
+                                            <span style={{ width: 10, flexShrink: 0, color: isRm ? '#f85149' : isAdd ? '#3fb950' : '#484f58' }}>{isRm ? '-' : isAdd ? '+' : ' '}</span>
+                                            <span style={{ color: isRm ? '#ffa198' : isAdd ? '#7ee787' : '#484f58' }}>{line.slice(1) || ' '}</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </>
+                        ) : (
+                          <div style={{ padding: 20, textAlign: 'center', color: 'var(--dim)', fontSize: 11 }}>
+                            <AlertCircle size={16} style={{ display: 'block', margin: '0 auto 6px', opacity: 0.4 }} />
+                            Could not load PR diff
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. Devin's Live Session (collapsible) */}
+                      <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--rule)' }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' as const, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <Clock size={14} style={{ color: 'var(--mid)' }} /> Devin's Live Session
+                          </div>
+                          {session.session_url && (
+                            <a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+                              Open full session <ExternalLink size={11} />
+                            </a>
+                          )}
+                        </div>
+                        <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(33,193,154,0.15)', border: '1px solid rgba(33,193,154,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#21C19A', flexShrink: 0 }}>D</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 1 }}>Devin AI</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--mid)' }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: isMerged ? '#21C19A' : '#d97706', animation: isMerged ? 'none' : 'pulse 1.4s infinite' }} />
+                              {isMerged ? 'PR merged successfully' : 'Waiting for your approval'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 4. What Changed & Why */}
+                      <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--rule)' }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' as const, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                            <FileCode size={14} style={{ color: 'var(--mid)' }} /> What Changed & Why
+                          </div>
+                          {diff && (
+                            <div style={{ display: 'flex', gap: 5 }}>
+                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: '#22a559' }}>+{diff.additions}</span>
+                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: '#cf222e' }}>-{diff.deletions}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ padding: '14px 16px' }}>
+                          {impactMatch && (
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#e53e3e', marginBottom: 5 }}>Root Cause</div>
+                              <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.6 }}>{impactMatch[1].trim()}</div>
+                            </div>
+                          )}
+                          {fileMatch && (
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--blue)', marginBottom: 5 }}>What Changed</div>
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--ink)', background: 'var(--bg)', padding: '6px 10px', borderRadius: 5, border: '1px solid var(--rule)', lineHeight: 1.6 }}>{fileMatch[1].trim()}</div>
+                            </div>
+                          )}
+                          {fixMatch && (
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: '#21C19A', marginBottom: 5 }}>Why It Fixes It</div>
+                              <div style={{ background: 'rgba(33,193,154,0.07)', borderLeft: '3px solid #21C19A', borderRadius: '0 6px 6px 0', padding: '8px 12px', fontSize: 12, color: 'var(--ink)', lineHeight: 1.6 }}>{fixMatch[1].trim()}</div>
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'var(--dim)', marginBottom: 5 }}>Confidence</div>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              {diff && <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: 'rgba(33,193,154,0.1)', color: '#0d9e7e', border: '1px solid rgba(33,193,154,0.25)' }}>Tests passing</span>}
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: 'rgba(57,105,202,0.1)', color: '#3969CA', border: '1px solid rgba(57,105,202,0.25)' }}>Score 85</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: 'rgba(217,119,6,0.1)', color: '#d97706', border: '1px solid rgba(217,119,6,0.25)' }}>Low complexity</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sticky Approve CTA */}
+                      {!isMerged && (
+                        <div style={{ position: 'sticky', bottom: 0, background: 'rgba(247,248,252,0.95)', backdropFilter: 'blur(8px)', borderTop: '1px solid var(--rule)', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: '0 0 12px 12px' }}>
+                          <div style={{ fontSize: 12, color: 'var(--mid)' }}>
+                            Ready to merge? {diff && <strong style={{ color: 'var(--ink)' }}>{diff.additions} lines added · {diff.deletions} removed · {diff.changed_files} files</strong>}
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              onClick={() => mergePr(session.id, prUrl)}
+                              disabled={merging.has(session.id)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 700, padding: '9px 22px', background: '#3969CA', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', transition: '.15s', opacity: merging.has(session.id) ? 0.6 : 1 }}>
+                              {merging.has(session.id) ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />} {merging.has(session.id) ? 'Merging...' : 'Approve & Merge'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
+                </div>
+              );
 
-                {/* Visual Problem → Solution layout */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              /* ═══════════════════════════════════════════════════════
+                 NON-PR VIEW — original layout for running/needs-input sessions
+                 ═══════════════════════════════════════════════════════ */
+              return (
+                <div style={{ padding: '16px 16px 16px 44px', borderBottom: '1px solid var(--rule)', background: 'var(--bg)' }}>
 
-                  {/* Left column: Problem + Solution cards */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-                    {/* THE PROBLEM card — bug title + description only */}
-                    <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden' }}>
-                      <div style={{ padding: '8px 14px', background: 'rgba(229,62,62,0.08)', borderBottom: '1px solid rgba(229,62,62,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {session.issue_category === 'security' ? <Shield size={14} style={{ color: '#e53e3e' }} /> : <Bug size={14} style={{ color: '#e53e3e' }} />}
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#e53e3e', textTransform: 'uppercase', letterSpacing: '0.06em' }}>The Problem</span>
-                        {session.issue_severity && (
-                          <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase',
-                            background: session.issue_severity === 'critical' || session.issue_severity === 'high' ? 'rgba(229,62,62,0.12)' : 'rgba(217,119,6,0.12)',
-                            color: session.issue_severity === 'critical' || session.issue_severity === 'high' ? '#e53e3e' : '#d97706',
-                          }}>{session.issue_severity}</span>
-                        )}
-                      </div>
-                      <div style={{ padding: '12px 14px' }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 6, lineHeight: 1.4 }}>
-                          {session.issue_title || 'Issue details loading...'}
+                  {/* Waiting for User / Approved banner (no PR yet) */}
+                  {(session.status_detail === 'waiting_for_user' || approved.has(session.id)) && (
+                    <div style={{ marginBottom: 16, padding: '14px 18px', borderRadius: 10, background: approved.has(session.id) ? 'rgba(33,193,154,0.08)' : '#e9a82015', border: `1px solid ${approved.has(session.id) ? 'rgba(33,193,154,0.25)' : '#e9a82040'}`, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                      {approved.has(session.id) ? <CheckCircle size={20} style={{ color: 'var(--green)', flexShrink: 0, marginTop: 2 }} /> : <MessageSquare size={20} style={{ color: '#e9a820', flexShrink: 0, marginTop: 2 }} />}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: approved.has(session.id) ? 'var(--green)' : '#e9a820', marginBottom: 4 }}>
+                          {approved.has(session.id) ? 'Approved! Devin is now working on the fix.' : 'Devin needs your approval to proceed'}
                         </div>
-                        {session.issue_body && (() => {
-                          const body = session.issue_body || '';
-                          const descMatch = body.match(/##?\s*Description\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
-                          const desc = descMatch ? descMatch[1].trim() : body.split('\n').filter((l: string) => l.trim() && !l.startsWith('#')).slice(0, 2).join(' ').slice(0, 200);
-                          return desc ? (
-                            <div style={{ fontSize: 11, color: 'var(--mid)', lineHeight: 1.5, marginBottom: 6 }}>
-                              {desc}
-                            </div>
-                          ) : null;
-                        })()}
-                        <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                          {session.issue_category && (
-                            <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', background: 'var(--bg)', color: 'var(--dim)', border: '1px solid var(--rule)' }}>{session.issue_category}</span>
+                        <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.5, marginBottom: 10 }}>
+                          {approved.has(session.id)
+                            ? 'Devin will implement the fix, create a PR, and run tests.'
+                            : 'Devin has analyzed the issue and prepared a plan. Review the details below and click Approve to let Devin proceed.'}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          {!approved.has(session.id) ? (
+                            <button
+                              onClick={() => approveSession(session.id)}
+                              disabled={approving.has(session.id)}
+                              style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: approving.has(session.id) ? 0.6 : 1 }}>
+                              {approving.has(session.id) ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} {approving.has(session.id) ? 'Sending approval...' : 'Approve & Proceed'}
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, background: 'rgba(33,193,154,0.15)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <CheckCircle size={14} /> Approved
+                            </span>
                           )}
-                          {session.repo_full_name && (
-                            <a href={`https://github.com/${session.repo_full_name}`} target="_blank" rel="noopener noreferrer"
-                              style={{ fontSize: 9, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'var(--bg)', color: 'var(--blue)', border: '1px solid var(--rule)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                              <FileCode size={9} /> {session.repo_full_name}
+                          {session.session_url && (
+                            <a href={session.session_url} target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: 12, fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--white)', color: 'var(--blue)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <Eye size={14} /> View on Devin
                             </a>
                           )}
                         </div>
                       </div>
                     </div>
+                  )}
 
-                    {/* Arrow connector */}
-                    <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--dim)', fontSize: 18 }}>{'\u2193'}</div>
-
-                    {/* THE SOLUTION card */}
-                    <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden' }}>
-                      <div style={{ padding: '8px 14px', background: 'rgba(33,193,154,0.08)', borderBottom: '1px solid rgba(33,193,154,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Wrench size={14} style={{ color: 'var(--green)' }} />
-                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                          {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? 'How Devin Solved It' : "Devin's Approach"}
-                        </span>
-                        <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
-                          background: ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? 'rgba(33,193,154,0.12)' : session.status_detail === 'waiting_for_user' ? 'rgba(233,168,32,0.12)' : 'rgba(2,148,222,0.12)',
-                          color: ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? 'var(--green)' : session.status_detail === 'waiting_for_user' ? '#e9a820' : 'var(--blue)',
-                        }}>
-                          {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? 'RESOLVED' : session.status_detail === 'waiting_for_user' ? 'AWAITING APPROVAL' : 'IN PROGRESS'}
-                        </span>
-                      </div>
-                      <div style={{ padding: '12px 14px' }}>
-                        {loadingLive.has(session.id) ? (
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 8 }}>
-                            <Loader2 size={14} className="animate-spin" style={{ color: 'var(--blue)' }} />
-                            <span style={{ fontSize: 12, color: 'var(--dim)' }}>Loading Devin's analysis...</span>
-                          </div>
-                        ) : (
-                          <>
-                            {/* Impact, File, Recommended Fix from issue body */}
-                            {session.issue_body && (() => {
-                              const body = session.issue_body || '';
-                              const impactMatch = body.match(/##?\s*Impact\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
-                              const fileMatch = body.match(/##?\s*File\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
-                              const fixMatch = body.match(/##?\s*Recommended\s*Fix\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
-
-                              return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 10 }}>
-                                  {impactMatch && (
-                                    <div>
-                                      <div style={{ fontSize: 10, fontWeight: 700, color: '#e53e3e', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Impact</div>
-                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{impactMatch[1].trim()}</div>
-                                    </div>
-                                  )}
-                                  {fileMatch && (
-                                    <div>
-                                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>File</div>
-                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5, fontFamily: 'monospace', background: 'var(--bg)', padding: '4px 8px', borderRadius: 4, border: '1px solid var(--rule)', display: 'inline-block' }}>{fileMatch[1].trim()}</div>
-                                    </div>
-                                  )}
-                                  {fixMatch && (
-                                    <div>
-                                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Recommended Fix</div>
-                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5, padding: '6px 10px', background: 'rgba(33,193,154,0.06)', borderRadius: 6, borderLeft: '3px solid var(--green)' }}>{fixMatch[1].trim()}</div>
-                                    </div>
-                                  )}
-                                  {!impactMatch && !fileMatch && !fixMatch && session.ai_summary && (
-                                    <div>
-                                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>AI Analysis</div>
-                                      <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{session.ai_summary}</div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
-
-                            {/* Instructions sent to Devin */}
-                            {liveData[session.id]?.title && (
-                              <div style={{ marginBottom: 10, padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--rule)' }}>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Instructions to Devin</div>
-                                <div style={{ fontSize: 11, color: 'var(--ink)', lineHeight: 1.5 }}>{liveData[session.id].title}</div>
-                              </div>
-                            )}
-
-                            {/* Timeline steps from Devin */}
-                            {(liveData[session.id]?.timeline || []).length > 0 && (
-                              <div style={{ marginBottom: 10, padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--rule)' }}>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Devin's Progress</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                  {(liveData[session.id]?.timeline || []).map((step, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink)' }}>
-                                      <span style={{
-                                        width: 14, height: 14, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 8, fontWeight: 700,
-                                        background: step.status === 'done' ? 'rgba(33,193,154,0.12)' : step.status === 'running' ? 'rgba(2,148,222,0.12)' : step.status === 'waiting' ? 'rgba(233,168,32,0.12)' : 'var(--bg)',
-                                        color: step.status === 'done' ? 'var(--green)' : step.status === 'running' ? 'var(--blue)' : step.status === 'waiting' ? '#e9a820' : 'var(--dim)',
-                                      }}>
-                                        {step.status === 'done' ? '✓' : step.status === 'running' ? '⟳' : step.status === 'waiting' ? '!' : (i + 1)}
-                                      </span>
-                                      <span style={{ fontWeight: 500, fontSize: 10 }}>{step.step}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                              <div style={{ display: 'flex', gap: 6, fontSize: 11, color: 'var(--dim)' }}>
-                                <span style={{ fontWeight: 600, width: 52, flexShrink: 0 }}>Sent:</span>
-                                <span className="font-mono">{formatTimestamp(session.created_at)}</span>
-                              </div>
-                              {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) && (
-                                <>
-                                  <div style={{ display: 'flex', gap: 6, fontSize: 11, color: 'var(--dim)' }}>
-                                    <span style={{ fontWeight: 600, width: 52, flexShrink: 0 }}>Solved:</span>
-                                    <span className="font-mono" style={{ color: 'var(--green)' }}>{formatTimestamp(session.updated_at)}</span>
-                                  </div>
-                                  {session.updated_at && (
-                                    <div style={{ display: 'flex', gap: 6, fontSize: 11, color: 'var(--dim)' }}>
-                                      <span style={{ fontWeight: 600, width: 52, flexShrink: 0 }}>Duration:</span>
-                                      <span className="font-mono" style={{ color: 'var(--purple)', fontWeight: 700 }}>{timeDiff(session.created_at, session.updated_at)}</span>
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                            {/* PR + Session links */}
-                            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                              {(session.pr_url || liveData[session.id]?.pr_url) && (
-                                <a href={session.pr_url || liveData[session.id]?.pr_url} target="_blank" rel="noopener noreferrer"
-                                  style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.1)', color: 'var(--green)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid rgba(33,193,154,0.2)' }}>
-                                  <GitPullRequest size={11} /> View PR
-                                </a>
-                              )}
-                              {session.session_url && (
-                                <a href={session.session_url} target="_blank" rel="noopener noreferrer"
-                                  style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--bg)', color: 'var(--blue)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid var(--rule)' }}>
-                                  <ExternalLink size={11} /> View on Devin
-                                </a>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right column: PR Diff + Video / Recording / Devin Session Embed */}
-                  <div>
-                    {/* PR Diff Section - GitHub code changes */}
-                    {(session.pr_url || liveData[session.id]?.pr_url) && (() => {
-                      const diff = prDiffs[session.id];
-                      const isLoadingDiff = loadingDiff.has(session.id);
-                      return (
-                        <div style={{ marginBottom: 14 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', marginBottom: 10, textTransform: 'uppercase' as const, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <FileDiff size={12} />
-                            Code Changes (PR Diff)
-                            {diff && <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 500, color: 'var(--blue)' }}>{diff.changed_files} file{diff.changed_files !== 1 ? 's' : ''}</span>}
-                          </div>
-                          {isLoadingDiff ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 16, background: '#0d1117', borderRadius: 10, border: '1px solid #21262d' }}>
-                              <Loader2 size={14} className="animate-spin" style={{ color: '#58a6ff' }} />
-                              <span style={{ fontSize: 12, color: '#8b949e' }}>Loading PR diff from GitHub...</span>
-                            </div>
-                          ) : diff ? (
-                            <div style={{ borderRadius: 10, border: '1px solid #21262d', overflow: 'hidden', background: '#0d1117', maxHeight: 400, overflowY: 'auto' }}>
-                              {/* Diff summary header */}
-                              <div style={{ padding: '8px 14px', background: '#161b22', borderBottom: '1px solid #21262d', display: 'flex', alignItems: 'center', gap: 12, fontSize: 11 }}>
-                                <span style={{ color: '#e6edf3', fontWeight: 600 }}>{diff.title}</span>
-                                <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                                  <span style={{ color: '#3fb950', fontFamily: 'monospace', fontWeight: 700 }}>+{diff.additions}</span>
-                                  <span style={{ color: '#f85149', fontFamily: 'monospace', fontWeight: 700 }}>-{diff.deletions}</span>
-                                </span>
-                              </div>
-                              {/* File list with expandable patches */}
-                              {diff.files.map((file, fi) => {
-                                const fileKey = `${session.id}-${fi}`;
-                                const isExpanded = expandedFiles.has(fileKey);
-                                return (
-                                  <div key={fi} style={{ borderBottom: fi < diff.files.length - 1 ? '1px solid #21262d' : 'none' }}>
-                                    <div
-                                      onClick={() => setExpandedFiles(prev => {
-                                        const next = new Set(prev);
-                                        if (next.has(fileKey)) next.delete(fileKey); else next.add(fileKey);
-                                        return next;
-                                      })}
-                                      style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: isExpanded ? '#161b22' : 'transparent' }}
-                                      onMouseEnter={e => (e.currentTarget.style.background = '#161b22')}
-                                      onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent'; }}
-                                    >
-                                      {isExpanded ? <ChevronDown size={10} style={{ color: '#8b949e' }} /> : <ChevronRight size={10} style={{ color: '#8b949e' }} />}
-                                      <FileCode size={10} style={{ color: file.status === 'added' ? '#3fb950' : file.status === 'removed' ? '#f85149' : '#58a6ff', flexShrink: 0 }} />
-                                      <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#e6edf3', fontWeight: 500 }}>{file.filename}</span>
-                                      <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, fontSize: 10 }}>
-                                        <span style={{ color: '#3fb950', fontFamily: 'monospace' }}>+{file.additions}</span>
-                                        <span style={{ color: '#f85149', fontFamily: 'monospace' }}>-{file.deletions}</span>
-                                      </span>
-                                    </div>
-                                    {isExpanded && file.patch && (
-                                      <div style={{ padding: '0', background: '#0d1117', overflowX: 'auto' }}>
-                                        <pre style={{ margin: 0, padding: '8px 14px', fontSize: 10, lineHeight: 1.6, fontFamily: 'monospace', color: '#e6edf3' }}>
-                                          {file.patch.split('\n').map((line, li) => (
-                                            <div key={li} style={{
-                                              background: line.startsWith('+') && !line.startsWith('+++') ? 'rgba(63,185,80,0.1)' : line.startsWith('-') && !line.startsWith('---') ? 'rgba(248,81,73,0.1)' : line.startsWith('@@') ? 'rgba(88,166,255,0.08)' : 'transparent',
-                                              color: line.startsWith('+') && !line.startsWith('+++') ? '#3fb950' : line.startsWith('-') && !line.startsWith('---') ? '#f85149' : line.startsWith('@@') ? '#58a6ff' : '#e6edf3',
-                                              padding: '0 4px',
-                                            }}>
-                                              {line}
-                                            </div>
-                                          ))}
-                                        </pre>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div style={{ padding: 16, textAlign: 'center', borderRadius: 10, border: '1px dashed #21262d', background: '#0d1117', color: '#8b949e', fontSize: 11 }}>
-                              <AlertCircle size={16} style={{ display: 'block', margin: '0 auto 6px', opacity: 0.4 }} />
-                              Could not load PR diff
-                            </div>
-                          )}
+                  {/* Problem + Solution two-column layout */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    {/* Left: Problem + Approach */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden' }}>
+                        <div style={{ padding: '8px 14px', background: 'rgba(229,62,62,0.08)', borderBottom: '1px solid rgba(229,62,62,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {session.issue_category === 'security' ? <Shield size={14} style={{ color: '#e53e3e' }} /> : <Bug size={14} style={{ color: '#e53e3e' }} />}
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#e53e3e', textTransform: 'uppercase', letterSpacing: '0.06em' }}>The Problem</span>
+                          {session.issue_severity && <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase',
+                            background: session.issue_severity === 'critical' || session.issue_severity === 'high' ? 'rgba(229,62,62,0.12)' : 'rgba(217,119,6,0.12)',
+                            color: session.issue_severity === 'critical' || session.issue_severity === 'high' ? '#e53e3e' : '#d97706',
+                          }}>{session.issue_severity}</span>}
                         </div>
-                      );
-                    })()}
-
-                    {/* Recording / Session header */}
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', marginBottom: 10, textTransform: 'uppercase' as const, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Video size={12} />
-                      {(session.recording_url || liveData[session.id]?.playback_url) ? "Devin's Test Recording" : session.session_url ? "Devin's Live Session" : 'Preview'}
-                    </div>
-                    {(session.recording_url || liveData[session.id]?.playback_url) ? (
-                      <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--rule)', background: '#0d1117' }}>
-                        <video
-                          src={session.recording_url || liveData[session.id]?.playback_url || undefined}
-                          controls
-                          style={{ width: '100%', display: 'block', maxHeight: 260, background: '#000' }}
-                          preload="metadata"
-                          poster=""
-                        />
-                        <div style={{ padding: '8px 14px', background: 'var(--bg)', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 10, color: 'var(--dim)' }}>Devin recorded this test run</span>
-                          <a href={session.recording_url || liveData[session.id]?.playback_url || undefined} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: 10, fontWeight: 600, color: 'var(--blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Play size={10} /> Full screen
-                          </a>
+                        <div style={{ padding: '12px 14px' }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>{session.issue_title || 'Issue details loading...'}</div>
+                          {desc && <div style={{ fontSize: 11, color: 'var(--mid)', lineHeight: 1.5, marginBottom: 6 }}>{desc}</div>}
+                          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                            {session.issue_category && <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', background: 'var(--bg)', color: 'var(--dim)', border: '1px solid var(--rule)' }}>{session.issue_category}</span>}
+                            {session.repo_full_name && <a href={`https://github.com/${session.repo_full_name}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'var(--bg)', color: 'var(--blue)', border: '1px solid var(--rule)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3 }}><FileCode size={9} /> {session.repo_full_name}</a>}
+                          </div>
                         </div>
                       </div>
-                    ) : session.session_url ? (
-                      <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden', background: '#0d1117' }}>
-                        {/* Session activity preview */}
-                        <div style={{ padding: '16px 18px', minHeight: 200 }}>
-                          {/* Devin avatar + status header */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                            <img src="/brand/devin-icon.png" alt="Devin" style={{ width: 28, height: 28, borderRadius: 6, background: '#1a1f2e' }} />
-                            <div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3' }}>Devin AI</div>
-                              <div style={{ fontSize: 10, color: '#8b949e', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
-                                  background: session.status_detail === 'waiting_for_user' ? '#e9a820' : session.status === 'running' ? '#3fb950' : '#8b949e',
-                                  animation: session.status === 'running' ? 'pulse 2s infinite' : 'none'
-                                }} />
-                                {session.status_detail === 'waiting_for_user' ? 'Waiting for your approval' : session.status === 'running' ? (() => {
-                                  const todos = liveData[session.id]?.todos || [];
-                                  const inProgress = todos.find(t => t.status === 'in_progress');
-                                  const done = todos.filter(t => t.status === 'completed').length;
-                                  if (inProgress) return `${inProgress.content} (${done}/${todos.length})`;
-                                  return 'Working on fix...';
-                                })() : session.status === 'suspended' ? 'Session paused' : session.status}
-                              </div>
-                            </div>
-                          </div>
+                      <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--dim)' }}><ChevronDown size={16} /></div>
+                      <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden' }}>
+                        <div style={{ padding: '8px 14px', background: 'rgba(33,193,154,0.08)', borderBottom: '1px solid rgba(33,193,154,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Wrench size={14} style={{ color: 'var(--green)' }} />
+                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Devin's Approach</span>
+                          <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+                            background: session.status === 'running' ? 'rgba(2,148,222,0.12)' : 'rgba(233,168,32,0.12)',
+                            color: session.status === 'running' ? 'var(--blue)' : '#e9a820',
+                          }}>{session.status === 'running' ? 'IN PROGRESS' : 'AWAITING APPROVAL'}</span>
+                        </div>
+                        <div style={{ padding: '12px 14px' }}>
+                          {impactMatch && <div style={{ marginBottom: 10 }}><div style={{ fontSize: 10, fontWeight: 700, color: '#e53e3e', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Impact</div><div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>{impactMatch[1].trim()}</div></div>}
+                          {fileMatch && <div style={{ marginBottom: 10 }}><div style={{ fontSize: 10, fontWeight: 700, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>File</div><div style={{ fontSize: 12, color: 'var(--ink)', fontFamily: 'monospace', background: 'var(--bg)', padding: '4px 8px', borderRadius: 4, border: '1px solid var(--rule)', display: 'inline-block' }}>{fileMatch[1].trim()}</div></div>}
+                          {fixMatch && <div style={{ marginBottom: 10 }}><div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Recommended Fix</div><div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5, padding: '6px 10px', background: 'rgba(33,193,154,0.06)', borderRadius: 6, borderLeft: '3px solid var(--green)' }}>{fixMatch[1].trim()}</div></div>}
+                          {liveData[session.id]?.title && <div style={{ padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--rule)', marginBottom: 10 }}><div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Instructions to Devin</div><div style={{ fontSize: 11, color: 'var(--ink)', lineHeight: 1.5 }}>{liveData[session.id].title}</div></div>}
+                          {(liveData[session.id]?.timeline || []).length > 0 && <div style={{ padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--rule)', marginBottom: 10 }}><div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Devin's Progress</div><div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>{(liveData[session.id]?.timeline || []).map((step, i) => (<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink)' }}><span style={{ width: 14, height: 14, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 8, fontWeight: 700, background: step.status === 'done' ? 'rgba(33,193,154,0.12)' : step.status === 'running' ? 'rgba(2,148,222,0.12)' : 'rgba(233,168,32,0.12)', color: step.status === 'done' ? 'var(--green)' : step.status === 'running' ? 'var(--blue)' : '#e9a820' }}>{step.status === 'done' ? '✓' : step.status === 'running' ? '⟳' : '!'}</span><span style={{ fontWeight: 500, fontSize: 10 }}>{step.step}</span></div>))}</div></div>}
+                          <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 8 }}>Sent: <span className="font-mono">{formatTimestamp(session.created_at)}</span></div>
+                          {session.session_url && <div style={{ marginTop: 8 }}><a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}><ExternalLink size={11} /> View on Devin</a></div>}
+                        </div>
+                      </div>
+                    </div>
 
-                          {/* Devin's Messages */}
-                          {(liveData[session.id]?.messages || []).length > 0 && (
-                            <div style={{ marginBottom: 10 }}>
-                              <div style={{ fontSize: 9, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <MessageSquare size={9} /> Devin's Updates
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                {(liveData[session.id]?.messages || []).map((msg, i) => (
-                                  <div key={i} style={{ background: '#161b22', borderRadius: 8, padding: '8px 10px', border: '1px solid #21262d' }}>
-                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5 }}>{msg.message}</div>
-                                    <div style={{ fontSize: 9, color: '#484f58', marginTop: 4 }}>
-                                      {(() => { try { const d = new Date(msg.timestamp + (msg.timestamp.includes('Z') || msg.timestamp.includes('+') ? '' : 'Z')); return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }); } catch { return ''; } })()}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Task Progress (Todos) */}
-                          {(liveData[session.id]?.todos || []).length > 0 && (
-                            <div style={{ marginBottom: 10 }}>
-                              <div style={{ fontSize: 9, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <CheckCheck size={9} /> Task Progress
-                                <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 500, color: '#58a6ff' }}>
-                                  {(liveData[session.id]?.todos || []).filter(t => t.status === 'completed').length}/{(liveData[session.id]?.todos || []).length} done
-                                </span>
-                              </div>
-                              <div style={{ background: '#161b22', borderRadius: 8, padding: '10px 12px', border: '1px solid #21262d' }}>
-                                {/* Progress bar */}
-                                <div style={{ height: 3, borderRadius: 2, background: '#21262d', marginBottom: 8 }}>
-                                  <div style={{
-                                    height: '100%', borderRadius: 2,
-                                    background: 'linear-gradient(90deg, #3fb950, #58a6ff)',
-                                    width: `${Math.round(((liveData[session.id]?.todos || []).filter(t => t.status === 'completed').length / Math.max((liveData[session.id]?.todos || []).length, 1)) * 100)}%`,
-                                    transition: 'width 0.5s ease'
-                                  }} />
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                  {(liveData[session.id]?.todos || []).map((todo, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 10, lineHeight: 1.4 }}>
-                                      <span style={{
-                                        width: 12, height: 12, borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        flexShrink: 0, marginTop: 1, fontSize: 7, fontWeight: 700,
-                                        background: todo.status === 'completed' ? 'rgba(63,185,80,0.15)' : todo.status === 'in_progress' ? 'rgba(88,166,255,0.15)' : 'rgba(139,148,158,0.1)',
-                                        color: todo.status === 'completed' ? '#3fb950' : todo.status === 'in_progress' ? '#58a6ff' : '#484f58',
-                                        border: `1px solid ${todo.status === 'completed' ? 'rgba(63,185,80,0.3)' : todo.status === 'in_progress' ? 'rgba(88,166,255,0.3)' : 'rgba(139,148,158,0.15)'}`,
-                                      }}>
-                                        {todo.status === 'completed' ? '✓' : todo.status === 'in_progress' ? '▶' : '○'}
-                                      </span>
-                                      <span style={{
-                                        color: todo.status === 'completed' ? '#8b949e' : todo.status === 'in_progress' ? '#e6edf3' : '#484f58',
-                                        textDecoration: todo.status === 'completed' ? 'line-through' : 'none',
-                                        fontWeight: todo.status === 'in_progress' ? 600 : 400,
-                                      }}>
-                                        {todo.content}
-                                        {todo.status === 'in_progress' && <span style={{ marginLeft: 4, color: '#58a6ff', fontSize: 9 }}>in progress</span>}
-                                      </span>
-                                    </div>
-                                  ))}
+                    {/* Right: Live Session */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', marginBottom: 10, textTransform: 'uppercase' as const, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Video size={12} /> Devin's Live Session
+                      </div>
+                      {session.session_url ? (
+                        <div style={{ borderRadius: 10, border: '1px solid var(--rule)', overflow: 'hidden', background: '#0d1117' }}>
+                          <div style={{ padding: '16px 18px', minHeight: 200 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                              <img src="/brand/devin-icon.png" alt="Devin" style={{ width: 28, height: 28, borderRadius: 6, background: '#1a1f2e' }} />
+                              <div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3' }}>Devin AI</div>
+                                <div style={{ fontSize: 10, color: '#8b949e', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ width: 6, height: 6, borderRadius: '50%', display: 'inline-block', background: session.status === 'running' ? '#3fb950' : '#e9a820', animation: session.status === 'running' ? 'pulse 2s infinite' : 'none' }} />
+                                  {session.status === 'running' ? 'Working on fix...' : 'Waiting for your approval'}
                                 </div>
                               </div>
                             </div>
-                          )}
-
-                          {/* Timeline activity log (fallback if no todos) */}
-                          {(liveData[session.id]?.todos || []).length === 0 && (
-                          <div style={{ background: '#161b22', borderRadius: 8, padding: '14px 16px', fontSize: 12, color: '#8b949e', lineHeight: 1.6 }}>
-                            {loadingLive.has(session.id) ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8 }}>
-                                <Loader2 size={14} className="animate-spin" style={{ color: '#58a6ff' }} />
-                                <span style={{ color: '#e6edf3' }}>Connecting to Devin...</span>
-                              </div>
-                            ) : (liveData[session.id]?.timeline || []).length > 0 ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                                {(liveData[session.id]?.timeline || []).map((step, i, arr) => (
-                                  <div key={i} style={{ display: 'flex', gap: 10, position: 'relative' }}>
-                                    {/* Vertical line connector */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16, flexShrink: 0 }}>
-                                      <div style={{
-                                        width: 10, height: 10, borderRadius: '50%', marginTop: 4, flexShrink: 0,
-                                        background: step.status === 'done' ? '#3fb950' : step.status === 'running' ? '#58a6ff' : step.status === 'waiting' ? '#e9a820' : '#484f58',
-                                        boxShadow: step.status === 'running' ? '0 0 8px rgba(88,166,255,0.5)' : step.status === 'waiting' ? '0 0 8px rgba(233,168,32,0.5)' : 'none',
-                                        animation: step.status === 'running' ? 'pulse 2s infinite' : 'none',
-                                      }} />
-                                      {i < arr.length - 1 && <div style={{ width: 2, flex: 1, minHeight: 12, background: '#21262d' }} />}
-                                    </div>
-                                    {/* Step content */}
-                                    <div style={{ paddingBottom: i < arr.length - 1 ? 10 : 0, flex: 1, minWidth: 0 }}>
-                                      <div style={{
-                                        fontSize: 11, fontWeight: 600,
-                                        color: step.status === 'done' ? '#e6edf3' : step.status === 'running' ? '#58a6ff' : step.status === 'waiting' ? '#e9a820' : '#8b949e',
-                                      }}>
-                                        {step.step}
-                                        {step.status === 'running' && <span style={{ marginLeft: 6, fontSize: 10, opacity: 0.7 }}>...</span>}
-                                      </div>
-                                      {step.detail && (
-                                        <div style={{ fontSize: 10, color: '#8b949e', marginTop: 2, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                          {step.detail}
-                                        </div>
-                                      )}
-                                    </div>
+                            {(liveData[session.id]?.todos || []).length > 0 && (
+                              <div style={{ marginBottom: 10 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                  <CheckCheck size={9} /> Task Progress
+                                  <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 500, color: '#58a6ff' }}>{(liveData[session.id]?.todos || []).filter(t => t.status === 'completed').length}/{(liveData[session.id]?.todos || []).length}</span>
+                                </div>
+                                <div style={{ background: '#161b22', borderRadius: 8, padding: '10px 12px', border: '1px solid #21262d' }}>
+                                  <div style={{ height: 3, borderRadius: 2, background: '#21262d', marginBottom: 8 }}>
+                                    <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, #3fb950, #58a6ff)', width: `${Math.round(((liveData[session.id]?.todos || []).filter(t => t.status === 'completed').length / Math.max((liveData[session.id]?.todos || []).length, 1)) * 100)}%`, transition: 'width 0.5s ease' }} />
                                   </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#3fb950', animation: 'pulse 2s infinite' }} />
-                                <span style={{ color: '#e6edf3', fontSize: 11 }}>Working on: {session.issue_title || 'issue fix'}</span>
-                              </div>
-                            )}
-                          </div>
-                          )}
-
-                          {/* Worklog: Description, Impact, Recommended Fix */}
-                          {session.issue_body && (() => {
-                            const body = session.issue_body || '';
-                            const descMatch = body.match(/##?\s*Description\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
-                            const impactMatch = body.match(/##?\s*Impact\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
-                            const fileMatch = body.match(/##?\s*File\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
-                            const fixMatch = body.match(/##?\s*Recommended\s*Fix\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
-                            return (
-                              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                {descMatch && (
-                                  <div>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Description</div>
-                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5 }}>{descMatch[1].trim()}</div>
-                                  </div>
-                                )}
-                                {impactMatch && (
-                                  <div>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#f85149', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Impact</div>
-                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5 }}>{impactMatch[1].trim()}</div>
-                                  </div>
-                                )}
-                                {fileMatch && (
-                                  <div>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#58a6ff', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>File</div>
-                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5, fontFamily: 'monospace' }}>{fileMatch[1].trim()}</div>
-                                  </div>
-                                )}
-                                {fixMatch && (
-                                  <div>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#3fb950', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Recommended Fix</div>
-                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5 }}>{fixMatch[1].trim()}</div>
-                                  </div>
-                                )}
-                                {!descMatch && !impactMatch && !fixMatch && (
-                                  <div>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Details</div>
-                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5 }}>{body.slice(0, 300)}{body.length > 300 ? '...' : ''}</div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-
-                          {/* Code Changes (Diff view) */}
-                          {(liveData[session.id]?.file_changes || []).length > 0 && (
-                            <div style={{ marginTop: 14 }}>
-                              <div style={{ fontSize: 9, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-                                <FileDiff size={9} /> Code Changes
-                                <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 500, color: '#58a6ff' }}>
-                                  {(liveData[session.id]?.file_changes || []).length} file{(liveData[session.id]?.file_changes || []).length !== 1 ? 's' : ''}
-                                </span>
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                {(liveData[session.id]?.file_changes || []).map((fc, i) => (
-                                  <div key={i} style={{ background: '#161b22', borderRadius: 8, border: '1px solid #21262d', overflow: 'hidden' }}>
-                                    <div style={{ padding: '6px 10px', background: '#0d1117', borderBottom: '1px solid #21262d', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                      <FileCode size={10} style={{ color: fc.action === 'create' ? '#3fb950' : '#58a6ff', flexShrink: 0 }} />
-                                      <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#e6edf3', fontWeight: 600 }}>{fc.path}</span>
-                                      <span style={{ marginLeft: 'auto', fontSize: 9, padding: '1px 6px', borderRadius: 4, background: fc.action === 'create' ? 'rgba(63,185,80,0.15)' : 'rgba(88,166,255,0.15)', color: fc.action === 'create' ? '#3fb950' : '#58a6ff', fontWeight: 600 }}>
-                                        {fc.action === 'create' ? 'NEW' : 'MODIFIED'}
-                                      </span>
-                                    </div>
-                                    <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                                      <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#3fb950', fontFamily: 'monospace', fontWeight: 600 }}>
-                                        <Plus size={9} /> {fc.lines_added}
-                                      </span>
-                                      {fc.lines_removed > 0 && (
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#f85149', fontFamily: 'monospace', fontWeight: 600 }}>
-                                          <Minus size={9} /> {fc.lines_removed}
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    {(liveData[session.id]?.todos || []).map((todo, i) => (
+                                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 10, lineHeight: 1.4 }}>
+                                        <span style={{ width: 12, height: 12, borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1, fontSize: 7, fontWeight: 700, background: todo.status === 'completed' ? 'rgba(63,185,80,0.15)' : todo.status === 'in_progress' ? 'rgba(88,166,255,0.15)' : 'rgba(139,148,158,0.1)', color: todo.status === 'completed' ? '#3fb950' : todo.status === 'in_progress' ? '#58a6ff' : '#484f58', border: `1px solid ${todo.status === 'completed' ? 'rgba(63,185,80,0.3)' : todo.status === 'in_progress' ? 'rgba(88,166,255,0.3)' : 'rgba(139,148,158,0.15)'}` }}>
+                                          {todo.status === 'completed' ? '✓' : todo.status === 'in_progress' ? '▶' : '○'}
                                         </span>
-                                      )}
-                                      <span style={{ fontSize: 10, color: '#8b949e', marginLeft: 4 }}>{fc.description}</span>
-                                    </div>
+                                        <span style={{ color: todo.status === 'completed' ? '#8b949e' : todo.status === 'in_progress' ? '#e6edf3' : '#484f58', textDecoration: todo.status === 'completed' ? 'line-through' : 'none', fontWeight: todo.status === 'in_progress' ? 600 : 400 }}>
+                                          {todo.content}
+                                        </span>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
-                                {/* Total summary */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0', fontSize: 9, color: '#8b949e' }}>
-                                  <span style={{ color: '#3fb950', fontFamily: 'monospace', fontWeight: 700 }}>
-                                    +{(liveData[session.id]?.file_changes || []).reduce((sum, f) => sum + f.lines_added, 0)}
-                                  </span>
-                                  <span style={{ color: '#f85149', fontFamily: 'monospace', fontWeight: 700 }}>
-                                    -{(liveData[session.id]?.file_changes || []).reduce((sum, f) => sum + f.lines_removed, 0)}
-                                  </span>
-                                  <span>across {(liveData[session.id]?.file_changes || []).length} file{(liveData[session.id]?.file_changes || []).length !== 1 ? 's' : ''}</span>
                                 </div>
                               </div>
-                            </div>
-                          )}
+                            )}
+                            {(liveData[session.id]?.todos || []).length === 0 && (
+                              <div style={{ background: '#161b22', borderRadius: 8, padding: '14px 16px', fontSize: 12, color: '#8b949e' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: session.status === 'running' ? '#3fb950' : '#e9a820', animation: 'pulse 2s infinite' }} />
+                                  <span style={{ color: '#e6edf3', fontSize: 11 }}>Working on: {session.issue_title || 'issue fix'}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ padding: '8px 14px', background: '#161b22', borderTop: '1px solid #21262d', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: 10, color: '#8b949e' }}>Live Devin session</span>
+                            <a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 600, color: '#58a6ff', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}><ExternalLink size={10} /> Open full session</a>
+                          </div>
                         </div>
-
-                        {/* Footer with link */}
-                        <div style={{ padding: '8px 14px', background: '#161b22', borderTop: '1px solid #21262d', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 10, color: '#8b949e' }}>
-                            {session.status_detail === 'waiting_for_user' ? "Review Devin's work before approving" : 'Live Devin session'}
-                          </span>
-                          <a href={session.session_url} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize: 10, fontWeight: 600, color: '#58a6ff', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <ExternalLink size={10} /> Open full session
-                          </a>
+                      ) : (
+                        <div style={{ padding: 24, textAlign: 'center', borderRadius: 10, border: '1px dashed var(--rule)', color: 'var(--dim)', fontSize: 11 }}>
+                          <Play size={24} style={{ opacity: 0.2, display: 'block', margin: '0 auto 8px' }} />
+                          Session details loading...
                         </div>
-                      </div>
-                    ) : (
-                      <div style={{ padding: 24, textAlign: 'center', borderRadius: 10, border: '1px dashed var(--rule)', color: 'var(--dim)', fontSize: 11, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, height: '100%', justifyContent: 'center' }}>
-                        <Play size={24} style={{ opacity: 0.2 }} />
-                        <span>{['completed', 'succeeded', 'finished', 'stopped'].includes(session.status)
-                          ? 'No recording available'
-                          : 'Video will appear when Devin finishes'}</span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         ))}
       </div>
