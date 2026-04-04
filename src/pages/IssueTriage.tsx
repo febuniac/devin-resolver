@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Send, RefreshCw, Loader2, X, Sparkles, Brain, Play, GitPullRequest, PartyPopper, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Send, RefreshCw, Loader2, X, Sparkles, Cpu, Play, GitPullRequest, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../api/client';
 
 interface Issue {
@@ -25,6 +25,117 @@ const severityChipClass: Record<string, string> = {
   critical: 'chip-red', high: 'chip-red', medium: 'chip-amber', low: 'chip-dim',
 };
 
+/* ---- Success Modal Component ---- */
+function SuccessModal({ count, issues, onClose }: { count: number; issues: Issue[]; onClose: () => void }) {
+  const firstIssue = issues[0];
+  const issueNum = firstIssue ? firstIssue.github_id : 0;
+  const issueTitle = firstIssue ? firstIssue.title : 'Issue';
+  const issueCategory = firstIssue ? firstIssue.category : 'bug';
+
+  const steps = [
+    { icon: Sparkles, label: 'Analyzing' },
+    { icon: Cpu, label: 'Writing fix' },
+    { icon: Play, label: 'Testing' },
+    { icon: GitPullRequest, label: 'Opening PR' },
+  ];
+
+  return createPortal(
+    <div className="animate-modal-bg"
+      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)' }}
+      onClick={onClose}>
+      <div className="animate-modal-pop"
+        style={{ position: 'relative', borderRadius: 20, maxWidth: 420, width: '100%', overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.35)' }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Dark gradient header */}
+        <div style={{ background: 'linear-gradient(135deg, #0d1117, #1a2332, #0d1117)', padding: '28px 28px 24px', position: 'relative' }}>
+          <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', color: '#9aa0b0', cursor: 'pointer', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={16} />
+          </button>
+
+          {/* Badge */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '5px 14px', marginBottom: 16 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#21C19A', display: 'inline-block' }}></span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#e4e5e7', fontFamily: 'var(--mono)' }}>
+              {count === 1 ? `Issue #${issueNum} approved` : `${count} issues approved`}
+            </span>
+          </div>
+
+          {/* Message */}
+          <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.65)', lineHeight: 1.5, marginBottom: 4 }}>
+            That{'\u2019'}s <strong style={{ color: '#fff' }}>{count} fewer thing{count !== 1 ? 's' : ''}</strong> you have to worry about.
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#21C19A', lineHeight: 1.2 }}>
+            Devin takes it<br />from here.
+          </div>
+        </div>
+
+        {/* White body */}
+        <div style={{ background: '#fff', padding: '24px 28px 20px' }}>
+
+          {/* Pipeline steps */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
+            {steps.map((step, i) => (
+              <div key={step.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {i > 0 && <span style={{ color: '#d1d5db', fontSize: 16 }}>{'\u2192'}</span>}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f0fdf8', border: '1px solid #d1fae5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <step.icon size={18} style={{ color: '#0d7c5f' }} />
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: '#6b7280' }}>{step.label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Issue card */}
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+            <span style={{ background: '#f0f4ff', border: '1px solid #dbeafe', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, color: '#3969CA', fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>
+              #{issueNum}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#1f2937', flex: 1, lineHeight: 1.3 }}>{issueTitle}</span>
+            <span style={{ background: '#f0f4ff', border: '1px solid #dbeafe', borderRadius: 20, padding: '3px 10px', fontSize: 10, fontWeight: 700, color: '#3969CA', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{issueCategory}</span>
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
+            {[
+              { value: '~1.5h', label: 'EST. TIME', color: '#21C19A' },
+              { value: '98%', label: 'MERGE RATE', color: '#1f2937' },
+              { value: 'Slack', label: 'NOTIFY VIA', color: '#3969CA' },
+            ].map(stat => (
+              <div key={stat.label} style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: '12px 10px', textAlign: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: stat.color }}>{stat.value}</div>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: '#9ca3af', marginTop: 2 }}>{stat.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA button */}
+          <button onClick={onClose}
+            style={{ width: '100%', padding: '14px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #0d3331, #134e4a)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: '0.2s' }}>
+            <Sparkles size={16} style={{ color: '#21C19A' }} />
+            Got it {'\u2014'} I{'\u2019'}ll focus on other things
+          </button>
+
+          {/* Link */}
+          <div style={{ textAlign: 'center', marginTop: 14 }}>
+            <a href="#" onClick={e => { e.preventDefault(); onClose(); }} style={{ fontSize: 12, color: '#9ca3af', textDecoration: 'none' }}>
+              View Devin{'\u2019'}s progress in real time {'\u2192'}
+            </a>
+          </div>
+
+          {/* Logo */}
+          <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <img src="/brand/backlogzero-light.png" alt="Backlog Zero" style={{ height: 20, opacity: 0.5 }} />
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function IssueTriage() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +147,7 @@ export function IssueTriage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
   const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
-  const [successModal, setSuccessModal] = useState({ show: false, count: 0 });
+  const [successModal, setSuccessModal] = useState<{ show: boolean; count: number; issues: Issue[] }>({ show: false, count: 0, issues: [] });
   const [error, setError] = useState('');
 
   useEffect(() => { loadIssues(); }, []);
@@ -60,7 +171,8 @@ export function IssueTriage() {
     setSending(true);
     try {
       await api.approveIssues(ids);
-      setSuccessModal({ show: true, count: ids.length });
+      const sentIssues = issues.filter(i => ids.includes(i.id));
+      setSuccessModal({ show: true, count: ids.length, issues: sentIssues });
       setSelectedIssues(new Set());
       await loadIssues();
     } catch (e) {
@@ -93,29 +205,7 @@ export function IssueTriage() {
   return (
     <div className="animate-fade-in">
       {/* Success Modal */}
-      {successModal.show && createPortal(
-        <div className="animate-modal-bg" style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setSuccessModal({ ...successModal, show: false })}>
-          <div className="animate-modal-pop" style={{ position: 'relative', background: '#18181b', border: '1px solid rgba(57,105,202,0.3)', borderRadius: 16, padding: 24, maxWidth: 380, width: '100%', textAlign: 'center', boxShadow: '0 25px 50px rgba(57,105,202,0.2)' }} onClick={e => e.stopPropagation()}>
-            <div className="animate-confetti-pop" style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, var(--purple), var(--green))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <PartyPopper size={32} color="#fff" />
-            </div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginBottom: 8 }}>{successModal.count} issue{successModal.count !== 1 ? 's' : ''} off your plate!</h2>
-            <p style={{ fontSize: 13, color: '#a1a1aa', marginBottom: 4 }}>That{'\u2019'}s {successModal.count} fewer thing{successModal.count !== 1 ? 's' : ''} you have to worry about.</p>
-            <p style={{ color: 'var(--blue)', fontWeight: 600, fontSize: 15, marginBottom: 16 }}>Devin takes it from here.</p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontSize: 11, color: '#71717a', marginBottom: 16 }}>
-              {[{ I: Sparkles, l: 'Analyzing' }, { I: Brain, l: 'Writing fix' }, { I: Play, l: 'Testing' }, { I: GitPullRequest, l: 'Opening PR' }].map((s, i) => (
-                <div key={s.l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {i > 0 && <span style={{ color: '#3f3f46', marginRight: 4 }}>{'\u2192'}</span>}
-                  <s.I size={14} style={{ color: 'var(--blue)' }} /><span>{s.l}</span>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => setSuccessModal({ ...successModal, show: false })} style={{ background: 'var(--purple)', color: '#fff', padding: '8px 24px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Got it!</button>
-            <button onClick={() => setSuccessModal({ ...successModal, show: false })} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#71717a', cursor: 'pointer' }}><X size={20} /></button>
-          </div>
-        </div>,
-        document.body
-      )}
+      {successModal.show && <SuccessModal count={successModal.count} issues={successModal.issues} onClose={() => setSuccessModal({ ...successModal, show: false })} />}
 
       {/* Topbar actions */}
       {topbarEl && createPortal(
