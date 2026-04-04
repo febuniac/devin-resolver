@@ -15,6 +15,13 @@ async def get_db():
         await db.close()
 
 
+async def get_db_connection():
+    """Get a standalone DB connection (not a generator/dependency)."""
+    db = await aiosqlite.connect(DB_PATH)
+    db.row_factory = aiosqlite.Row
+    return db
+
+
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.executescript("""
@@ -106,6 +113,7 @@ async def init_db():
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 github_token TEXT DEFAULT '',
                 devin_api_token TEXT DEFAULT '',
+                devin_org_id TEXT DEFAULT '',
                 slack_webhook_url TEXT DEFAULT '',
                 slack_channels TEXT DEFAULT '[]',
                 auto_approve_enabled INTEGER DEFAULT 0,
@@ -118,4 +126,11 @@ async def init_db():
 
             INSERT OR IGNORE INTO settings (id) VALUES (1);
         """)
+
+        # Migration: add devin_org_id column if it doesn't exist
+        cursor = await db.execute("PRAGMA table_info(settings)")
+        columns = [row[1] for row in await cursor.fetchall()]
+        if "devin_org_id" not in columns:
+            await db.execute("ALTER TABLE settings ADD COLUMN devin_org_id TEXT DEFAULT ''")
+
         await db.commit()

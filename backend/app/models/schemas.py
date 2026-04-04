@@ -130,12 +130,16 @@ class DevinSessionResponse(BaseModel):
     pr_url: Optional[str] = None
     pr_number: Optional[int] = None
     recording_url: Optional[str] = None
+    issue_title: Optional[str] = None
+    issue_number: Optional[int] = None
+    repo_full_name: Optional[str] = None
 
 
 # Settings schemas
 class SettingsResponse(BaseModel):
     github_token_set: bool
     devin_api_token_set: bool
+    devin_org_id: str
     slack_webhook_url: str
     slack_channels: list[str]
     auto_approve_enabled: bool
@@ -149,6 +153,7 @@ class SettingsResponse(BaseModel):
 class SettingsUpdate(BaseModel):
     github_token: Optional[str] = None
     devin_api_token: Optional[str] = None
+    devin_org_id: Optional[str] = None
     slack_webhook_url: Optional[str] = None
     slack_channels: Optional[list[str]] = None
     auto_approve_enabled: Optional[bool] = None

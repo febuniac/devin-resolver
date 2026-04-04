@@ -13,14 +13,20 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 @router.get("", response_model=SettingsResponse)
 async def get_settings(db: aiosqlite.Connection = Depends(get_db)):
-    cursor = await db.execute("SELECT * FROM settings WHERE id = 1")
+    cursor = await db.execute(
+        """SELECT github_token, devin_api_token, devin_org_id, slack_webhook_url,
+        slack_channels, auto_approve_enabled, auto_approve_confidence,
+        auto_approve_max_severity, codeql_enabled, scan_frequency, notifications
+        FROM settings WHERE id = 1"""
+    )
     row = await cursor.fetchone()
     if not row:
         raise HTTPException(status_code=500, detail="Settings not initialized")
 
     return SettingsResponse(
-        github_token_set=bool(row[1]),
-        devin_api_token_set=bool(row[2]),
+        github_token_set=bool(row[0]),
+        devin_api_token_set=bool(row[1]),
+        devin_org_id=row[2] or "",
         slack_webhook_url=row[3] or "",
         slack_channels=json.loads(row[4]) if row[4] else [],
         auto_approve_enabled=bool(row[5]),
@@ -46,6 +52,9 @@ async def update_settings(
     if settings.devin_api_token is not None:
         updates.append("devin_api_token = ?")
         params.append(settings.devin_api_token)
+    if settings.devin_org_id is not None:
+        updates.append("devin_org_id = ?")
+        params.append(settings.devin_org_id)
     if settings.slack_webhook_url is not None:
         updates.append("slack_webhook_url = ?")
         params.append(settings.slack_webhook_url)
@@ -101,16 +110,17 @@ async def validate_github(db: aiosqlite.Connection = Depends(get_db)):
 
 @router.post("/validate/devin")
 async def validate_devin(db: aiosqlite.Connection = Depends(get_db)):
-    cursor = await db.execute("SELECT devin_api_token FROM settings WHERE id = 1")
+    cursor = await db.execute("SELECT devin_api_token, devin_org_id FROM settings WHERE id = 1")
     row = await cursor.fetchone()
     token = row[0] if row and row[0] else ""
+    org_id = row[1] if row and row[1] else ""
 
     if not token:
         return {"valid": False, "error": "No Devin API token configured"}
 
-    service = DevinService(token)
-    valid = await service.validate_token()
-    return {"valid": valid, "error": None if valid else "Invalid token"}
+    service = DevinService(token, org_id=org_id)
+    valid, detail = await service.validate_token()
+    return {"valid": valid, "error": None if valid else detail}
 
 
 @router.post("/validate/slack")

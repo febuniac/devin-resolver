@@ -2,12 +2,19 @@ import httpx
 from typing import Optional
 
 
-DEVIN_API_BASE = "https://api.devin.ai/v1"
+DEVIN_API_V1 = "https://api.devin.ai/v1"
+DEVIN_API_V3 = "https://api.devin.ai/v3"
 
 
 class DevinService:
-    def __init__(self, token: str):
+    def __init__(self, token: str, org_id: str = ""):
         self.token = token
+        self.org_id = org_id
+        self.is_v3 = token.startswith("cog_") and bool(org_id)
+        if self.is_v3:
+            self.base_url = f"{DEVIN_API_V3}/organizations/{org_id}"
+        else:
+            self.base_url = DEVIN_API_V1
         self.headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -27,7 +34,7 @@ class DevinService:
 
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{DEVIN_API_BASE}/sessions",
+                f"{self.base_url}/sessions",
                 headers=self.headers,
                 json=payload,
                 timeout=30.0,
@@ -38,7 +45,7 @@ class DevinService:
     async def get_session(self, session_id: str) -> dict:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                f"{DEVIN_API_BASE}/sessions/{session_id}",
+                f"{self.base_url}/sessions/{session_id}",
                 headers=self.headers,
                 timeout=30.0,
             )
@@ -53,7 +60,7 @@ class DevinService:
         params = {"limit": limit, "offset": offset}
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                f"{DEVIN_API_BASE}/sessions",
+                f"{self.base_url}/sessions",
                 headers=self.headers,
                 params=params,
                 timeout=30.0,
@@ -64,7 +71,7 @@ class DevinService:
     async def send_message(self, session_id: str, message: str) -> dict:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{DEVIN_API_BASE}/sessions/{session_id}/message",
+                f"{self.base_url}/sessions/{session_id}/message",
                 headers=self.headers,
                 json={"message": message},
                 timeout=30.0,
@@ -72,18 +79,25 @@ class DevinService:
             resp.raise_for_status()
             return resp.json()
 
-    async def validate_token(self) -> bool:
+    async def validate_token(self) -> tuple[bool, str]:
+        """Validate token. Returns (is_valid, detail_message)."""
+        if self.token.startswith("cog_") and not self.org_id:
+            return False, "Service User keys (cog_) require an Organization ID. Please enter your Org ID in the field below."
         try:
             async with httpx.AsyncClient() as client:
+                url = f"{self.base_url}/sessions"
+                params = {"limit": 1} if not self.is_v3 else {"first": 1}
                 resp = await client.get(
-                    f"{DEVIN_API_BASE}/sessions",
+                    url,
                     headers=self.headers,
-                    params={"limit": 1},
+                    params=params,
                     timeout=10.0,
                 )
-                return resp.status_code == 200
-        except Exception:
-            return False
+                if resp.status_code == 200:
+                    return True, "Token is valid"
+                return False, f"API returned {resp.status_code}: {resp.text[:200]}"
+        except Exception as e:
+            return False, f"Connection error: {str(e)}"
 
     def build_issue_prompt(self, issue: dict, repo: str) -> str:
         labels = ", ".join(issue.get("labels", []))
