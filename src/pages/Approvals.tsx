@@ -298,7 +298,7 @@ export default function Approvals() {
                 {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                   <span className="font-mono" style={{ fontSize: 10, color: 'var(--green)', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at)}</span>
                 ) : (session.status === 'running' || session.status === 'pending') ? (
-                  <span className="font-mono" style={{ fontSize: 10, color: 'var(--blue)' }}>{timeDiff(session.created_at, new Date().toISOString())}...</span>
+                  <span className="font-mono" style={{ fontSize: 10, color: 'var(--blue)' }}>{timeDiff(session.created_at, new Date().toISOString())}</span>
                 ) : (
                   <span style={{ fontSize: 10, color: 'var(--dim)' }}>{'—'}</span>
                 )}
