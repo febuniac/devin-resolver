@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest } from 'lucide-react';
+import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck } from 'lucide-react';
 import api from '../api/client';
 
 interface Session {
@@ -13,8 +13,31 @@ interface Session {
   status_detail: string | null;
   pr_url: string | null;
   created_at: string;
+  updated_at: string | null;
   session_url: string;
   recording_url: string | null;
+}
+
+function formatTimestamp(ts: string | null): string {
+  if (!ts) return '—';
+  try {
+    const d = new Date(ts + (ts.includes('Z') || ts.includes('+') ? '' : 'Z'));
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+  } catch { return ts; }
+}
+
+function timeDiff(start: string, end: string | null): string {
+  if (!end) return '—';
+  try {
+    const s = new Date(start + (start.includes('Z') || start.includes('+') ? '' : 'Z'));
+    const e = new Date(end + (end.includes('Z') || end.includes('+') ? '' : 'Z'));
+    const diffMs = e.getTime() - s.getTime();
+    if (diffMs < 0) return '—';
+    const mins = Math.floor(diffMs / 60000);
+    const hrs = Math.floor(mins / 60);
+    if (hrs > 0) return `${hrs}h ${mins % 60}m`;
+    return `${mins}m`;
+  } catch { return '—'; }
 }
 
 export default function Approvals() {
@@ -84,9 +107,9 @@ export default function Approvals() {
       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 14 }}>Devin Sessions</div>
 
       <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 120px 100px 100px', padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--rule)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 110px 110px 100px 100px', padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--rule)' }}>
           <div />
-          {['Issue', 'Session', 'Status', 'PR'].map(h => (
+          {['Issue', 'Sent', 'Solved', 'Status', 'PR'].map(h => (
             <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--dim)' }}>{h}</div>
           ))}
         </div>
@@ -100,7 +123,7 @@ export default function Approvals() {
             {/* Session Row */}
             <div
               onClick={() => toggleExpand(session.id)}
-              style={{ display: 'grid', gridTemplateColumns: '28px 1fr 120px 100px 100px', padding: '14px 16px', borderBottom: '1px solid var(--rule)', alignItems: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
+              style={{ display: 'grid', gridTemplateColumns: '28px 1fr 110px 110px 100px 100px', padding: '14px 16px', borderBottom: '1px solid var(--rule)', alignItems: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
@@ -114,17 +137,18 @@ export default function Approvals() {
                 <div className="font-mono" style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
                   {session.issue_number && <span>#{session.issue_number}</span>}
                   {session.repo_full_name && <span>{session.repo_full_name}</span>}
-                  <span>Created {new Date(session.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
-              <div>
-                {session.session_url ? (
-                  <a href={session.session_url} target="_blank" rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="font-mono" style={{ fontSize: 11, color: 'var(--blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    View <ExternalLink size={10} />
-                  </a>
-                ) : <span style={{ fontSize: 11, color: 'var(--dim)' }}>Pending</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dim)' }}>
+                <Send size={10} style={{ color: 'var(--blue)', flexShrink: 0 }} />
+                <span className="font-mono" style={{ fontSize: 10 }}>{formatTimestamp(session.created_at)}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dim)' }}>
+                {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                  <><CheckCheck size={10} style={{ color: 'var(--green)', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: 'var(--green)' }}>{formatTimestamp(session.updated_at)}</span></>
+                ) : (
+                  <span style={{ fontSize: 10, color: 'var(--dim)' }}>{session.status === 'running' ? 'In progress...' : '—'}</span>
+                )}
               </div>
               <div>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}>
@@ -166,6 +190,22 @@ export default function Approvals() {
                           {session.status}
                         </span>
                       </div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>Sent:</span>
+                        <span className="font-mono" style={{ fontSize: 12, color: 'var(--ink)' }}>{formatTimestamp(session.created_at)}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>Solved:</span>
+                        <span className="font-mono" style={{ fontSize: 12, color: ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? 'var(--green)' : 'var(--dim)' }}>
+                          {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? formatTimestamp(session.updated_at) : 'In progress...'}
+                        </span>
+                      </div>
+                      {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) && session.updated_at && (
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>Duration:</span>
+                          <span className="font-mono" style={{ fontSize: 12, color: 'var(--purple)', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at)}</span>
+                        </div>
+                      )}
                       {session.issue_number && (
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                           <span style={{ fontSize: 11, color: 'var(--dim)', width: 70 }}>Issue:</span>
