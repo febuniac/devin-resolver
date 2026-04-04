@@ -117,7 +117,7 @@ export default function IssueTriage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       {/* Success Modal */}
       {successModal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-modal-bg" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setSuccessModal({ ...successModal, show: false })}>
@@ -175,8 +175,8 @@ export default function IssueTriage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Issue Triage</h1>
-          <p className="text-sm text-zinc-500 mt-1">Review, triage, and select issues to send to Devin for resolution</p>
+          <h1 className="text-lg font-bold text-white">Issue Triage</h1>
+          <p className="text-xs text-zinc-500">Review, triage, and select issues to send to Devin for resolution</p>
         </div>
         <div className="flex items-center gap-3">
           {selectedIssues.size > 0 && (
@@ -204,7 +204,7 @@ export default function IssueTriage() {
       ) : (
         <>
           {/* Stats Bar */}
-          <div className="grid grid-cols-6 gap-3">
+          <div className="grid grid-cols-6 gap-2">
             {[
               { label: 'Total', count: issues.length, color: 'text-zinc-300' },
               { label: 'Critical', count: issues.filter(i => i.severity === 'critical').length, color: 'text-red-400' },
@@ -213,9 +213,9 @@ export default function IssueTriage() {
               { label: 'In Progress', count: issues.filter(i => i.status === 'in_progress').length, color: 'text-amber-400' },
               { label: 'Resolved', count: issues.filter(i => i.status === 'resolved').length, color: 'text-emerald-400' },
             ].map((stat) => (
-              <div key={stat.label} className="glass rounded-lg p-3 text-center">
-                <p className={`text-xl font-bold ${stat.color}`}>{stat.count}</p>
-                <p className="text-xs text-zinc-500 mt-0.5">{stat.label}</p>
+              <div key={stat.label} className="glass rounded-lg p-2 text-center">
+                <p className={`text-base font-bold ${stat.color}`}>{stat.count}</p>
+                <p className="text-xs text-zinc-500">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -223,7 +223,7 @@ export default function IssueTriage() {
       )}
 
       {/* Filters */}
-      <div className="glass rounded-xl p-4 flex items-center gap-4">
+      <div className="glass rounded-lg p-2.5 flex items-center gap-3">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <input
@@ -277,9 +277,9 @@ export default function IssueTriage() {
 
       {/* Issue List */}
       {filteredIssues.length > 0 && (
-      <div className="space-y-2">
+      <div className="space-y-1">
         {/* Header row */}
-        <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        <div className="flex items-center gap-4 px-3 py-1.5 text-xs font-medium text-zinc-500 uppercase tracking-wider">
           <div className="w-6">
             <input
               type="checkbox"
@@ -334,7 +334,7 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
 
   return (
     <div className="glass rounded-lg overflow-hidden animate-slide-in" style={{ animationDelay: `${index * 30}ms` }}>
-      <div className="flex items-center gap-4 px-4 py-3 glass-hover cursor-pointer" onClick={onToggleExpand}>
+      <div className="flex items-center gap-4 px-3 py-2 glass-hover cursor-pointer" onClick={onToggleExpand}>
         <div className="w-6" onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}>
           <input
             type="checkbox"
@@ -348,8 +348,8 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
             <span className="text-xs text-zinc-500 font-mono">#{issue.number}</span>
             <span className={`text-xs px-1.5 py-0.5 rounded ${categoryColors[issue.category] || 'bg-zinc-500/15 text-zinc-400'}`}>{issue.category}</span>
           </div>
-          <p className="text-sm font-medium text-zinc-200 mt-0.5 truncate">{issue.title}</p>
-          <p className="text-xs text-zinc-500 mt-0.5">{issue.repo_full_name}</p>
+          <p className="text-sm font-medium text-zinc-200 truncate">{issue.title}</p>
+          <p className="text-xs text-zinc-500">{issue.repo_full_name}</p>
         </div>
         <div className="w-28"><SeverityBadge severity={issue.severity} /></div>
         <div className="w-28"><StatusBadge status={issue.status} /></div>

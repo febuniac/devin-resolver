@@ -48,11 +48,11 @@ export default function Analytics() {
   }));
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Analytics & Reports</h1>
-          <p className="text-sm text-zinc-500 mt-1">Track the impact of automated issue resolution across your organization</p>
+          <h1 className="text-lg font-bold text-white">Analytics & Reports</h1>
+          <p className="text-xs text-zinc-500">Track the impact of automated issue resolution across your organization</p>
         </div>
         <div className="flex items-center gap-3">
           <button className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 flex items-center gap-2">
@@ -63,7 +63,7 @@ export default function Analytics() {
       </div>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-2">
         <MetricCard title="Issues Resolved" value={analytics?.issues_resolved || 0} icon={Bug} iconColor="text-emerald-400" />
         <MetricCard title="Open Issues" value={analytics?.issues_open || 0} icon={Clock} iconColor="text-blue-400" />
         <MetricCard title="Security Fixed" value={analytics?.security_findings_fixed || 0} icon={Shield} iconColor="text-amber-400" />
@@ -71,15 +71,15 @@ export default function Analytics() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         {/* Issue Status Breakdown */}
-        <div className="glass rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-4">Issue Status Breakdown</h3>
+        <div className="glass rounded-xl p-3">
+          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">Issue Status Breakdown</h3>
           {categoryData.length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie data={categoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" stroke="none">
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie data={categoryData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" stroke="none">
                     {categoryData.map((entry, index) => (
                       <Cell key={index} fill={entry.color} />
                     ))}
@@ -97,19 +97,19 @@ export default function Analytics() {
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-center h-64 text-zinc-500 text-sm">
+            <div className="flex items-center justify-center h-40 text-zinc-500 text-sm">
               No issue data yet. Sync a repository to see breakdowns.
             </div>
           )}
         </div>
 
         {/* Severity Breakdown */}
-        <div className="glass rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-4">Issues by Severity</h3>
+        <div className="glass rounded-xl p-3">
+          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">Issues by Severity</h3>
           {Object.keys(issuesBySeverity).length > 0 ? (
             <>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={Object.entries(issuesBySeverity).map(([name, value]) => ({ name, count: value as number }))}>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={Object.entries(issuesBySeverity).map(([name, value]) => ({ name, count: value as number }))}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                   <XAxis dataKey="name" tick={{ fill: '#71717a', fontSize: 11 }} axisLine={{ stroke: '#3f3f46' }} />
                   <YAxis tick={{ fill: '#71717a', fontSize: 11 }} axisLine={{ stroke: '#3f3f46' }} />
@@ -119,7 +119,7 @@ export default function Analytics() {
               </ResponsiveContainer>
             </>
           ) : (
-            <div className="flex items-center justify-center h-64 text-zinc-500 text-sm">
+            <div className="flex items-center justify-center h-40 text-zinc-500 text-sm">
               No severity data yet. Sync and triage issues to see breakdowns.
             </div>
           )}
@@ -127,43 +127,43 @@ export default function Analytics() {
       </div>
 
       {/* Key Metrics Summary */}
-      <div className="glass rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-4">Platform Overview</h3>
-        <div className="grid grid-cols-4 gap-6">
+      <div className="glass rounded-xl p-3">
+        <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">Platform Overview</h3>
+        <div className="grid grid-cols-4 gap-4">
           <div className="text-center">
-            <p className="text-3xl font-bold text-violet-400">{analytics?.connected_repos || 0}</p>
-            <p className="text-xs text-zinc-500 mt-1">Connected Repos</p>
+            <p className="text-2xl font-bold text-violet-400">{analytics?.connected_repos || 0}</p>
+            <p className="text-xs text-zinc-500">Connected Repos</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold text-blue-400">{analytics?.total_issues || 0}</p>
-            <p className="text-xs text-zinc-500 mt-1">Total Issues</p>
+            <p className="text-2xl font-bold text-blue-400">{analytics?.total_issues || 0}</p>
+            <p className="text-xs text-zinc-500">Total Issues</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold text-amber-400">{analytics?.total_findings || 0}</p>
-            <p className="text-xs text-zinc-500 mt-1">Security Findings</p>
+            <p className="text-2xl font-bold text-amber-400">{analytics?.total_findings || 0}</p>
+            <p className="text-xs text-zinc-500">Security Findings</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold text-emerald-400">{analytics?.compliance_score || 100}%</p>
-            <p className="text-xs text-zinc-500 mt-1">Compliance Score</p>
+            <p className="text-2xl font-bold text-emerald-400">{analytics?.compliance_score || 100}%</p>
+            <p className="text-xs text-zinc-500">Compliance Score</p>
           </div>
         </div>
       </div>
 
       {/* PR Metrics */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="glass rounded-xl p-5 text-center">
-          <p className="text-4xl font-bold text-cyan-400">{analytics?.prs_created || 0}</p>
-          <p className="text-sm text-zinc-500 mt-2">PRs Created</p>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="glass rounded-xl p-3 text-center">
+          <p className="text-2xl font-bold text-cyan-400">{analytics?.prs_created || 0}</p>
+          <p className="text-xs text-zinc-500 mt-1">PRs Created</p>
         </div>
-        <div className="glass rounded-xl p-5 text-center">
-          <p className="text-4xl font-bold text-emerald-400">{analytics?.prs_merged || 0}</p>
-          <p className="text-sm text-zinc-500 mt-2">PRs Merged</p>
+        <div className="glass rounded-xl p-3 text-center">
+          <p className="text-2xl font-bold text-emerald-400">{analytics?.prs_merged || 0}</p>
+          <p className="text-xs text-zinc-500 mt-1">PRs Merged</p>
         </div>
-        <div className="glass rounded-xl p-5 text-center">
-          <p className="text-4xl font-bold text-violet-400">
+        <div className="glass rounded-xl p-3 text-center">
+          <p className="text-2xl font-bold text-violet-400">
             {analytics?.prs_created ? Math.round((analytics.prs_merged / analytics.prs_created) * 100) : 0}%
           </p>
-          <p className="text-sm text-zinc-500 mt-2">Merge Rate</p>
+          <p className="text-xs text-zinc-500 mt-1">Merge Rate</p>
         </div>
       </div>
     </div>

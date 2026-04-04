@@ -191,10 +191,10 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl">
+    <div className="space-y-3 animate-fade-in max-w-4xl">
       <div>
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="text-sm text-zinc-500 mt-1">Configure repositories, integrations, and automation preferences</p>
+        <h1 className="text-lg font-bold text-white">Settings</h1>
+        <p className="text-xs text-zinc-500">Configure repositories, integrations, and automation preferences</p>
       </div>
 
       {error && (
@@ -213,13 +213,13 @@ export default function Settings() {
       )}
 
       {/* API Tokens */}
-      <div className="glass rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Key className="w-5 h-5 text-zinc-300" />
-          <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">API Tokens</h3>
+      <div className="glass rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Key className="w-4 h-4 text-zinc-300" />
+          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">API Tokens</h3>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* GitHub Token */}
           <div>
             <label className="text-xs text-zinc-400 mb-1.5 flex items-center gap-2">
@@ -470,10 +470,10 @@ export default function Settings() {
       </div>
 
       {/* Slack Integration */}
-      <div className="glass rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Slack className="w-5 h-5 text-zinc-300" />
-          <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Slack Integration</h3>
+      <div className="glass rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Slack className="w-4 h-4 text-zinc-300" />
+          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Slack Integration</h3>
         </div>
 
         <div className="space-y-4">
@@ -553,10 +553,10 @@ export default function Settings() {
       </div>
 
       {/* Security Scanning */}
-      <div className="glass rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Shield className="w-5 h-5 text-zinc-300" />
-          <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Security Scanning</h3>
+      <div className="glass rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Shield className="w-4 h-4 text-zinc-300" />
+          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Security Scanning</h3>
         </div>
 
         <div className="space-y-4">
@@ -592,10 +592,10 @@ export default function Settings() {
       </div>
 
       {/* Notification Preferences */}
-      <div className="glass rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Bell className="w-5 h-5 text-zinc-300" />
-          <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Notifications</h3>
+      <div className="glass rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Bell className="w-4 h-4 text-zinc-300" />
+          <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Notifications</h3>
         </div>
 
         <div className="space-y-2">

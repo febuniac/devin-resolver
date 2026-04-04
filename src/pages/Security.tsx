@@ -100,7 +100,7 @@ export default function Security() {
   const criticalOpen = allFindings.filter(f => f.severity === 'critical' && f.status !== 'resolved').length;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       {error && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -111,8 +111,8 @@ export default function Security() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Security Findings</h1>
-          <p className="text-sm text-zinc-500 mt-1">CodeQL scan results - {allFindings.length} findings across all repositories</p>
+          <h1 className="text-lg font-bold text-white">Security Findings</h1>
+          <p className="text-xs text-zinc-500">CodeQL scan results - {allFindings.length} findings across all repositories</p>
         </div>
         <div className="flex items-center gap-3">
           {selectedFindings.size > 0 && (
@@ -128,15 +128,15 @@ export default function Security() {
       </div>
 
       {allFindings.length === 0 ? (
-        <div className="glass rounded-xl p-12 text-center">
-          <Shield className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-zinc-300 mb-2">No Security Findings</h3>
+        <div className="glass rounded-xl p-8 text-center">
+          <Shield className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+          <h3 className="text-base font-medium text-zinc-300 mb-2">No Security Findings</h3>
           <p className="text-sm text-zinc-500 mb-4">Connect a GitHub repository with CodeQL enabled and sync it to see security findings here.</p>
         </div>
       ) : (
         <>
           {/* Compliance Banner */}
-          <div className="glass rounded-xl p-4 border-l-4 border-amber-500/50">
+          <div className="glass rounded-lg p-3 border-l-4 border-amber-500/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Lock className="w-5 h-5 text-amber-400" />
@@ -158,7 +158,7 @@ export default function Security() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-6 gap-3">
+          <div className="grid grid-cols-6 gap-2">
             {[
               { label: 'Total', count: allFindings.length, color: 'text-zinc-300' },
               { label: 'Critical', count: allFindings.filter(f => f.severity === 'critical').length, color: 'text-red-400' },
@@ -167,9 +167,9 @@ export default function Security() {
               { label: 'PR Open', count: allFindings.filter(f => f.status === 'pr_open').length, color: 'text-cyan-400' },
               { label: 'Resolved', count: allFindings.filter(f => f.status === 'resolved').length, color: 'text-emerald-400' },
             ].map((stat) => (
-              <div key={stat.label} className="glass rounded-lg p-3 text-center">
-                <p className={`text-xl font-bold ${stat.color}`}>{stat.count}</p>
-                <p className="text-xs text-zinc-500 mt-0.5">{stat.label}</p>
+              <div key={stat.label} className="glass rounded-lg p-2 text-center">
+                <p className={`text-base font-bold ${stat.color}`}>{stat.count}</p>
+                <p className="text-xs text-zinc-500">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -177,7 +177,7 @@ export default function Security() {
       )}
 
       {/* Filters */}
-      <div className="glass rounded-xl p-4 flex items-center gap-4">
+      <div className="glass rounded-lg p-2.5 flex items-center gap-3">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <input
@@ -209,8 +209,8 @@ export default function Security() {
       </div>
 
       {/* Findings List */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+      <div className="space-y-1">
+        <div className="flex items-center gap-4 px-3 py-1.5 text-xs font-medium text-zinc-500 uppercase tracking-wider">
           <div className="w-6">
             <input type="checkbox" checked={selectedFindings.size === filteredFindings.length && filteredFindings.length > 0} onChange={selectAll} className="rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500" />
           </div>
@@ -248,7 +248,7 @@ function FindingRow({ finding, index, expanded, selected, onToggleExpand, onTogg
 }) {
   return (
     <div className="glass rounded-lg overflow-hidden animate-slide-in" style={{ animationDelay: `${index * 30}ms` }}>
-      <div className="flex items-center gap-4 px-4 py-3 glass-hover cursor-pointer" onClick={onToggleExpand}>
+      <div className="flex items-center gap-4 px-3 py-2 glass-hover cursor-pointer" onClick={onToggleExpand}>
         <div className="w-6" onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}>
           <input type="checkbox" checked={selected} onChange={() => {}} className="rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500" />
         </div>

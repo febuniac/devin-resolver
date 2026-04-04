@@ -55,11 +55,11 @@ export default function Dashboard() {
   const hasData = issues.length > 0 || findings.length > 0;
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Command Center</h1>
+          <h1 className="text-lg font-bold text-white">Command Center</h1>
           <p className="text-xs text-zinc-500 mt-0.5">Real-time overview of Devin resolving your issues autonomously</p>
         </div>
         <div className="flex items-center gap-3">
@@ -76,10 +76,10 @@ export default function Dashboard() {
       </div>
 
       {!hasData ? (
-        <div className="glass rounded-xl p-12 text-center">
-          <Zap className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-zinc-300 mb-2">Welcome to DevinResolver</h2>
-          <p className="text-sm text-zinc-500 mb-6 max-w-md mx-auto">
+        <div className="glass rounded-xl p-8 text-center">
+          <Zap className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
+          <h2 className="text-lg font-semibold text-zinc-300 mb-2">Welcome to DevinResolver</h2>
+          <p className="text-sm text-zinc-500 mb-4 max-w-md mx-auto">
             Connect your GitHub repositories and configure your API tokens to start resolving issues automatically with Devin.
           </p>
           <div className="flex items-center justify-center gap-4">
@@ -88,14 +88,14 @@ export default function Dashboard() {
               Configure Settings
             </button>
           </div>
-          <div className="mt-8 grid grid-cols-3 gap-4 max-w-xl mx-auto">
+          <div className="mt-6 grid grid-cols-3 gap-3 max-w-xl mx-auto">
             {[
               { step: '1', title: 'Add API Tokens', desc: 'GitHub PAT + Devin API token' },
               { step: '2', title: 'Connect Repos', desc: 'Add GitHub repositories to monitor' },
               { step: '3', title: 'Sync & Triage', desc: 'Devin analyzes and fixes issues' },
             ].map((s) => (
-              <div key={s.step} className="glass rounded-lg p-4 text-center">
-                <div className="w-8 h-8 rounded-full bg-violet-500/20 text-violet-400 font-bold text-sm flex items-center justify-center mx-auto mb-2">{s.step}</div>
+              <div key={s.step} className="glass rounded-lg p-3 text-center">
+                <div className="w-7 h-7 rounded-full bg-violet-500/20 text-violet-400 font-bold text-xs flex items-center justify-center mx-auto mb-1.5">{s.step}</div>
                 <p className="text-sm font-medium text-zinc-300">{s.title}</p>
                 <p className="text-xs text-zinc-500 mt-1">{s.desc}</p>
               </div>
@@ -108,7 +108,7 @@ export default function Dashboard() {
           <WorkflowPipeline />
 
           {/* KPI Grid */}
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-5 gap-2">
             <MetricCard title="Issues Resolved" value={analytics?.issues_resolved || 0} icon={Bug} iconColor="text-emerald-400" subtitle="Total" />
             <MetricCard title="Open Issues" value={analytics?.issues_open || 0} icon={Clock} iconColor="text-blue-400" subtitle="Pending resolution" />
             <MetricCard title="Security Fixed" value={analytics?.security_findings_fixed || 0} icon={Shield} iconColor="text-amber-400" subtitle="CodeQL findings" />
@@ -117,8 +117,8 @@ export default function Dashboard() {
           </div>
 
           {/* Active Work */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 glass rounded-xl p-4">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2 glass rounded-xl p-3">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Recent Activity</h3>
                 <button onClick={() => navigate('/issues')} className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1">
@@ -175,11 +175,11 @@ export default function Dashboard() {
             </div>
 
             {/* Stats Summary */}
-            <div className="glass rounded-xl p-4">
-              <div className="flex items-center justify-between mb-3">
+            <div className="glass rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Quick Stats</h3>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="p-2.5 rounded-lg bg-zinc-800/40">
                   <p className="text-[10px] text-zinc-500">Connected Repos</p>
                   <p className="text-base font-bold text-zinc-200">{analytics?.connected_repos || 0}</p>

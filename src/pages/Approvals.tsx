@@ -180,7 +180,7 @@ export default function Approvals() {
   const totalWorking = workingIssues.length + workingFindings.length;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       {error && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -191,8 +191,8 @@ export default function Approvals() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Review Devin's Work</h1>
-          <p className="text-sm text-zinc-500 mt-1">Review PRs, test recordings, and approve merges for Devin's completed work</p>
+          <h1 className="text-lg font-bold text-white">Review Devin's Work</h1>
+          <p className="text-xs text-zinc-500">Review PRs, test recordings, and approve merges for Devin's completed work</p>
         </div>
         <div className="flex items-center gap-3">
           {totalWithPRs > 0 && (
@@ -212,10 +212,10 @@ export default function Approvals() {
       </div>
 
       {/* Auto-Approve Settings */}
-      <div className="glass rounded-xl p-5 border border-violet-500/20">
-        <div className="flex items-center justify-between mb-4">
+      <div className="glass rounded-lg p-3 border border-violet-500/20">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <Zap className="w-5 h-5 text-violet-400" />
+            <Zap className="w-4 h-4 text-violet-400" />
             <div>
               <h3 className="text-sm font-semibold text-zinc-200">Auto-Approve by Devin</h3>
               <p className="text-xs text-zinc-500 mt-0.5">Automatically merge PRs that meet your criteria. No human review needed.</p>
@@ -231,7 +231,7 @@ export default function Approvals() {
         </div>
 
         {autoApproveEnabled && (
-          <div className="grid grid-cols-2 gap-4 mt-4 p-4 rounded-lg bg-violet-500/5 border border-violet-500/10">
+          <div className="grid grid-cols-2 gap-3 mt-3 p-3 rounded-lg bg-violet-500/5 border border-violet-500/10">
             <div>
               <label className="text-xs text-zinc-400 mb-1.5 block">Min AI Confidence</label>
               <div className="flex items-center gap-3">
@@ -273,17 +273,17 @@ export default function Approvals() {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-4 gap-2">
         {[
           { label: 'In Progress', count: workingIssues.filter(i => i.status === 'in_progress').length + workingFindings.filter(f => f.status === 'in_progress').length, color: 'text-amber-400', Icon: Loader2 },
           { label: 'PRs Ready', count: totalWithPRs, color: 'text-cyan-400', Icon: GitPullRequest },
           { label: 'With Recordings', count: workingIssues.filter(i => i.video_url).length + workingFindings.filter(f => f.video_url).length, color: 'text-violet-400', Icon: Play },
           { label: 'Merged', count: workingIssues.filter(i => i.status === 'resolved').length + workingFindings.filter(f => f.status === 'resolved').length, color: 'text-emerald-400', Icon: GitMerge },
         ].map((stat) => (
-          <div key={stat.label} className="glass rounded-lg p-3 flex items-center gap-3">
-            <stat.Icon className={`w-5 h-5 ${stat.color}`} />
+          <div key={stat.label} className="glass rounded-lg p-2 flex items-center gap-2">
+            <stat.Icon className={`w-4 h-4 ${stat.color}`} />
             <div>
-              <p className={`text-xl font-bold ${stat.color}`}>{stat.count}</p>
+              <p className={`text-base font-bold ${stat.color}`}>{stat.count}</p>
               <p className="text-xs text-zinc-500">{stat.label}</p>
             </div>
           </div>
@@ -291,9 +291,9 @@ export default function Approvals() {
       </div>
 
       {totalWorking === 0 ? (
-        <div className="glass rounded-xl p-12 text-center">
-          <Send className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-zinc-300 mb-2">No Work in Progress</h3>
+        <div className="glass rounded-xl p-8 text-center">
+          <Send className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+          <h3 className="text-base font-medium text-zinc-300 mb-2">No Work in Progress</h3>
           <p className="text-sm text-zinc-500">Send issues to Devin from the Issue Triage page. Devin's completed work will appear here for review.</p>
         </div>
       ) : (
@@ -311,19 +311,19 @@ export default function Approvals() {
                   const isExpanded = expandedItem === key;
                   return (
                     <div key={key} className="glass rounded-lg overflow-hidden animate-slide-in" style={{ animationDelay: `${index * 50}ms` }}>
-                      <div
-                        className="p-4 flex items-center gap-4 cursor-pointer glass-hover"
-                        onClick={() => setExpandedItem(isExpanded ? null : key)}
-                      >
-                        <div className="flex-shrink-0">
-                          {issue.status === 'resolved' ? (
-                            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                        <div
+                          className="p-3 flex items-center gap-3 cursor-pointer glass-hover"
+                          onClick={() => setExpandedItem(isExpanded ? null : key)}
+                        >
+                          <div className="flex-shrink-0">
+                            {issue.status === 'resolved' ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                           ) : issue.status === 'pr_open' ? (
-                            <GitPullRequest className="w-5 h-5 text-cyan-400" />
+                            <GitPullRequest className="w-4 h-4 text-cyan-400" />
                           ) : issue.status === 'in_progress' ? (
-                            <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+                            <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
                           ) : (
-                            <Clock className="w-5 h-5 text-zinc-500" />
+                            <Clock className="w-4 h-4 text-zinc-500" />
                           )}
                         </div>
 
@@ -461,18 +461,18 @@ export default function Approvals() {
                   return (
                     <div key={key} className="glass rounded-lg overflow-hidden animate-slide-in" style={{ animationDelay: `${index * 50}ms` }}>
                       <div
-                        className="p-4 flex items-center gap-4 cursor-pointer glass-hover"
+                        className="p-3 flex items-center gap-3 cursor-pointer glass-hover"
                         onClick={() => setExpandedItem(isExpanded ? null : key)}
                       >
                         <div className="flex-shrink-0">
                           {finding.status === 'resolved' ? (
-                            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                           ) : finding.status === 'pr_open' ? (
-                            <GitPullRequest className="w-5 h-5 text-cyan-400" />
+                            <GitPullRequest className="w-4 h-4 text-cyan-400" />
                           ) : finding.status === 'in_progress' ? (
-                            <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+                            <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
                           ) : (
-                            <Clock className="w-5 h-5 text-zinc-500" />
+                            <Clock className="w-4 h-4 text-zinc-500" />
                           )}
                         </div>
 
