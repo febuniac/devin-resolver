@@ -111,7 +111,7 @@ export default function IssueTriage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+        <Loader2 className="w-8 h-8 text-devin-blue animate-spin" />
       </div>
     );
   }
@@ -121,8 +121,8 @@ export default function IssueTriage() {
       {/* Success Modal */}
       {successModal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-modal-bg" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setSuccessModal({ ...successModal, show: false })}>
-          <div className="relative bg-zinc-900 border border-violet-500/30 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl shadow-violet-500/20 animate-modal-pop success-modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-emerald-500 flex items-center justify-center mx-auto mb-4 glow animate-confetti-pop">
+          <div className="relative bg-zinc-900 border border-devin-purple/30 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl shadow-devin-purple/20 animate-modal-pop success-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-devin-purple to-devin-green flex items-center justify-center mx-auto mb-4 glow animate-confetti-pop">
               <PartyPopper className="w-10 h-10 text-white" />
             </div>
             <h2 className="text-xl font-bold text-white mb-2">
@@ -131,7 +131,7 @@ export default function IssueTriage() {
             <p className="text-zinc-400 mb-1 text-sm">
               That's {successModal.count} fewer thing{successModal.count !== 1 ? 's' : ''} you have to worry about.
             </p>
-            <p className="text-violet-400 font-semibold text-base mb-4">
+            <p className="text-devin-blue font-semibold text-base mb-4">
               Devin takes it from here.
             </p>
             <div className="flex items-center justify-center gap-3 text-xs text-zinc-500 mb-4">
@@ -143,14 +143,14 @@ export default function IssueTriage() {
               ].map((step, i) => (
                 <div key={step.label} className="flex items-center gap-1.5">
                   {i > 0 && <span className="text-zinc-700 mr-2">→</span>}
-                  <step.Icon className="w-3.5 h-3.5 text-violet-400" />
+                  <step.Icon className="w-3.5 h-3.5 text-devin-blue" />
                   <span>{step.label}</span>
                 </div>
               ))}
             </div>
             <button
               onClick={() => setSuccessModal({ ...successModal, show: false })}
-              className="bg-violet-600 hover:bg-violet-500 text-white px-6 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-105"
+              className="bg-devin-purple hover:bg-devin-blue text-white px-6 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-105"
             >
               Got it!
             </button>
@@ -180,7 +180,7 @@ export default function IssueTriage() {
         </div>
         <div className="flex items-center gap-3">
           {selectedIssues.size > 0 && (
-            <button onClick={() => sendToDevin()} disabled={sending} className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+            <button onClick={() => sendToDevin()} disabled={sending} className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               {sending ? 'Sending...' : `Send ${selectedIssues.size} to Devin`}
             </button>
@@ -188,7 +188,7 @@ export default function IssueTriage() {
           <button onClick={loadIssues} className="glass glass-hover px-3 py-2 rounded-lg text-sm text-zinc-300 flex items-center gap-2">
             <RefreshCw className="w-4 h-4" />
           </button>
-          <button onClick={triageAll} disabled={triaging} className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+          <button onClick={triageAll} disabled={triaging} className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
             {triaging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
             {triaging ? 'Syncing...' : 'Sync & Triage'}
           </button>
@@ -209,7 +209,7 @@ export default function IssueTriage() {
               { label: 'Total', count: issues.length, color: 'text-zinc-300' },
               { label: 'Critical', count: issues.filter(i => i.severity === 'critical').length, color: 'text-red-400' },
               { label: 'Triaged', count: issues.filter(i => i.status === 'triaged').length, color: 'text-blue-400' },
-              { label: 'Approved', count: issues.filter(i => i.status === 'approved').length, color: 'text-violet-400' },
+              { label: 'Approved', count: issues.filter(i => i.status === 'approved').length, color: 'text-devin-blue' },
               { label: 'In Progress', count: issues.filter(i => i.status === 'in_progress').length, color: 'text-amber-400' },
               { label: 'Resolved', count: issues.filter(i => i.status === 'resolved').length, color: 'text-emerald-400' },
             ].map((stat) => (
@@ -231,7 +231,7 @@ export default function IssueTriage() {
             placeholder="Search issues..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-violet-500/50"
+            className="w-full pl-10 pr-4 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ export default function IssueTriage() {
           <select
             value={severityFilter}
             onChange={(e) => setSeverityFilter(e.target.value as IssueSeverity | 'all')}
-            className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-violet-500/50"
+            className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-devin-purple/50"
           >
             <option value="all">All Severity</option>
             <option value="critical">Critical</option>
@@ -250,7 +250,7 @@ export default function IssueTriage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as IssueStatus | 'all')}
-            className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-violet-500/50"
+            className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-devin-purple/50"
           >
             <option value="all">All Status</option>
             <option value="open">Open</option>
@@ -263,7 +263,7 @@ export default function IssueTriage() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value as IssueCategory | 'all')}
-            className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-violet-500/50"
+            className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-devin-purple/50"
           >
             <option value="all">All Categories</option>
             <option value="bug">Bug</option>
@@ -285,7 +285,7 @@ export default function IssueTriage() {
               type="checkbox"
               checked={selectedIssues.size === filteredIssues.length && filteredIssues.length > 0}
               onChange={selectAll}
-              className="rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500"
+              className="rounded bg-zinc-800 border-zinc-600 text-devin-purple focus:ring-devin-purple"
             />
           </div>
           <div className="flex-1 min-w-0">Issue</div>
@@ -327,7 +327,7 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
     bug: 'bg-red-500/15 text-red-400',
     feature: 'bg-blue-500/15 text-blue-400',
     security: 'bg-amber-500/15 text-amber-400',
-    performance: 'bg-violet-500/15 text-violet-400',
+    performance: 'bg-devin-purple/15 text-devin-blue',
     refactor: 'bg-cyan-500/15 text-cyan-400',
     documentation: 'bg-emerald-500/15 text-emerald-400',
   };
@@ -340,7 +340,7 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
             type="checkbox"
             checked={selected}
             onChange={() => {}}
-            className="rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500"
+            className="rounded bg-zinc-800 border-zinc-600 text-devin-purple focus:ring-devin-purple"
           />
         </div>
         <div className="flex-1 min-w-0">
@@ -357,7 +357,7 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
         <div className="w-16 text-xs text-zinc-400 hidden xl:block">{issue.estimated_effort}</div>
         <div className="w-12 flex items-center gap-1">
           {issue.pr_url && <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />}
-          {issue.video_url && <Play className="w-3.5 h-3.5 text-violet-400" />}
+          {issue.video_url && <Play className="w-3.5 h-3.5 text-devin-blue" />}
           {expanded ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
         </div>
       </div>
@@ -366,8 +366,8 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
         <div className="px-4 pb-4 pt-2 border-t border-zinc-800/50 space-y-3 animate-fade-in">
           <div className="glass rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <Brain className="w-4 h-4 text-violet-400" />
-              <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">AI Analysis</span>
+              <Brain className="w-4 h-4 text-devin-blue" />
+              <span className="text-xs font-semibold text-devin-blue uppercase tracking-wider">AI Analysis</span>
             </div>
             <p className="text-sm text-zinc-300 leading-relaxed">{issue.ai_summary || 'Not yet triaged. Click "Triage All" to analyze.'}</p>
             <div className="flex items-center gap-4 text-xs text-zinc-500">
@@ -388,14 +388,14 @@ function IssueRow({ issue, index, expanded, selected, onToggleExpand, onToggleSe
             {!['in_progress', 'pr_open', 'resolved'].includes(issue.status) && (
               <button
                 onClick={(e) => { e.stopPropagation(); onSendToDevin(issue.id); }}
-                className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                className="bg-devin-purple hover:bg-devin-blue text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
                 <Send className="w-4 h-4" />
                 Send to Devin
               </button>
             )}
             {issue.devin_session_url && (
-              <a href={issue.devin_session_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-violet-400 flex items-center gap-2">
+              <a href={issue.devin_session_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-devin-blue flex items-center gap-2">
                 <ExternalLink className="w-4 h-4" />
                 View Devin Session
               </a>

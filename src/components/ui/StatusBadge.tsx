@@ -3,7 +3,7 @@ import { IssueStatus, IssueSeverity } from '../../types';
 const statusConfig: Record<IssueStatus, { label: string; className: string }> = {
   open: { label: 'Open', className: 'bg-zinc-700/50 text-zinc-300 border-zinc-600/50' },
   triaged: { label: 'Triaged', className: 'bg-blue-500/15 text-blue-400 border-blue-500/30' },
-  approved: { label: 'Approved', className: 'bg-violet-500/15 text-violet-400 border-violet-500/30' },
+  approved: { label: 'Approved', className: 'bg-devin-purple/15 text-devin-blue border-devin-purple/30' },
   in_progress: { label: 'In Progress', className: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
   pr_open: { label: 'PR Open', className: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30' },
   resolved: { label: 'Resolved', className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },

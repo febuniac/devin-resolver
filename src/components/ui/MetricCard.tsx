@@ -10,7 +10,7 @@ interface MetricCardProps {
   subtitle?: string;
 }
 
-export default function MetricCard({ title, value, trend, icon: Icon, iconColor = 'text-violet-400', subtitle }: MetricCardProps) {
+export default function MetricCard({ title, value, trend, icon: Icon, iconColor = 'text-devin-blue', subtitle }: MetricCardProps) {
   return (
     <div className="glass rounded-lg p-2.5 glass-hover">
       <div className="flex items-start justify-between">

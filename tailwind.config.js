@@ -9,7 +9,13 @@ export default {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
-  		colors: {}
+  		colors: {
+			devin: {
+				purple: '#3969CA',
+				green: '#21C19A',
+				blue: '#0294DE',
+			}
+		}
   	}
   },
   plugins: [import("tailwindcss-animate")],

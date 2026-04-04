@@ -185,7 +185,7 @@ export default function Settings() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+        <Loader2 className="w-8 h-8 text-devin-blue animate-spin" />
       </div>
     );
   }
@@ -233,12 +233,12 @@ export default function Settings() {
                 value={githubToken}
                 onChange={(e) => setGithubToken(e.target.value)}
                 placeholder={settings?.github_token_set ? '••••••••••••••••' : 'ghp_xxxxxxxxxxxxx'}
-                className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-violet-500/50"
+                className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
               />
               <button
                 onClick={() => saveToken('github_token', githubToken)}
                 disabled={!githubToken || saving}
-                className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>
@@ -251,28 +251,28 @@ export default function Settings() {
 
             {/* GitHub Token Step-by-Step Guide */}
             <details className="mt-3 group">
-              <summary className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 cursor-pointer select-none transition-colors">
+              <summary className="flex items-center gap-1.5 text-xs text-devin-blue hover:text-devin-purple cursor-pointer select-none transition-colors">
                 <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
                 <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
                 How to get your GitHub token (step-by-step)
               </summary>
               <div className="mt-2 ml-1 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-2">
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
                   <p className="text-xs text-zinc-400">
-                    Go to <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline inline-flex items-center gap-0.5">github.com/settings/tokens/new <ExternalLink className="w-3 h-3" /></a>
+                    Go to <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener noreferrer" className="text-devin-blue hover:text-devin-purple underline inline-flex items-center gap-0.5">github.com/settings/tokens/new <ExternalLink className="w-3 h-3" /></a>
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
                   <p className="text-xs text-zinc-400">Give it a name like <span className="text-zinc-300 font-medium">&quot;DevinResolver&quot;</span></p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
                   <p className="text-xs text-zinc-400">Set expiration to <span className="text-zinc-300 font-medium">90 days</span> (or custom)</p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
                   <div className="text-xs text-zinc-400">
                     <p>Select these scopes:</p>
                     <ul className="mt-1 ml-3 space-y-0.5 list-disc text-zinc-500">
@@ -283,7 +283,7 @@ export default function Settings() {
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
+                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
                   <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Generate token&quot;</span> and copy the <span className="text-zinc-300 font-mono">ghp_...</span> value</p>
                 </div>
                 <div className="flex items-start gap-2">
@@ -307,12 +307,12 @@ export default function Settings() {
                 value={devinToken}
                 onChange={(e) => setDevinToken(e.target.value)}
                 placeholder={settings?.devin_api_token_set ? '••••••••••••••••' : 'devin_xxxxxxxxxxxxx'}
-                className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-violet-500/50"
+                className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
               />
               <button
                 onClick={() => saveToken('devin_api_token', devinToken)}
                 disabled={!devinToken || saving}
-                className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>
@@ -338,12 +338,12 @@ export default function Settings() {
                   value={devinOrgId}
                   onChange={(e) => setDevinOrgId(e.target.value)}
                   placeholder={settings?.devin_org_id || 'org-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
-                  className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-violet-500/50"
+                  className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
                 />
                 <button
                   onClick={() => saveToken('devin_org_id', devinOrgId)}
                   disabled={!devinOrgId || saving}
-                  className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                 >
                   {saving ? 'Saving...' : 'Save'}
                 </button>
@@ -353,7 +353,7 @@ export default function Settings() {
 
             {/* Devin Token Step-by-Step Guide */}
             <details className="mt-3 group">
-              <summary className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 cursor-pointer select-none transition-colors">
+              <summary className="flex items-center gap-1.5 text-xs text-devin-blue hover:text-devin-purple cursor-pointer select-none transition-colors">
                 <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
                 <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
                 How to get your Devin API token (step-by-step)
@@ -362,21 +362,21 @@ export default function Settings() {
                 <p className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Option A &mdash; Service User Key (recommended)</p>
                 <div className="space-y-2">
                   <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                    <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
                     <p className="text-xs text-zinc-400">
-                      Go to <a href="https://app.devin.ai/settings" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline inline-flex items-center gap-0.5">app.devin.ai/settings <ExternalLink className="w-3 h-3" /></a>
+                      Go to <a href="https://app.devin.ai/settings" target="_blank" rel="noopener noreferrer" className="text-devin-blue hover:text-devin-purple underline inline-flex items-center gap-0.5">app.devin.ai/settings <ExternalLink className="w-3 h-3" /></a>
                     </p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                    <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
                     <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Service users&quot;</span> in the left sidebar (under Membership)</p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                    <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
                     <p className="text-xs text-zinc-400">Create a new service user or select an existing one</p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+                    <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
                     <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Generate API key&quot;</span> &mdash; it starts with <span className="text-zinc-300 font-mono">cog_</span></p>
                   </div>
                   <div className="flex items-start gap-2">
@@ -456,12 +456,12 @@ export default function Settings() {
             onChange={(e) => setNewRepoUrl(e.target.value)}
             placeholder="owner/repository"
             onKeyDown={(e) => e.key === 'Enter' && addRepo()}
-            className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-violet-500/50"
+            className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
           />
           <button
             onClick={addRepo}
             disabled={connectingRepo || !newRepoUrl.includes('/')}
-            className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
           >
             {connectingRepo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Add Repository
@@ -485,12 +485,12 @@ export default function Settings() {
                 value={slackWebhook}
                 onChange={(e) => setSlackWebhook(e.target.value)}
                 placeholder="https://hooks.slack.com/services/..."
-                className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-violet-500/50"
+                className="flex-1 px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
               />
               <button
                 onClick={() => saveToken('slack_webhook_url', slackWebhook)}
                 disabled={!slackWebhook || saving}
-                className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                className="bg-devin-purple hover:bg-devin-blue disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
               >
                 Save
               </button>
@@ -502,32 +502,32 @@ export default function Settings() {
 
             {/* Slack Webhook Step-by-Step Guide */}
             <details className="mt-3 group">
-              <summary className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 cursor-pointer select-none transition-colors">
+              <summary className="flex items-center gap-1.5 text-xs text-devin-blue hover:text-devin-purple cursor-pointer select-none transition-colors">
                 <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
                 <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
                 How to create a Slack webhook (step-by-step)
               </summary>
               <div className="mt-2 ml-1 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/30 space-y-2">
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
                   <p className="text-xs text-zinc-400">
-                    Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline inline-flex items-center gap-0.5">api.slack.com/apps <ExternalLink className="w-3 h-3" /></a>
+                    Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener noreferrer" className="text-devin-blue hover:text-devin-purple underline inline-flex items-center gap-0.5">api.slack.com/apps <ExternalLink className="w-3 h-3" /></a>
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
                   <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Create New App&quot;</span> &rarr; <span className="text-zinc-300 font-medium">&quot;From scratch&quot;</span></p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
                   <p className="text-xs text-zinc-400">Name it <span className="text-zinc-300 font-medium">&quot;DevinResolver&quot;</span> and select your workspace</p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
                   <p className="text-xs text-zinc-400">Go to <span className="text-zinc-300 font-medium">&quot;Incoming Webhooks&quot;</span> in the left sidebar and toggle it <span className="text-zinc-300 font-medium">On</span></p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
+                  <span className="w-5 h-5 rounded-full bg-devin-purple/20 text-devin-blue text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
                   <p className="text-xs text-zinc-400">Click <span className="text-zinc-300 font-medium">&quot;Add New Webhook to Workspace&quot;</span> and select the channel for notifications</p>
                 </div>
                 <div className="flex items-start gap-2">
@@ -581,7 +581,7 @@ export default function Settings() {
             <select
               value={settings?.scan_frequency || 'daily'}
               onChange={(e) => updateSetting('scan_frequency', e.target.value)}
-              className="w-full bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-violet-500/50"
+              className="w-full bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-devin-purple/50"
             >
               <option value="realtime">Real-time (on every push)</option>
               <option value="daily">Daily</option>
@@ -612,7 +612,7 @@ export default function Settings() {
                 <span className="text-sm text-zinc-300">{labels[key] || key}</span>
                 <button
                   onClick={() => updateSetting('notifications', { ...settings.notifications, [key]: !value })}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${value ? 'bg-violet-500/15 text-violet-400' : 'bg-zinc-700/50 text-zinc-500'}`}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${value ? 'bg-devin-purple/15 text-devin-blue' : 'bg-zinc-700/50 text-zinc-500'}`}
                 >
                   {value ? 'On' : 'Off'}
                 </button>

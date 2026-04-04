@@ -35,7 +35,7 @@ export default function Analytics() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+        <Loader2 className="w-8 h-8 text-devin-blue animate-spin" />
       </div>
     );
   }
@@ -67,7 +67,7 @@ export default function Analytics() {
         <MetricCard title="Issues Resolved" value={analytics?.issues_resolved || 0} icon={Bug} iconColor="text-emerald-400" />
         <MetricCard title="Open Issues" value={analytics?.issues_open || 0} icon={Clock} iconColor="text-blue-400" />
         <MetricCard title="Security Fixed" value={analytics?.security_findings_fixed || 0} icon={Shield} iconColor="text-amber-400" />
-        <MetricCard title="Engineer Hours Saved" value={analytics?.engineer_hours_saved || 0} icon={Users} iconColor="text-violet-400" subtitle={`$${((analytics?.engineer_hours_saved || 0) * 200).toLocaleString()} saved`} />
+        <MetricCard title="Engineer Hours Saved" value={analytics?.engineer_hours_saved || 0} icon={Users} iconColor="text-devin-blue" subtitle={`$${((analytics?.engineer_hours_saved || 0) * 200).toLocaleString()} saved`} />
       </div>
 
       {/* Summary Cards */}
@@ -131,7 +131,7 @@ export default function Analytics() {
         <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">Platform Overview</h3>
         <div className="grid grid-cols-4 gap-4">
           <div className="text-center">
-            <p className="text-2xl font-bold text-violet-400">{analytics?.connected_repos || 0}</p>
+            <p className="text-2xl font-bold text-devin-blue">{analytics?.connected_repos || 0}</p>
             <p className="text-xs text-zinc-500">Connected Repos</p>
           </div>
           <div className="text-center">
@@ -160,7 +160,7 @@ export default function Analytics() {
           <p className="text-xs text-zinc-500 mt-1">PRs Merged</p>
         </div>
         <div className="glass rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold text-violet-400">
+          <p className="text-2xl font-bold text-devin-blue">
             {analytics?.prs_created ? Math.round((analytics.prs_merged / analytics.prs_created) * 100) : 0}%
           </p>
           <p className="text-xs text-zinc-500 mt-1">Merge Rate</p>

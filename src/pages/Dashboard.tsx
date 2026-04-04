@@ -44,7 +44,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+        <Loader2 className="w-8 h-8 text-devin-blue animate-spin" />
       </div>
     );
   }
@@ -83,7 +83,7 @@ export default function Dashboard() {
             Connect your GitHub repositories and configure your API tokens to start resolving issues automatically with Devin.
           </p>
           <div className="flex items-center justify-center gap-4">
-            <button onClick={() => navigate('/settings')} className="bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+            <button onClick={() => navigate('/settings')} className="bg-devin-purple hover:bg-devin-blue text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
               <Settings className="w-4 h-4" />
               Configure Settings
             </button>
@@ -95,7 +95,7 @@ export default function Dashboard() {
               { step: '3', title: 'Sync & Triage', desc: 'Devin analyzes and fixes issues' },
             ].map((s) => (
               <div key={s.step} className="glass rounded-lg p-3 text-center">
-                <div className="w-7 h-7 rounded-full bg-violet-500/20 text-violet-400 font-bold text-xs flex items-center justify-center mx-auto mb-1.5">{s.step}</div>
+                <div className="w-7 h-7 rounded-full bg-devin-purple/20 text-devin-blue font-bold text-xs flex items-center justify-center mx-auto mb-1.5">{s.step}</div>
                 <p className="text-sm font-medium text-zinc-300">{s.title}</p>
                 <p className="text-xs text-zinc-500 mt-1">{s.desc}</p>
               </div>
@@ -113,7 +113,7 @@ export default function Dashboard() {
             <MetricCard title="Open Issues" value={analytics?.issues_open || 0} icon={Clock} iconColor="text-blue-400" subtitle="Pending resolution" />
             <MetricCard title="Security Fixed" value={analytics?.security_findings_fixed || 0} icon={Shield} iconColor="text-amber-400" subtitle="CodeQL findings" />
             <MetricCard title="PRs Created" value={analytics?.prs_created || 0} icon={GitPullRequest} iconColor="text-cyan-400" subtitle={`${analytics?.prs_merged || 0} merged`} />
-            <MetricCard title="Hours Saved" value={analytics?.engineer_hours_saved || 0} icon={Users} iconColor="text-violet-400" subtitle="Engineer hours" />
+            <MetricCard title="Hours Saved" value={analytics?.engineer_hours_saved || 0} icon={Users} iconColor="text-devin-blue" subtitle="Engineer hours" />
           </div>
 
           {/* Active Work */}
@@ -121,7 +121,7 @@ export default function Dashboard() {
             <div className="col-span-2 glass rounded-xl p-3">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Recent Activity</h3>
-                <button onClick={() => navigate('/issues')} className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1">
+                <button onClick={() => navigate('/issues')} className="text-xs text-devin-blue hover:text-devin-purple flex items-center gap-1">
                   View all <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
@@ -133,8 +133,8 @@ export default function Dashboard() {
                     {recentIssues.map((issue) => (
                       <div key={`issue-${issue.id}`} className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-800/40 hover:bg-zinc-800/60 transition-colors">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center flex-shrink-0">
-                            <Zap className="w-4 h-4 text-violet-400" />
+                          <div className="w-8 h-8 rounded-lg bg-devin-purple/15 flex items-center justify-center flex-shrink-0">
+                            <Zap className="w-4 h-4 text-devin-blue" />
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-zinc-200 truncate">{issue.title}</p>

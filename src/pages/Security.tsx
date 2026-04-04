@@ -91,7 +91,7 @@ export default function Security() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+        <Loader2 className="w-8 h-8 text-devin-blue animate-spin" />
       </div>
     );
   }
@@ -185,19 +185,19 @@ export default function Security() {
             placeholder="Search by rule, file, or CWE..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-violet-500/50"
+            className="w-full pl-10 pr-4 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-devin-purple/50"
           />
         </div>
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-zinc-500" />
-          <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value as SecuritySeverity | 'all')} className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-violet-500/50">
+          <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value as SecuritySeverity | 'all')} className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-devin-purple/50">
             <option value="all">All Severity</option>
             <option value="critical">Critical</option>
             <option value="high">High</option>
             <option value="medium">Medium</option>
             <option value="low">Low</option>
           </select>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as IssueStatus | 'all')} className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-violet-500/50">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as IssueStatus | 'all')} className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-devin-purple/50">
             <option value="all">All Status</option>
             <option value="triaged">Triaged</option>
             <option value="approved">Approved</option>
@@ -212,7 +212,7 @@ export default function Security() {
       <div className="space-y-1">
         <div className="flex items-center gap-3 px-3 py-1.5 text-xs font-medium text-zinc-500 uppercase tracking-wider">
           <div className="w-5">
-            <input type="checkbox" checked={selectedFindings.size === filteredFindings.length && filteredFindings.length > 0} onChange={selectAll} className="rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500" />
+            <input type="checkbox" checked={selectedFindings.size === filteredFindings.length && filteredFindings.length > 0} onChange={selectAll} className="rounded bg-zinc-800 border-zinc-600 text-devin-purple focus:ring-devin-purple" />
           </div>
           <div className="flex-1 min-w-0">Finding</div>
           <div className="w-20">Severity</div>
@@ -250,7 +250,7 @@ function FindingRow({ finding, index, expanded, selected, onToggleExpand, onTogg
     <div className="glass rounded-lg overflow-hidden animate-slide-in" style={{ animationDelay: `${index * 30}ms` }}>
       <div className="flex items-center gap-3 px-3 py-2 glass-hover cursor-pointer" onClick={onToggleExpand}>
         <div className="w-5" onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}>
-          <input type="checkbox" checked={selected} onChange={() => {}} className="rounded bg-zinc-800 border-zinc-600 text-violet-500 focus:ring-violet-500" />
+          <input type="checkbox" checked={selected} onChange={() => {}} className="rounded bg-zinc-800 border-zinc-600 text-devin-purple focus:ring-devin-purple" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -276,8 +276,8 @@ function FindingRow({ finding, index, expanded, selected, onToggleExpand, onTogg
         <div className="px-4 pb-4 pt-2 border-t border-zinc-800/50 space-y-3 animate-fade-in">
           <div className="glass rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <Brain className="w-4 h-4 text-violet-400" />
-              <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">AI Remediation Plan</span>
+              <Brain className="w-4 h-4 text-devin-blue" />
+              <span className="text-xs font-semibold text-devin-blue uppercase tracking-wider">AI Remediation Plan</span>
             </div>
             <p className="text-sm text-zinc-300 leading-relaxed">{finding.ai_summary || 'No AI analysis yet. Sync the repository to generate remediation plans.'}</p>
             <div className="flex items-center gap-4 text-xs text-zinc-500">
@@ -298,14 +298,14 @@ function FindingRow({ finding, index, expanded, selected, onToggleExpand, onTogg
             {(finding.status === 'triaged' || finding.status === 'open') && (
               <button
                 onClick={(e) => { e.stopPropagation(); api.approveFindings([finding.id]).then(() => window.location.reload()); }}
-                className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                className="bg-devin-purple hover:bg-devin-blue text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
                 <Zap className="w-4 h-4" />
                 Approve for Devin
               </button>
             )}
             {finding.devin_session_url && (
-              <a href={finding.devin_session_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-violet-400 flex items-center gap-2">
+              <a href={finding.devin_session_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-devin-blue flex items-center gap-2">
                 <ExternalLink className="w-4 h-4" />
                 View Devin Session
               </a>

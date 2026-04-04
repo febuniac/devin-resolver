@@ -10,10 +10,10 @@ interface PipelineStep {
 
 const typeStyles: Record<string, { border: string; badge: string; dot: string }> = {
   trigger: { border: 'border-emerald-500/40', badge: 'bg-emerald-500/15 text-emerald-400', dot: 'bg-emerald-400' },
-  autonomous: { border: 'border-violet-500/40', badge: 'bg-violet-500/15 text-violet-400', dot: 'bg-violet-400' },
+  autonomous: { border: 'border-devin-purple/40', badge: 'bg-devin-purple/15 text-devin-blue', dot: 'bg-devin-purple' },
   checkpoint: { border: 'border-amber-500/40 border-dashed', badge: 'bg-amber-500/15 text-amber-400', dot: 'bg-amber-400' },
   output: { border: 'border-emerald-500/40', badge: 'bg-emerald-500/15 text-emerald-400', dot: 'bg-emerald-400' },
-  analytics: { border: 'border-violet-500/40', badge: 'bg-violet-500/15 text-violet-400', dot: 'bg-violet-400' },
+  analytics: { border: 'border-devin-purple/40', badge: 'bg-devin-purple/15 text-devin-blue', dot: 'bg-devin-purple' },
 };
 
 const steps: PipelineStep[] = [
@@ -41,7 +41,7 @@ export default function WorkflowPipeline() {
                 <p className="text-xs font-semibold text-white pipeline-title">{step.title}</p>
                 <p className="text-[10px] text-zinc-500 mt-0.5">{step.subtitle}</p>
                 {step.active && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-violet-400 animate-pulse" />
+                  <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-devin-purple animate-pulse" />
                 )}
               </div>
               {i < steps.length - 1 && (
@@ -54,10 +54,10 @@ export default function WorkflowPipeline() {
       <div className="flex items-center gap-4 mt-2.5 text-[10px]">
         {[
           { label: 'Trigger', color: 'bg-emerald-400' },
-          { label: 'Devin Autonomous', color: 'bg-violet-400' },
+          { label: 'Devin Autonomous', color: 'bg-devin-purple' },
           { label: 'Human Checkpoint', color: 'bg-amber-400' },
           { label: 'Output', color: 'bg-emerald-400' },
-          { label: 'Analytics', color: 'bg-violet-400' },
+          { label: 'Analytics', color: 'bg-devin-purple' },
         ].map((item) => (
           <div key={item.label} className="flex items-center gap-1.5">
             <div className={`w-3 h-0.5 rounded ${item.color}`} />

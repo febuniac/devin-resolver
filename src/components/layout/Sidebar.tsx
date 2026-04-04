@@ -7,7 +7,6 @@ import {
   CheckCircle,
   BarChart3,
   Settings,
-  Zap,
   Github,
   Sun,
   Moon,
@@ -47,14 +46,12 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 h-screen w-64 sidebar-glass border-r border-zinc-800/50 dark:border-zinc-800/50 light:border-zinc-200 flex flex-col z-50">
       <div className="p-3 border-b border-zinc-800/50 dark:border-zinc-800/50">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center glow">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-zinc-900 dark:text-white tracking-tight">DevinResolver</h1>
-              <p className="text-xs text-zinc-500">Powered by Devin AI</p>
-            </div>
+          <div className="flex items-center gap-2">
+            <img
+              src={theme === 'dark' ? '/brand/devin-logo-white.png' : '/brand/devin-logo-black.png'}
+              alt="Devin"
+              className="h-6 object-contain"
+            />
           </div>
           <button
             onClick={toggleTheme}
@@ -75,11 +72,11 @@ export default function Sidebar() {
               onClick={() => navigate(item.path)}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                 isActive
-                  ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/20'
+                  ? 'bg-devin-purple/15 text-devin-purple dark:text-devin-blue border border-devin-purple/20'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
               }`}
             >
-              <item.icon className={`w-4.5 h-4.5 ${isActive ? 'text-violet-600 dark:text-violet-400' : ''}`} />
+              <item.icon className={`w-4.5 h-4.5 ${isActive ? 'text-devin-purple dark:text-devin-blue' : ''}`} />
               {item.label}
             </button>
           );

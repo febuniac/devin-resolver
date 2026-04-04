@@ -56,11 +56,11 @@
   }
   
   .gradient-text {
-    @apply bg-gradient-to-r from-violet-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-devin-purple via-blue-400 to-cyan-400 bg-clip-text text-transparent;
   }
 
   .light .gradient-text {
-    @apply bg-gradient-to-r from-violet-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-devin-purple via-blue-600 to-cyan-600 bg-clip-text text-transparent;
   }
   
   .glow {

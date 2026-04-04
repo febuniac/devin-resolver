@@ -171,7 +171,7 @@ export default function Approvals() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+        <Loader2 className="w-8 h-8 text-devin-blue animate-spin" />
       </div>
     );
   }
@@ -212,10 +212,10 @@ export default function Approvals() {
       </div>
 
       {/* Auto-Approve Settings */}
-      <div className="glass rounded-lg p-3 border border-violet-500/20">
+      <div className="glass rounded-lg p-3 border border-devin-purple/20">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <Zap className="w-4 h-4 text-violet-400" />
+            <Zap className="w-4 h-4 text-devin-blue" />
             <div>
               <h3 className="text-sm font-semibold text-zinc-200">Auto-Approve by Devin</h3>
               <p className="text-xs text-zinc-500 mt-0.5">Automatically merge PRs that meet your criteria. No human review needed.</p>
@@ -223,7 +223,7 @@ export default function Approvals() {
           </div>
           <button onClick={toggleAutoApprove} className="flex items-center gap-2">
             {autoApproveEnabled ? (
-              <ToggleRight className="w-10 h-6 text-violet-400" />
+              <ToggleRight className="w-10 h-6 text-devin-blue" />
             ) : (
               <ToggleLeft className="w-10 h-6 text-zinc-600" />
             )}
@@ -231,7 +231,7 @@ export default function Approvals() {
         </div>
 
         {autoApproveEnabled && (
-          <div className="grid grid-cols-2 gap-3 mt-3 p-3 rounded-lg bg-violet-500/5 border border-violet-500/10">
+          <div className="grid grid-cols-2 gap-3 mt-3 p-3 rounded-lg bg-devin-purple/5 border border-devin-purple/10">
             <div>
               <label className="text-xs text-zinc-400 mb-1.5 block">Min AI Confidence</label>
               <div className="flex items-center gap-3">
@@ -241,9 +241,9 @@ export default function Approvals() {
                   max={99}
                   value={autoApproveThreshold}
                   onChange={(e) => updateThreshold(Number(e.target.value))}
-                  className="flex-1 accent-violet-500"
+                  className="flex-1 accent-devin-purple"
                 />
-                <span className="text-sm font-medium text-violet-400 w-12 text-right">{autoApproveThreshold}%</span>
+                <span className="text-sm font-medium text-devin-blue w-12 text-right">{autoApproveThreshold}%</span>
               </div>
             </div>
             <div>
@@ -251,7 +251,7 @@ export default function Approvals() {
               <select
                 value={autoApproveSeverity}
                 onChange={(e) => updateSeverity(e.target.value)}
-                className="w-full bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-violet-500/50"
+                className="w-full bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-zinc-300 px-3 py-2 focus:outline-none focus:border-devin-purple/50"
               >
                 <option value="low">Low only</option>
                 <option value="medium">Medium and below</option>
@@ -261,9 +261,9 @@ export default function Approvals() {
             </div>
             <div className="col-span-2">
               <p className="text-xs text-zinc-500">
-                With current settings, <span className="text-violet-400 font-medium">
+                With current settings, <span className="text-devin-blue font-medium">
                   {issues.filter(i => i.ai_confidence >= autoApproveThreshold).length} issues
-                </span> and <span className="text-violet-400 font-medium">
+                </span> and <span className="text-devin-blue font-medium">
                   {findings.filter(f => f.ai_confidence >= autoApproveThreshold).length} security findings
                 </span> would be auto-approved.
               </p>
@@ -277,7 +277,7 @@ export default function Approvals() {
         {[
           { label: 'In Progress', count: workingIssues.filter(i => i.status === 'in_progress').length + workingFindings.filter(f => f.status === 'in_progress').length, color: 'text-amber-400', Icon: Loader2 },
           { label: 'PRs Ready', count: totalWithPRs, color: 'text-cyan-400', Icon: GitPullRequest },
-          { label: 'With Recordings', count: workingIssues.filter(i => i.video_url).length + workingFindings.filter(f => f.video_url).length, color: 'text-violet-400', Icon: Play },
+          { label: 'With Recordings', count: workingIssues.filter(i => i.video_url).length + workingFindings.filter(f => f.video_url).length, color: 'text-devin-blue', Icon: Play },
           { label: 'Merged', count: workingIssues.filter(i => i.status === 'resolved').length + workingFindings.filter(f => f.status === 'resolved').length, color: 'text-emerald-400', Icon: GitMerge },
         ].map((stat) => (
           <div key={stat.label} className="glass rounded-lg p-2 flex items-center gap-2">
@@ -335,7 +335,7 @@ export default function Approvals() {
                               <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400">PR #{issue.pr_number}</span>
                             )}
                             {issue.video_url && (
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-400 flex items-center gap-1">
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-devin-purple/15 text-devin-blue flex items-center gap-1">
                                 <Play className="w-3 h-3" /> Recording
                               </span>
                             )}
@@ -346,7 +346,7 @@ export default function Approvals() {
 
                         <div className="flex flex-col items-end gap-1">
                           <div className="flex items-center gap-2 text-xs text-zinc-500">
-                            <Brain className="w-3.5 h-3.5 text-violet-400" />
+                            <Brain className="w-3.5 h-3.5 text-devin-blue" />
                             <ConfidenceMeter value={issue.ai_confidence} />
                           </div>
                           <span className="text-xs text-zinc-500">
@@ -382,8 +382,8 @@ export default function Approvals() {
                           {issue.ai_summary && (
                             <div className="glass rounded-lg p-3">
                               <div className="flex items-center gap-2 mb-2">
-                                <Brain className="w-3.5 h-3.5 text-violet-400" />
-                                <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">AI Analysis</span>
+                                <Brain className="w-3.5 h-3.5 text-devin-blue" />
+                                <span className="text-xs font-semibold text-devin-blue uppercase tracking-wider">AI Analysis</span>
                               </div>
                               <p className="text-sm text-zinc-300 leading-relaxed">{issue.ai_summary}</p>
                             </div>
@@ -391,10 +391,10 @@ export default function Approvals() {
 
                           {/* Test Recording Preview */}
                           {issue.video_url ? (
-                            <div className="glass rounded-lg p-4 border border-violet-500/20">
+                            <div className="glass rounded-lg p-4 border border-devin-purple/20">
                               <div className="flex items-center gap-2 mb-3">
-                                <Play className="w-4 h-4 text-violet-400" />
-                                <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Devin's Test Recording</span>
+                                <Play className="w-4 h-4 text-devin-blue" />
+                                <span className="text-xs font-semibold text-devin-blue uppercase tracking-wider">Devin's Test Recording</span>
                               </div>
                               <div className="relative rounded-lg overflow-hidden bg-zinc-900 aspect-video">
                                 <video
@@ -426,7 +426,7 @@ export default function Approvals() {
 
                           <div className="flex items-center gap-3">
                             {issue.devin_session_url && (
-                              <a href={issue.devin_session_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-violet-400 flex items-center gap-2">
+                              <a href={issue.devin_session_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-devin-blue flex items-center gap-2">
                                 <ExternalLink className="w-4 h-4" />
                                 View Devin Session
                               </a>
@@ -485,7 +485,7 @@ export default function Approvals() {
                               <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400">PR #{finding.pr_number}</span>
                             )}
                             {finding.video_url && (
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-400 flex items-center gap-1">
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-devin-purple/15 text-devin-blue flex items-center gap-1">
                                 <Play className="w-3 h-3" /> Recording
                               </span>
                             )}
@@ -496,7 +496,7 @@ export default function Approvals() {
 
                         <div className="flex flex-col items-end gap-1">
                           <div className="flex items-center gap-2 text-xs text-zinc-500">
-                            <Brain className="w-3.5 h-3.5 text-violet-400" />
+                            <Brain className="w-3.5 h-3.5 text-devin-blue" />
                             <ConfidenceMeter value={finding.ai_confidence} />
                           </div>
                           <span className="text-xs text-zinc-500">
@@ -532,8 +532,8 @@ export default function Approvals() {
                           {finding.ai_remediation && (
                             <div className="glass rounded-lg p-3">
                               <div className="flex items-center gap-2 mb-2">
-                                <Brain className="w-3.5 h-3.5 text-violet-400" />
-                                <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">AI Remediation Plan</span>
+                                <Brain className="w-3.5 h-3.5 text-devin-blue" />
+                                <span className="text-xs font-semibold text-devin-blue uppercase tracking-wider">AI Remediation Plan</span>
                               </div>
                               <p className="text-sm text-zinc-300 leading-relaxed">{finding.ai_remediation}</p>
                             </div>
@@ -541,10 +541,10 @@ export default function Approvals() {
 
                           {/* Test Recording Preview */}
                           {finding.video_url ? (
-                            <div className="glass rounded-lg p-4 border border-violet-500/20">
+                            <div className="glass rounded-lg p-4 border border-devin-purple/20">
                               <div className="flex items-center gap-2 mb-3">
-                                <Play className="w-4 h-4 text-violet-400" />
-                                <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Devin's Test Recording</span>
+                                <Play className="w-4 h-4 text-devin-blue" />
+                                <span className="text-xs font-semibold text-devin-blue uppercase tracking-wider">Devin's Test Recording</span>
                               </div>
                               <div className="relative rounded-lg overflow-hidden bg-zinc-900 aspect-video">
                                 <video
@@ -576,7 +576,7 @@ export default function Approvals() {
 
                           <div className="flex items-center gap-3">
                             {finding.devin_session_url && (
-                              <a href={finding.devin_session_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-violet-400 flex items-center gap-2">
+                              <a href={finding.devin_session_url} target="_blank" rel="noopener noreferrer" className="glass glass-hover px-4 py-2 rounded-lg text-sm font-medium text-devin-blue flex items-center gap-2">
                                 <ExternalLink className="w-4 h-4" />
                                 View Devin Session
                               </a>
