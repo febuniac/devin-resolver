@@ -93,15 +93,16 @@ async def _create_devin_sessions(issue_ids: list[int]):
     logger.info(f"Starting Devin session creation for issues: {issue_ids}")
     db = await get_db_connection()
     try:
-        # Get Devin token + org_id + slack webhook + github_pat from settings
+        # Get Devin token + org_id + slack webhook + github_pat + notification prefs from settings
         cursor = await db.execute(
-            "SELECT devin_api_token, devin_org_id, slack_webhook_url, github_pat FROM settings WHERE id = 1"
+            "SELECT devin_api_token, devin_org_id, slack_webhook_url, github_pat, notifications FROM settings WHERE id = 1"
         )
         settings_row = await cursor.fetchone()
         token = settings_row[0] if settings_row and settings_row[0] else ""
         org_id = settings_row[1] if settings_row and settings_row[1] else ""
         slack_webhook = settings_row[2] if settings_row and settings_row[2] else ""
         github_pat = settings_row[3] if settings_row and settings_row[3] else ""
+        notif_prefs = json.loads(settings_row[4]) if settings_row and settings_row[4] else {}
 
         if not token:
             logger.warning("No Devin API token configured — skipping session creation")
@@ -159,15 +160,15 @@ async def _create_devin_sessions(issue_ids: list[int]):
                 await db.commit()
                 logger.info(f"Created Devin session {session_id} for issue #{issue_id}")
 
-                # Send Slack notification immediately when session is created
-                if slack.webhook_url:
+                # Send "Issue Sent to Devin" Slack notification
+                if slack.webhook_url and notif_prefs.get("issue_sent_to_devin", True):
                     try:
-                        await slack.send_issue_notification(
+                        await slack.notify_issue_sent_to_devin(
                             issue_title=issue_title,
                             issue_number=issue_number,
                             repo=repo,
-                            action="Sent to Devin",
-                            devin_session_url=session_url,
+                            session_id=session_id,
+                            session_url=session_url,
                         )
                         logger.info(f"Slack notification sent for issue #{issue_id} — sent to Devin")
                     except Exception as slack_err:
@@ -516,6 +517,29 @@ async def sync_and_triage(db: aiosqlite.Connection = Depends(get_db)):
                 (severity, category, confidence, ai_summary, effort, row[0]),
             )
             triaged_count += 1
+
+            # Send "New Issue Triaged" Slack notification
+            try:
+                notif_cursor = await db.execute("SELECT slack_webhook_url, notifications FROM settings WHERE id = 1")
+                notif_row = await notif_cursor.fetchone()
+                slack_webhook = notif_row[0] if notif_row else ""
+                notif_prefs = json.loads(notif_row[1]) if notif_row and notif_row[1] else {}
+                if slack_webhook and notif_prefs.get("new_issue_triaged", True):
+                    slack = SlackService(webhook_url=slack_webhook)
+                    github_url = f"https://github.com/{issue_row[5]}/issues/{issue_row[2]}"
+                    await slack.notify_issue_triaged(
+                        issue_title=issue_row[3],
+                        issue_number=issue_row[2],
+                        repo=issue_row[5],
+                        severity=severity,
+                        category=category,
+                        ai_summary=ai_summary,
+                        effort=effort,
+                        github_url=github_url,
+                    )
+                    logger.info(f"Slack notification sent: new_issue_triaged for issue #{row[0]}")
+            except Exception as slack_err:
+                logger.error(f"Failed to send triaged notification for issue {row[0]}: {slack_err}")
 
     await db.commit()
     return {

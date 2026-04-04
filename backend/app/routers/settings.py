@@ -16,7 +16,8 @@ async def get_settings(db: aiosqlite.Connection = Depends(get_db)):
     cursor = await db.execute(
         """SELECT github_token, devin_api_token, devin_org_id, slack_webhook_url,
         slack_channels, auto_approve_enabled, auto_approve_confidence,
-        auto_approve_max_severity, codeql_enabled, scan_frequency, notifications
+        auto_approve_max_severity, codeql_enabled, scan_frequency, notifications,
+        github_pat
         FROM settings WHERE id = 1"""
     )
     row = await cursor.fetchone()
@@ -25,6 +26,7 @@ async def get_settings(db: aiosqlite.Connection = Depends(get_db)):
 
     return SettingsResponse(
         github_token_set=bool(row[0]),
+        github_pat_set=bool(row[11]) if len(row) > 11 else False,
         devin_api_token_set=bool(row[1]),
         devin_org_id=row[2] or "",
         slack_webhook_url=row[3] or "",
@@ -49,6 +51,9 @@ async def update_settings(
     if settings.github_token is not None:
         updates.append("github_token = ?")
         params.append(settings.github_token)
+    if settings.github_pat is not None:
+        updates.append("github_pat = ?")
+        params.append(settings.github_pat)
     if settings.devin_api_token is not None:
         updates.append("devin_api_token = ?")
         params.append(settings.devin_api_token)
@@ -135,3 +140,73 @@ async def validate_slack(db: aiosqlite.Connection = Depends(get_db)):
     service = SlackService(webhook_url=webhook)
     valid = await service.validate_webhook()
     return {"valid": valid, "error": None if valid else "Invalid webhook URL"}
+
+
+@router.post("/notifications/daily-summary")
+async def send_daily_summary(db: aiosqlite.Connection = Depends(get_db)):
+    """Manually trigger the daily summary Slack notification."""
+    # Get settings
+    cursor = await db.execute("SELECT slack_webhook_url, notifications FROM settings WHERE id = 1")
+    row = await cursor.fetchone()
+    webhook = row[0] if row and row[0] else ""
+    notif_prefs = json.loads(row[1]) if row and row[1] else {}
+
+    if not webhook:
+        return {"sent": False, "error": "No Slack webhook URL configured"}
+
+    # Gather stats
+    # Issues triaged today
+    cursor = await db.execute(
+        "SELECT COUNT(*) FROM issues WHERE triaged_at >= date('now', 'start of day')"
+    )
+    issues_triaged = (await cursor.fetchone())[0]
+
+    # Total open
+    cursor = await db.execute("SELECT COUNT(*) FROM issues WHERE status IN ('open', 'triaged')")
+    total_open = (await cursor.fetchone())[0]
+
+    # Sent to Devin (approved/in_progress today)
+    cursor = await db.execute(
+        "SELECT COUNT(*) FROM issues WHERE approved_at >= date('now', 'start of day')"
+    )
+    sent_to_devin = (await cursor.fetchone())[0]
+
+    # PRs created
+    cursor = await db.execute("SELECT COUNT(*) FROM issues WHERE status = 'pr_open'")
+    prs_created = (await cursor.fetchone())[0]
+
+    # PRs merged
+    cursor = await db.execute("SELECT COUNT(*) FROM issues WHERE status = 'resolved'")
+    prs_merged = (await cursor.fetchone())[0]
+
+    # Needs attention (waiting for user)
+    cursor = await db.execute(
+        "SELECT COUNT(*) FROM devin_sessions WHERE status_detail = 'waiting_for_user' AND status = 'running'"
+    )
+    needs_attention = (await cursor.fetchone())[0]
+
+    # Active repos
+    cursor = await db.execute(
+        "SELECT DISTINCT repo_full_name FROM issues WHERE status IN ('open', 'triaged', 'in_progress', 'pr_open') LIMIT 5"
+    )
+    top_repos = [r[0] for r in await cursor.fetchall()]
+
+    slack = SlackService(webhook_url=webhook)
+    sent = await slack.notify_daily_summary(
+        issues_triaged=issues_triaged,
+        total_open=total_open,
+        sent_to_devin=sent_to_devin,
+        prs_created=prs_created,
+        prs_merged=prs_merged,
+        needs_attention=needs_attention,
+        top_repos=top_repos,
+    )
+
+    return {"sent": sent, "stats": {
+        "issues_triaged": issues_triaged,
+        "total_open": total_open,
+        "sent_to_devin": sent_to_devin,
+        "prs_created": prs_created,
+        "prs_merged": prs_merged,
+        "needs_attention": needs_attention,
+    }}

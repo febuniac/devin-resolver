@@ -100,6 +100,7 @@ async def init_db():
                 issue_id INTEGER,
                 finding_id INTEGER,
                 status TEXT DEFAULT 'pending',
+                status_detail TEXT DEFAULT '',
                 created_at TEXT DEFAULT (datetime('now')),
                 updated_at TEXT,
                 pr_url TEXT,
@@ -121,7 +122,7 @@ async def init_db():
                 auto_approve_max_severity TEXT DEFAULT 'medium',
                 codeql_enabled INTEGER DEFAULT 1,
                 scan_frequency TEXT DEFAULT 'daily',
-                notifications TEXT DEFAULT '{"pr_opened": true, "pr_merged": true, "triage_complete": true, "security_alert": true, "weekly_report": true}'
+                notifications TEXT DEFAULT '{"new_issue_triaged": true, "issue_sent_to_devin": true, "devin_needs_input": true, "pr_ready_for_review": true, "pr_merged": true, "devin_session_failed": true, "daily_summary": false}'
             );
 
             INSERT OR IGNORE INTO settings (id) VALUES (1);
@@ -132,5 +133,31 @@ async def init_db():
         columns = [row[1] for row in await cursor.fetchall()]
         if "devin_org_id" not in columns:
             await db.execute("ALTER TABLE settings ADD COLUMN devin_org_id TEXT DEFAULT ''")
+
+        # Migration: add github_pat column for repo write access
+        cursor = await db.execute("PRAGMA table_info(settings)")
+        columns = [row[1] for row in await cursor.fetchall()]
+        if "github_pat" not in columns:
+            await db.execute("ALTER TABLE settings ADD COLUMN github_pat TEXT DEFAULT ''")
+
+
+        # Migration: add status_detail column to devin_sessions if it doesn't exist
+        cursor = await db.execute("PRAGMA table_info(devin_sessions)")
+        ds_columns = [row[1] for row in await cursor.fetchall()]
+        if "status_detail" not in ds_columns:
+            await db.execute("ALTER TABLE devin_sessions ADD COLUMN status_detail TEXT DEFAULT ''")
+
+        # Session events cache table for storing Devin activity (todos, messages, status)
+        await db.executescript("""
+            CREATE TABLE IF NOT EXISTS session_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                event_data TEXT DEFAULT '{}',
+                created_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (session_id) REFERENCES devin_sessions(session_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_session_events_sid ON session_events(session_id);
+        """)
 
         await db.commit()

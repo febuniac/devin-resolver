@@ -109,6 +109,7 @@ export const api = {
   validateGithub: () => request<any>('/api/settings/validate/github', { method: 'POST' }),
   validateDevin: () => request<any>('/api/settings/validate/devin', { method: 'POST' }),
   validateSlack: () => request<any>('/api/settings/validate/slack', { method: 'POST' }),
+  sendDailySummary: () => request<any>('/api/settings/notifications/daily-summary', { method: 'POST' }),
 
   // Status
   getStatus: () => request<any>('/api/status'),

@@ -347,6 +347,16 @@ async def poll_all_sessions(
     if not devin.token:
         return {"polled": 0, "message": "No Devin API token configured"}
 
+    # Fetch GitHub PAT + notification prefs for auto-sending to stuck sessions
+    pat_cursor = await db.execute("SELECT github_pat, notifications FROM settings WHERE id = 1")
+    pat_row = await pat_cursor.fetchone()
+    github_pat = ""
+    notif_prefs = {}
+    if pat_row:
+        github_pat = (pat_row["github_pat"] if hasattr(pat_row, 'keys') else pat_row[0]) or ""
+        notif_json = (pat_row["notifications"] if hasattr(pat_row, 'keys') else pat_row[1]) or "{}"
+        notif_prefs = json.loads(notif_json)
+
     # Get all running/pending sessions
     cursor = await db.execute(
         "SELECT session_id, issue_id, finding_id, status FROM devin_sessions WHERE status IN ('running', 'pending')"
@@ -396,8 +406,53 @@ async def poll_all_sessions(
                     (pr_url, sid),
                 )
 
+            # Auto-send GitHub PAT when session is waiting for push access
+            if status_detail == 'waiting_for_user' and github_pat:
+                # Check the latest messages to see if Devin is asking for push access
+                try:
+                    last_msg = ""
+                    session_detail = live_data
+                    # Check structured_output or last message for push access keywords
+                    messages = session_detail.get("messages", [])
+                    if messages:
+                        last_msg = messages[-1].get("message", "") if isinstance(messages[-1], dict) else str(messages[-1])
+                    if not last_msg:
+                        last_msg = str(session_detail.get("status_detail_text", ""))
+
+                    push_keywords = ["push access", "write access", "permission denied", "403", "could you grant", "don't have write", "can't push", "cannot push"]
+                    needs_pat = any(kw in last_msg.lower() for kw in push_keywords)
+
+                    if needs_pat:
+                        # Get the repo for this session
+                        repo = ""
+                        if issue_id:
+                            repo_cursor = await db.execute("SELECT repo_full_name FROM issues WHERE id = ?", (issue_id,))
+                            repo_row = await repo_cursor.fetchone()
+                            repo = repo_row[0] if repo_row else ""
+                        elif finding_id:
+                            repo_cursor = await db.execute("SELECT repo_full_name FROM security_findings WHERE id = ?", (finding_id,))
+                            repo_row = await repo_cursor.fetchone()
+                            repo = repo_row[0] if repo_row else ""
+
+                        if repo:
+                            owner = repo.split("/")[0] if "/" in repo else ""
+                            pat_message = (
+                                f"You already have push access via this PAT. Run these commands NOW:\n\n"
+                                f"git remote set-url origin https://{owner}:{github_pat}@github.com/{repo}.git\n\n"
+                                f"Then retry your push. Do NOT ask for access again.\n"
+                                f"For creating PRs, use curl:\n"
+                                f"curl -X POST https://api.github.com/repos/{repo}/pulls "
+                                f'-H "Authorization: token {github_pat}" '
+                                f'-H "Accept: application/vnd.github.v3+json" '
+                                f"-d '{{\"title\": \"your title\", \"head\": \"your-branch\", \"base\": \"initial-setup\"}}'"
+                            )
+                            await devin.send_message(sid, pat_message)
+                            logger.info(f"Auto-sent PAT to session {sid} that was stuck asking for push access")
+                except Exception as e:
+                    logger.warning(f"Failed to auto-send PAT to session {sid}: {e}")
+
             # Send Slack notification when session needs user input
-            if status_detail == 'waiting_for_user' and slack.webhook_url:
+            if status_detail == 'waiting_for_user' and slack.webhook_url and notif_prefs.get("devin_needs_input", True):
                 # Check if we already notified for this waiting state
                 notif_cursor = await db.execute(
                     "SELECT status_detail FROM devin_sessions WHERE session_id = ?",
@@ -409,27 +464,38 @@ async def poll_all_sessions(
                     # First time seeing waiting_for_user - send notification
                     if issue_id:
                         issue_cursor2 = await db.execute(
-                            "SELECT title, number, repo_full_name, devin_session_url FROM issues WHERE id = ?",
+                            "SELECT title, number, repo_full_name, devin_session_url, approved_at FROM issues WHERE id = ?",
                             (issue_id,),
                         )
                         issue_row2 = await issue_cursor2.fetchone()
                         if issue_row2:
                             session_url = issue_row2[3] or f"https://app.devin.ai/sessions/{sid}"
-                            await slack.send_issue_notification(
+                            # Calculate time running
+                            time_running = ""
+                            if issue_row2[4]:
+                                try:
+                                    from datetime import datetime
+                                    approved = datetime.fromisoformat(issue_row2[4])
+                                    elapsed = datetime.utcnow() - approved
+                                    mins = int(elapsed.total_seconds() / 60)
+                                    time_running = f"{mins}m" if mins < 60 else f"{mins // 60}h {mins % 60}m"
+                                except Exception:
+                                    pass
+                            await slack.notify_devin_needs_input(
                                 issue_title=issue_row2[0],
                                 issue_number=issue_row2[1],
                                 repo=issue_row2[2],
-                                action="Needs Your Input",
-                                devin_session_url=session_url,
+                                session_url=session_url,
+                                time_running=time_running,
                             )
-                            logger.info(f"Slack notification sent: waiting_for_user for issue #{issue_id}")
+                            logger.info(f"Slack notification sent: devin_needs_input for issue #{issue_id}")
 
             # If session finished/stopped, update linked issues/findings
             if new_status in ("finished", "stopped"):
                 # Update linked issue
                 if issue_id:
                     update_fields = {"status": "pr_open" if pr_url else "resolved"}
-                    set_clauses = [f"status = ?"]
+                    set_clauses = ["status = ?"]
                     params = [update_fields["status"]]
 
                     if pr_url:
@@ -445,30 +511,40 @@ async def poll_all_sessions(
                         params,
                     )
 
-                    # Send Slack notification
-                    if slack.webhook_url:
+                    # Send "PR Ready for Review" Slack notification
+                    if slack.webhook_url and pr_url and notif_prefs.get("pr_ready_for_review", True):
                         issue_cursor = await db.execute(
-                            "SELECT title, number, repo_full_name, devin_session_url FROM issues WHERE id = ?",
+                            "SELECT title, number, repo_full_name, devin_session_url, approved_at FROM issues WHERE id = ?",
                             (issue_id,),
                         )
                         issue_row = await issue_cursor.fetchone()
                         if issue_row:
-                            session_url = issue_row[3] or f"https://app.devin.ai/sessions/{sid}"
-                            action = "PR Opened" if pr_url else "Resolved"
-                            await slack.send_issue_notification(
+                            # Calculate time to PR
+                            time_to_pr = ""
+                            if issue_row[4]:
+                                try:
+                                    from datetime import datetime
+                                    approved = datetime.fromisoformat(issue_row[4])
+                                    elapsed = datetime.utcnow() - approved
+                                    mins = int(elapsed.total_seconds() / 60)
+                                    time_to_pr = f"{mins}m" if mins < 60 else f"{mins // 60}h {mins % 60}m"
+                                except Exception:
+                                    pass
+                            await slack.notify_pr_ready(
                                 issue_title=issue_row[0],
                                 issue_number=issue_row[1],
                                 repo=issue_row[2],
-                                action=action,
-                                pr_url=pr_url or None,
-                                devin_session_url=session_url,
+                                pr_url=pr_url,
+                                time_to_pr=time_to_pr,
                             )
-                            # Mark as notified
                             await db.execute(
                                 "UPDATE issues SET slack_notified = 1 WHERE id = ?",
                                 (issue_id,),
                             )
-                            logger.info(f"Slack notification sent for issue #{issue_id}")
+                            logger.info(f"Slack notification sent: pr_ready_for_review for issue #{issue_id}")
+                    elif slack.webhook_url and not pr_url:
+                        # Session finished without PR - just log
+                        logger.info(f"Session {sid} finished without PR for issue #{issue_id}")
 
                 # Update linked finding
                 if finding_id:
@@ -501,6 +577,39 @@ async def poll_all_sessions(
                                 action="PR Opened" if pr_url else "Resolved",
                                 pr_url=pr_url or None,
                             )
+
+            # Send "Devin Session Failed" notification for error/suspended
+            if new_status in ("error", "suspended") and old_status not in ("error", "suspended"):
+                if slack.webhook_url and notif_prefs.get("devin_session_failed", True) and issue_id:
+                    try:
+                        fail_cursor = await db.execute(
+                            "SELECT title, number, repo_full_name, devin_session_url, approved_at FROM issues WHERE id = ?",
+                            (issue_id,),
+                        )
+                        fail_row = await fail_cursor.fetchone()
+                        if fail_row:
+                            session_url = fail_row[3] or f"https://app.devin.ai/sessions/{sid}"
+                            time_elapsed = ""
+                            if fail_row[4]:
+                                try:
+                                    from datetime import datetime
+                                    approved = datetime.fromisoformat(fail_row[4])
+                                    elapsed = datetime.utcnow() - approved
+                                    mins = int(elapsed.total_seconds() / 60)
+                                    time_elapsed = f"{mins}m" if mins < 60 else f"{mins // 60}h {mins % 60}m"
+                                except Exception:
+                                    pass
+                            await slack.notify_session_failed(
+                                issue_title=fail_row[0],
+                                issue_number=fail_row[1],
+                                repo=fail_row[2],
+                                session_url=session_url,
+                                error_status=new_status,
+                                time_elapsed=time_elapsed,
+                            )
+                            logger.info(f"Slack notification sent: devin_session_failed for issue #{issue_id}")
+                    except Exception as fail_err:
+                        logger.error(f"Failed to send session_failed notification: {fail_err}")
 
             results.append({
                 "session_id": sid,

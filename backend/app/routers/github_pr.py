@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from fastapi import APIRouter, Depends, HTTPException
@@ -5,6 +6,7 @@ import httpx
 import aiosqlite
 
 from app.db.database import get_db
+from app.services.slack_service import SlackService
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,62 @@ async def get_pr_diff(
             headers=diff_headers,
         )
         raw_diff = diff_resp.text if diff_resp.status_code == 200 else ""
+
+    # If PR is merged, auto-update session and issue status in DB
+    if pr_data.get("merged", False):
+        pr_url_pattern = f"%/{owner}/{repo}/pull/{pr_number}%"
+        await db.execute(
+            "UPDATE devin_sessions SET status = 'merged', updated_at = datetime('now') WHERE pr_url LIKE ? AND status != 'merged'",
+            (pr_url_pattern,),
+        )
+        await db.execute(
+            "UPDATE issues SET status = 'resolved' WHERE id IN (SELECT issue_id FROM devin_sessions WHERE pr_url LIKE ?) AND status != 'resolved'",
+            (pr_url_pattern,),
+        )
+        await db.commit()
+
+        # Send "PR Merged / Issue Resolved" Slack notification
+        try:
+            settings_cursor = await db.execute("SELECT slack_webhook_url, notifications FROM settings WHERE id = 1")
+            settings_row = await settings_cursor.fetchone()
+            slack_webhook = (settings_row[0] if settings_row else "") or ""
+            notif_prefs = json.loads(settings_row[1]) if settings_row and settings_row[1] else {}
+            if slack_webhook and notif_prefs.get("pr_merged", True):
+                # Find the linked issue
+                issue_cursor = await db.execute(
+                    """SELECT i.title, i.number, i.repo_full_name, i.triaged_at
+                    FROM issues i JOIN devin_sessions ds ON ds.issue_id = i.id
+                    WHERE ds.pr_url LIKE ?""",
+                    (pr_url_pattern,),
+                )
+                issue_row = await issue_cursor.fetchone()
+                if issue_row:
+                    total_time = ""
+                    if issue_row[3]:
+                        try:
+                            from datetime import datetime
+                            triaged = datetime.fromisoformat(issue_row[3])
+                            elapsed = datetime.utcnow() - triaged
+                            mins = int(elapsed.total_seconds() / 60)
+                            if mins < 60:
+                                total_time = f"{mins}m"
+                            elif mins < 1440:
+                                total_time = f"{mins // 60}h {mins % 60}m"
+                            else:
+                                total_time = f"{mins // 1440}d {(mins % 1440) // 60}h"
+                        except Exception:
+                            pass
+                    slack = SlackService(webhook_url=slack_webhook)
+                    await slack.notify_pr_merged(
+                        issue_title=issue_row[0],
+                        issue_number=issue_row[1],
+                        repo=issue_row[2],
+                        pr_url=pr_data.get("html_url", f"https://github.com/{owner}/{repo}/pull/{pr_number}"),
+                        total_time=total_time,
+                    )
+                    logger.info(f"Slack notification sent: pr_merged for {owner}/{repo}#{pr_number}")
+        except Exception as slack_err:
+            logger.error(f"Failed to send pr_merged notification: {slack_err}")
 
     # Build response
     files = []
@@ -202,6 +260,44 @@ async def sync_prs_from_github(
     return {"synced": updated, "message": f"Synced {updated} PRs from GitHub to sessions"}
 
 
+@router.post("/pr-comment/{owner}/{repo}/{pr_number}")
+async def post_pr_comment(
+    owner: str,
+    repo: str,
+    pr_number: int,
+    body: dict,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Post a comment on a PR via GitHub API."""
+    pat = await get_github_pat(db)
+    comment_text = body.get("comment", "").strip()
+    if not comment_text:
+        raise HTTPException(status_code=400, detail="Comment text is required")
+
+    headers = {
+        "Authorization": f"token {pat}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments",
+            headers=headers,
+            json={"body": comment_text},
+        )
+        if resp.status_code not in (200, 201):
+            raise HTTPException(status_code=resp.status_code, detail=f"GitHub API error: {resp.text[:300]}")
+        data = resp.json()
+
+    return {
+        "id": data.get("id"),
+        "html_url": data.get("html_url", ""),
+        "body": data.get("body", ""),
+        "created_at": data.get("created_at", ""),
+        "user": data.get("user", {}).get("login", ""),
+    }
+
+
 @router.post("/pr-merge/{owner}/{repo}/{pr_number}")
 async def merge_pr(
     owner: str,
@@ -245,10 +341,11 @@ async def merge_pr(
             merge_data = merge_resp.json()
 
             # Update local DB: mark session as merged
+            pr_url_pattern = f"%/{owner}/{repo}/pull/{pr_number}%"
             await db.execute(
                 """UPDATE devin_sessions SET status = 'merged', updated_at = datetime('now')
                 WHERE pr_url LIKE ?""",
-                (f"%/{owner}/{repo}/pull/{pr_number}%",),
+                (pr_url_pattern,),
             )
             # Also update the linked issue status
             await db.execute(
@@ -256,9 +353,51 @@ async def merge_pr(
                 WHERE id IN (
                     SELECT issue_id FROM devin_sessions WHERE pr_url LIKE ?
                 )""",
-                (f"%/{owner}/{repo}/pull/{pr_number}%",),
+                (pr_url_pattern,),
             )
             await db.commit()
+
+            # Send "PR Merged / Issue Resolved" Slack notification
+            try:
+                settings_cursor = await db.execute("SELECT slack_webhook_url, notifications FROM settings WHERE id = 1")
+                settings_row = await settings_cursor.fetchone()
+                slack_webhook = (settings_row[0] if settings_row else "") or ""
+                notif_prefs = json.loads(settings_row[1]) if settings_row and settings_row[1] else {}
+                if slack_webhook and notif_prefs.get("pr_merged", True):
+                    issue_cursor = await db.execute(
+                        """SELECT i.title, i.number, i.repo_full_name, i.triaged_at
+                        FROM issues i JOIN devin_sessions ds ON ds.issue_id = i.id
+                        WHERE ds.pr_url LIKE ?""",
+                        (pr_url_pattern,),
+                    )
+                    issue_row = await issue_cursor.fetchone()
+                    if issue_row:
+                        total_time = ""
+                        if issue_row[3]:
+                            try:
+                                from datetime import datetime
+                                triaged = datetime.fromisoformat(issue_row[3])
+                                elapsed = datetime.utcnow() - triaged
+                                mins = int(elapsed.total_seconds() / 60)
+                                if mins < 60:
+                                    total_time = f"{mins}m"
+                                elif mins < 1440:
+                                    total_time = f"{mins // 60}h {mins % 60}m"
+                                else:
+                                    total_time = f"{mins // 1440}d {(mins % 1440) // 60}h"
+                            except Exception:
+                                pass
+                        slack_svc = SlackService(webhook_url=slack_webhook)
+                        await slack_svc.notify_pr_merged(
+                            issue_title=issue_row[0],
+                            issue_number=issue_row[1],
+                            repo=issue_row[2],
+                            pr_url=f"https://github.com/{owner}/{repo}/pull/{pr_number}",
+                            total_time=total_time,
+                        )
+                        logger.info(f"Slack notification sent: pr_merged via merge_pr for {owner}/{repo}#{pr_number}")
+            except Exception as slack_err:
+                logger.error(f"Failed to send pr_merged notification from merge_pr: {slack_err}")
 
             return {
                 "status": "merged",

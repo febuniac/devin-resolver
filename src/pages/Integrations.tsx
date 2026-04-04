@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Save, CheckCircle, XCircle, Loader2, Eye, EyeOff, HelpCircle } from 'lucide-react';
+import { Save, CheckCircle, XCircle, Loader2, Eye, EyeOff, HelpCircle, Bell, Send } from 'lucide-react';
 import api from '../api/client';
 
 export default function Integrations() {
@@ -22,6 +22,16 @@ export default function Integrations() {
   const [showPATGuide, setShowPATGuide] = useState(false);
   const [showDevinGuide, setShowDevinGuide] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [notifications, setNotifications] = useState<Record<string, boolean>>({
+    new_issue_triaged: true,
+    issue_sent_to_devin: true,
+    devin_needs_input: true,
+    pr_ready_for_review: true,
+    pr_merged: true,
+    devin_session_failed: true,
+    daily_summary: false,
+  });
+  const [sendingSummary, setSendingSummary] = useState(false);
 
   useEffect(() => {
     api.getSettings().then(async (s: Record<string, unknown>) => {
@@ -30,6 +40,7 @@ export default function Integrations() {
       if (s.devin_org_id) setOrgId(s.devin_org_id as string);
       if (s.slack_webhook_url) setSlackWebhook(s.slack_webhook_url as string);
       if (s.github_pat_set) setPatSet(true);
+      if (s.notifications) setNotifications(prev => ({ ...prev, ...(s.notifications as Record<string, boolean>) }));
       // Validate all configured tokens
       setValidating(true);
       try {
@@ -53,7 +64,7 @@ export default function Integrations() {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      await api.updateSettings({ github_token: githubToken, github_pat: githubPat || undefined, devin_api_token: devinToken, devin_org_id: orgId, slack_webhook: slackWebhook });
+      await api.updateSettings({ github_token: githubToken, github_pat: githubPat || undefined, devin_api_token: devinToken, devin_org_id: orgId, slack_webhook: slackWebhook, notifications });
       if (githubPat) setPatSet(true);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -177,7 +188,7 @@ export default function Integrations() {
         </div>
 
         {/* Slack Webhook */}
-        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px' }}>
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
           <div style={labelStyle}>
             Slack Webhook URL <span style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 400 }}>(optional)</span>
             {slackValid === true && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, background: 'rgba(33,193,154,.12)', color: 'var(--green)', fontSize: 10, fontWeight: 700 }}><CheckCircle size={11} /> Connected</span>}
@@ -187,6 +198,72 @@ export default function Integrations() {
           <input type="text" value={slackWebhook} onChange={e => setSlackWebhook(e.target.value)} placeholder="https://hooks.slack.com/services/..." style={inputStyle} />
           <div style={{ marginTop: 8, fontSize: 11, color: 'var(--dim)', lineHeight: 1.5 }}>
             Get notified in Slack when Devin opens PRs or completes work. <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--blue)' }}>Learn how to create a webhook</a>
+          </div>
+        </div>
+
+        {/* Notification Toggles */}
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px' }}>
+          <div style={{ ...labelStyle, marginBottom: 16 }}>
+            <Bell size={14} /> Slack Notification Preferences
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 16, lineHeight: 1.5 }}>
+            Choose which events trigger Slack notifications. Requires a valid Slack webhook above.
+          </div>
+          {[
+            { key: 'new_issue_triaged', label: 'New Issue Triaged', desc: 'When a new issue is synced and AI analysis is complete', priority: 'High' },
+            { key: 'issue_sent_to_devin', label: 'Issue Sent to Devin', desc: 'When an approved issue is dispatched to Devin', priority: 'High' },
+            { key: 'devin_needs_input', label: 'Devin Needs Input', desc: 'When Devin is blocked and waiting for your feedback', priority: 'High' },
+            { key: 'pr_ready_for_review', label: 'PR Ready for Review', desc: 'When Devin opens a pull request for your review', priority: 'High' },
+            { key: 'pr_merged', label: 'PR Merged / Issue Resolved', desc: 'When a PR is merged and the issue is marked resolved', priority: 'Medium' },
+            { key: 'devin_session_failed', label: 'Devin Session Failed', desc: 'When a Devin session errors out or gets suspended', priority: 'Medium' },
+            { key: 'daily_summary', label: 'Daily Summary Digest', desc: 'Aggregated daily stats for your backlog', priority: 'Low' },
+          ].map(item => (
+            <div key={item.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--rule)' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {item.label}
+                  <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 6, background: item.priority === 'High' ? 'rgba(229,62,62,.1)' : item.priority === 'Medium' ? 'rgba(237,137,54,.1)' : 'rgba(113,128,150,.1)', color: item.priority === 'High' ? '#e53e3e' : item.priority === 'Medium' ? '#dd6b20' : '#718096' }}>
+                    {item.priority}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>{item.desc}</div>
+              </div>
+              <label style={{ position: 'relative', display: 'inline-block', width: 40, height: 22, flexShrink: 0, marginLeft: 16, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={notifications[item.key] ?? true}
+                  onChange={e => setNotifications(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                  style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                  borderRadius: 11, transition: '0.2s',
+                  background: notifications[item.key] ? 'var(--purple)' : 'var(--rule)',
+                }} />
+                <span style={{
+                  position: 'absolute', top: 2, left: notifications[item.key] ? 20 : 2,
+                  width: 18, height: 18, borderRadius: '50%',
+                  background: '#fff', transition: '0.2s',
+                  boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+                }} />
+              </label>
+            </div>
+          ))}
+          {/* Send Daily Summary button */}
+          <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={async () => {
+                setSendingSummary(true);
+                try { await api.sendDailySummary(); } catch { /* ignore */ }
+                finally { setSendingSummary(false); }
+              }}
+              disabled={sendingSummary || !slackWebhook}
+              style={{ fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 7, cursor: slackWebhook ? 'pointer' : 'not-allowed', border: 'none', background: 'var(--purple)', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, opacity: slackWebhook ? 1 : 0.5, transition: '0.2s' }}
+            >
+              {sendingSummary ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+              Send Daily Summary Now
+            </button>
+            <span style={{ fontSize: 11, color: 'var(--dim)' }}>Manually trigger the daily digest</span>
           </div>
         </div>
       </div>
