@@ -127,12 +127,22 @@
 
 .light .bg-zinc-900\/40,
 .light .bg-zinc-900\/50,
-.light .bg-zinc-900\/60 {
+.light .bg-zinc-900\/60,
+.light .bg-zinc-900\/80 {
   background-color: rgb(250 250 250 / 0.8) !important; /* zinc-50 */
 }
 
 .light .bg-zinc-950 {
   background-color: rgb(249 250 251) !important; /* gray-50 */
+}
+
+/* Light mode specific background overrides */
+.light .bg-zinc-900 {
+  background-color: rgb(250 250 250) !important; /* zinc-50 */
+}
+
+.light .bg-black\/60 {
+  background-color: rgb(0 0 0 / 0.3) !important;
 }
 
 /* Light mode border overrides */
@@ -158,6 +168,31 @@
 
 .light .hover\:text-zinc-200:hover {
   color: rgb(24 24 27) !important; /* zinc-900 */
+}
+
+/* Light mode pipeline card overrides */
+.light .pipeline-card {
+  background-color: rgb(255 255 255) !important;
+  border-color: rgb(212 212 216) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.light .pipeline-title {
+  color: rgb(24 24 27) !important;
+}
+
+/* Light mode input/select overrides */
+.light select,
+.light input[type="text"],
+.light input[type="range"] {
+  background-color: rgb(249 250 251) !important;
+  border-color: rgb(212 212 216) !important;
+  color: rgb(24 24 27) !important;
+}
+
+.light select option {
+  background-color: rgb(255 255 255);
+  color: rgb(24 24 27);
 }
 
 /* Light mode scrollbar */

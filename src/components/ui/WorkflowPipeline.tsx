@@ -34,11 +34,11 @@ export default function WorkflowPipeline() {
           const style = typeStyles[step.type];
           return (
             <div key={i} className="flex items-center gap-2 flex-shrink-0">
-              <div className={`relative rounded-lg border-2 ${style.border} p-2.5 min-w-32 ${step.active ? 'animate-pulse-glow' : ''} bg-zinc-900/80`}>
+              <div className={`relative rounded-lg border-2 ${style.border} p-2.5 min-w-32 ${step.active ? 'animate-pulse-glow' : ''} bg-zinc-900/80 pipeline-card`}>
                 <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold mb-1 ${style.badge}`}>
                   {step.label}
                 </span>
-                <p className="text-xs font-semibold text-white">{step.title}</p>
+                <p className="text-xs font-semibold text-white pipeline-title">{step.title}</p>
                 <p className="text-[10px] text-zinc-500 mt-0.5">{step.subtitle}</p>
                 {step.active && (
                   <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-violet-400 animate-pulse" />
