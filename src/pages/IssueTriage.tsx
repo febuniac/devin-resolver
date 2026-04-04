@@ -6,14 +6,21 @@ import api from '../api/client';
 interface Issue {
   id: number;
   github_id: number;
+  number: number;
   title: string;
+  body: string;
   status: string;
   severity: string;
   category: string;
-  repo: string;
-  confidence: number;
-  effort_estimate: string;
-  description: string;
+  repo_full_name: string;
+  ai_confidence: number;
+  estimated_effort: string;
+  ai_summary: string;
+  labels: string[];
+  author: string;
+  devin_session_id: string | null;
+  devin_session_url: string | null;
+  pr_url: string | null;
 }
 
 const categoryChipClass: Record<string, string> = {
@@ -28,7 +35,7 @@ const severityChipClass: Record<string, string> = {
 /* ---- Success Modal Component ---- */
 function SuccessModal({ count, issues, onClose }: { count: number; issues: Issue[]; onClose: () => void }) {
   const firstIssue = issues[0];
-  const issueNum = firstIssue ? firstIssue.github_id : 0;
+  const issueNum = firstIssue ? (firstIssue.number || firstIssue.github_id) : 0;
   const issueTitle = firstIssue ? firstIssue.title : 'Issue';
   const issueCategory = firstIssue ? firstIssue.category : 'bug';
 
@@ -153,14 +160,24 @@ export function IssueTriage() {
   useEffect(() => { loadIssues(); }, []);
 
   const loadIssues = async () => {
-    try { setIssues(await api.listIssues() as Issue[]); }
+    try {
+      const data = await api.listIssues() as Issue[];
+      setIssues(data);
+    }
     catch { setError('Failed to load issues'); }
     finally { setLoading(false); }
   };
 
   const triageAll = async () => {
     setSyncing(true);
-    try { await api.triageAll(); await loadIssues(); }
+    try {
+      await api.syncAndTriage();
+      // Also retry any stuck approved issues
+      await api.retryStuck().catch(() => {});
+      await loadIssues();
+      // Trigger sidebar badge refresh
+      window.dispatchEvent(new Event('issues-changed'));
+    }
     catch { setError('Failed to sync'); }
     finally { setSyncing(false); }
   };
@@ -175,13 +192,18 @@ export function IssueTriage() {
       setSuccessModal({ show: true, count: ids.length, issues: sentIssues });
       setSelectedIssues(new Set());
       await loadIssues();
+      // Trigger sidebar badge refresh
+      window.dispatchEvent(new Event('issues-changed'));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to send to Devin');
     } finally { setSending(false); }
   };
 
   const filtered = issues.filter(issue => {
-    if (searchQuery && !issue.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!issue.title.toLowerCase().includes(q) && !(issue.body || '').toLowerCase().includes(q)) return false;
+    }
     if (severityFilter !== 'all' && issue.severity !== severityFilter) return false;
     if (statusFilter !== 'all' && issue.status !== statusFilter) return false;
     if (categoryFilter !== 'all' && issue.category !== categoryFilter) return false;
@@ -265,16 +287,23 @@ export function IssueTriage() {
             <div style={{ display: 'grid', gridTemplateColumns: '36px 100px 1fr 76px 56px 76px 76px', padding: '10px 16px', borderBottom: '1px solid var(--rule)', alignItems: 'center', cursor: 'pointer', gap: '0 10px' }}
               onClick={() => setExpandedIssue(expandedIssue === issue.id ? null : issue.id)}>
               <div onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIssues.has(issue.id)} onChange={() => toggleIssue(issue.id)} style={{ cursor: 'pointer' }} /></div>
-              <div className="font-mono" style={{ fontSize: 11, fontWeight: 500, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>#{issue.github_id}</div>
+              <div className="font-mono" style={{ fontSize: 11, fontWeight: 500, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>#{issue.number || issue.github_id}</div>
               <div style={{ minWidth: 0, overflow: 'hidden' }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.35, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{issue.title}</span>
                   {expandedIssue === issue.id ? <ChevronUp size={14} style={{ color: 'var(--dim)', flexShrink: 0 }} /> : <ChevronDown size={14} style={{ color: 'var(--dim)', flexShrink: 0 }} />}
                 </div>
-                <div className="font-mono" style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{issue.repo}</div>
+                <div className="font-mono" style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{issue.repo_full_name}</div>
               </div>
               <div><span className={`chip ${categoryChipClass[issue.category] || 'chip-dim'}`}>{issue.category}</span></div>
-              <div><span className="font-mono" style={{ fontSize: 12, fontWeight: 700, color: issue.confidence >= 75 ? 'var(--green)' : '#d97706' }}>{issue.confidence}</span></div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ width: 32, height: 4, borderRadius: 2, background: 'var(--rule)', overflow: 'hidden' }}>
+                    <div style={{ width: `${issue.ai_confidence || 0}%`, height: '100%', borderRadius: 2, background: (issue.ai_confidence || 0) >= 80 ? 'var(--green)' : (issue.ai_confidence || 0) >= 60 ? '#d97706' : '#e53e3e' }} />
+                  </div>
+                  <span className="font-mono" style={{ fontSize: 11, fontWeight: 700, color: (issue.ai_confidence || 0) >= 80 ? 'var(--green)' : (issue.ai_confidence || 0) >= 60 ? '#d97706' : '#e53e3e' }}>{issue.ai_confidence || 0}%</span>
+                </div>
+              </div>
               <div>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}>
                   {issue.status === 'resolved' ? <><span className="dot dot-green" /><span style={{ color: 'var(--green)' }}>Merged</span></> :
@@ -293,11 +322,15 @@ export function IssueTriage() {
             </div>
             {expandedIssue === issue.id && (
               <div style={{ padding: '12px 16px 12px 108px', borderBottom: '1px solid var(--rule)', background: 'var(--bg)', fontSize: 12, color: 'var(--mid)', lineHeight: 1.6 }}>
-                <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
+                <div style={{ display: 'flex', gap: 16, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <span>Severity: <span className={`chip ${severityChipClass[issue.severity] || 'chip-dim'}`}>{issue.severity}</span></span>
-                  <span>Effort: <strong style={{ color: 'var(--ink)' }}>{issue.effort_estimate || 'Unknown'}</strong></span>
+                  <span>Effort: <strong style={{ color: 'var(--ink)' }}>{issue.estimated_effort || 'Unknown'}</strong></span>
+                  <span>Confidence: <strong style={{ color: (issue.ai_confidence || 0) >= 80 ? 'var(--green)' : '#d97706' }}>{issue.ai_confidence || 0}%</strong></span>
+                  {issue.devin_session_url && <a href={issue.devin_session_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--purple)', textDecoration: 'none', fontWeight: 600 }}>View Devin Session →</a>}
+                  {issue.pr_url && <a href={issue.pr_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--green)', textDecoration: 'none', fontWeight: 600 }}>View PR →</a>}
                 </div>
-                {issue.description && <p style={{ margin: 0 }}>{issue.description}</p>}
+                {issue.ai_summary && <p style={{ margin: '0 0 6px', fontStyle: 'italic', color: 'var(--dim)' }}>{issue.ai_summary}</p>}
+                {issue.body && <p style={{ margin: 0 }}>{issue.body.length > 300 ? issue.body.slice(0, 300) + '...' : issue.body}</p>}
               </div>
             )}
           </div>

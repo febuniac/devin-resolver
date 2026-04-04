@@ -53,6 +53,10 @@ export const api = {
     request<any>(`/api/issues/${id}/triage`, { method: 'POST' }),
   triageAll: () =>
     request<any>('/api/issues/triage-all', { method: 'POST' }),
+  syncAndTriage: () =>
+    request<any>('/api/issues/sync-and-triage', { method: 'POST' }),
+  retryStuck: () =>
+    request<any>('/api/issues/retry-stuck', { method: 'POST' }),
 
   // Security Findings
   listFindings: (params?: Record<string, string>) => {

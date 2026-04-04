@@ -30,8 +30,21 @@ export default function Sidebar() {
   const location = useLocation();
   const [status, setStatus] = useState<StatusData | null>(null);
 
-  useEffect(() => {
+  const refreshStatus = () => {
     api.getStatus().then((s: StatusData) => setStatus(s)).catch(() => {});
+  };
+
+  useEffect(() => {
+    refreshStatus();
+    // Refresh badges when issues change (sync, send to Devin, etc.)
+    const handler = () => refreshStatus();
+    window.addEventListener('issues-changed', handler);
+    // Also refresh every 30 seconds
+    const interval = setInterval(refreshStatus, 30000);
+    return () => {
+      window.removeEventListener('issues-changed', handler);
+      clearInterval(interval);
+    };
   }, []);
 
   const badges: Record<string, number> = {
