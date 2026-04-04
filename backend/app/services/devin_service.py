@@ -43,9 +43,13 @@ class DevinService:
             return resp.json()
 
     async def get_session(self, session_id: str) -> dict:
+        # v3 API requires "devin-" prefix on session IDs
+        sid = session_id
+        if self.is_v3 and not session_id.startswith("devin-"):
+            sid = f"devin-{session_id}"
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                f"{self.base_url}/sessions/{session_id}",
+                f"{self.base_url}/sessions/{sid}",
                 headers=self.headers,
                 timeout=30.0,
             )
@@ -69,9 +73,15 @@ class DevinService:
             return resp.json()
 
     async def send_message(self, session_id: str, message: str) -> dict:
+        # v3 API requires "devin-" prefix and /messages (plural)
+        if self.is_v3:
+            devin_id = session_id if session_id.startswith("devin-") else f"devin-{session_id}"
+            url = f"{self.base_url}/sessions/{devin_id}/messages"
+        else:
+            url = f"{self.base_url}/sessions/{session_id}/message"
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{self.base_url}/sessions/{session_id}/message",
+                url,
                 headers=self.headers,
                 json={"message": message},
                 timeout=30.0,
