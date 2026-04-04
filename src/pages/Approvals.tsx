@@ -3,6 +3,21 @@ import { createPortal } from 'react-dom';
 import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video, FileDiff, GitMerge, AlertCircle } from 'lucide-react';
 import api from '../api/client';
 
+const GitHubIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+  </svg>
+);
+
+const DevinIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <rect width="24" height="24" rx="6" fill="#1a1f2e" />
+    <path d="M7 8.5C7 7.67 7.67 7 8.5 7h7c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5h-7c-.83 0-1.5-.67-1.5-1.5v-7z" fill="#6C63FF" opacity=".3" />
+    <circle cx="12" cy="12" r="3.5" fill="#6C63FF" />
+    <circle cx="12" cy="12" r="1.5" fill="#fff" />
+  </svg>
+);
+
 interface Session {
   id: string;
   issue_id: number;
@@ -544,13 +559,17 @@ export default function Approvals() {
                             </span>
                           )}
                           <a href={prUrl} target="_blank" rel="noopener noreferrer"
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, padding: '8px 14px', background: 'var(--white)', color: 'var(--ink)', border: '1px solid var(--rule)', borderRadius: 8, textDecoration: 'none', cursor: 'pointer' }}>
-                            <ExternalLink size={12} /> View on GitHub
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, padding: '8px 16px', background: 'var(--white)', color: 'var(--ink)', border: '1px solid var(--rule)', borderRadius: 8, textDecoration: 'none', cursor: 'pointer', transition: '0.15s' }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--rule)'; e.currentTarget.style.boxShadow = 'none'; }}>
+                            <GitHubIcon size={16} /> View on GitHub
                           </a>
                           {session.session_url && (
                             <a href={session.session_url} target="_blank" rel="noopener noreferrer"
-                              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, padding: '8px 14px', background: 'var(--white)', color: 'var(--mid)', border: '1px solid var(--rule)', borderRadius: 8, textDecoration: 'none', cursor: 'pointer' }}>
-                              <Eye size={12} /> View on Devin
+                              style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, padding: '8px 16px', background: '#1a1f2e', color: '#fff', border: '1px solid #2d333b', borderRadius: 8, textDecoration: 'none', cursor: 'pointer', transition: '0.15s' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#252c3a'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#1a1f2e'; e.currentTarget.style.boxShadow = 'none'; }}>
+                              <DevinIcon size={18} /> View on Devin
                             </a>
                           )}
                         </div>
@@ -669,12 +688,16 @@ export default function Approvals() {
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--rule)' }}>
                             <span style={{ fontSize: 11, color: 'var(--dim)' }}>Sent: {formatTimestamp(session.created_at)}</span>
                             <div style={{ display: 'flex', gap: 8 }}>
-                              <a href={prUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
-                                <GitPullRequest size={11} /> View PR
+                              <a href={prUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 6, transition: '0.15s' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}>
+                                <GitHubIcon size={13} /> View on GitHub
                               </a>
                               {session.session_url && (
-                                <a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
-                                  <ExternalLink size={11} /> View on Devin
+                                <a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 6, transition: '0.15s' }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; }}>
+                                  <DevinIcon size={15} /> View on Devin
                                 </a>
                               )}
                             </div>
@@ -1081,8 +1104,10 @@ export default function Approvals() {
                           )}
                           {session.session_url && (
                             <a href={session.session_url} target="_blank" rel="noopener noreferrer"
-                              style={{ fontSize: 12, fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--white)', color: 'var(--blue)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                              <Eye size={14} /> View on Devin
+                              style={{ fontSize: 12, fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid #2d333b', background: '#1a1f2e', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, transition: '0.15s' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#252c3a'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#1a1f2e'; e.currentTarget.style.boxShadow = 'none'; }}>
+                              <DevinIcon size={18} /> View on Devin
                             </a>
                           )}
                         </div>
@@ -1129,7 +1154,7 @@ export default function Approvals() {
                           {liveData[session.id]?.title && <div style={{ padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--rule)', marginBottom: 10 }}><div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Instructions to Devin</div><div style={{ fontSize: 11, color: 'var(--ink)', lineHeight: 1.5 }}>{liveData[session.id].title}</div></div>}
                           {(liveData[session.id]?.timeline || []).length > 0 && <div style={{ padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--rule)', marginBottom: 10 }}><div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Devin's Progress</div><div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>{(liveData[session.id]?.timeline || []).map((step, i) => (<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink)' }}><span style={{ width: 14, height: 14, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 8, fontWeight: 700, background: step.status === 'done' ? 'rgba(33,193,154,0.12)' : step.status === 'running' ? 'rgba(2,148,222,0.12)' : 'rgba(233,168,32,0.12)', color: step.status === 'done' ? 'var(--green)' : step.status === 'running' ? 'var(--blue)' : '#e9a820' }}>{step.status === 'done' ? '✓' : step.status === 'running' ? '⟳' : '!'}</span><span style={{ fontWeight: 500, fontSize: 10 }}>{step.step}</span></div>))}</div></div>}
                           <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 8 }}>Sent: <span className="font-mono">{formatTimestamp(session.created_at)}</span></div>
-                          {session.session_url && <div style={{ marginTop: 8 }}><a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}><ExternalLink size={11} /> View on Devin</a></div>}
+                          {session.session_url && <div style={{ marginTop: 8 }}><a href={session.session_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', padding: '5px 10px', borderRadius: 6, background: '#1a1f2e', border: '1px solid #2d333b', transition: '0.15s' }} onMouseEnter={e => { e.currentTarget.style.background = '#252c3a'; }} onMouseLeave={e => { e.currentTarget.style.background = '#1a1f2e'; }}><DevinIcon size={15} /> <span style={{ color: '#fff' }}>View on Devin</span></a></div>}
                         </div>
                       </div>
                     </div>
