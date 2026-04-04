@@ -252,7 +252,7 @@ export function IssueTriage() {
 
       {/* Table */}
       <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '40px 52px 1fr 90px 80px 90px 80px', padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--rule)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '36px 60px 1fr 80px 64px 80px 80px', padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--rule)', gap: '0 8px' }}>
           <div><input type="checkbox" checked={selectedIssues.size === filtered.length && filtered.length > 0} onChange={selectAll} style={{ cursor: 'pointer' }} /></div>
           {['ID', 'Issue', 'Type', 'Score', 'Status', 'Action'].map(h => (
             <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--dim)' }}>{h}</div>
@@ -262,16 +262,16 @@ export function IssueTriage() {
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--dim)', fontSize: 13 }}>No issues match your filters.</div>
         ) : filtered.map(issue => (
           <div key={issue.id}>
-            <div style={{ display: 'grid', gridTemplateColumns: '40px 52px 1fr 90px 80px 90px 80px', padding: '12px 16px', borderBottom: '1px solid var(--rule)', alignItems: 'center', cursor: 'pointer' }}
+            <div style={{ display: 'grid', gridTemplateColumns: '36px 60px 1fr 80px 64px 80px 80px', padding: '10px 16px', borderBottom: '1px solid var(--rule)', alignItems: 'center', cursor: 'pointer', gap: '0 8px' }}
               onClick={() => setExpandedIssue(expandedIssue === issue.id ? null : issue.id)}>
               <div onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIssues.has(issue.id)} onChange={() => toggleIssue(issue.id)} style={{ cursor: 'pointer' }} /></div>
-              <div className="font-mono" style={{ fontSize: 11, fontWeight: 500, color: 'var(--dim)' }}>#{issue.github_id}</div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.35, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {issue.title}
-                  {expandedIssue === issue.id ? <ChevronUp size={14} style={{ color: 'var(--dim)' }} /> : <ChevronDown size={14} style={{ color: 'var(--dim)' }} />}
+              <div className="font-mono" style={{ fontSize: 11, fontWeight: 500, color: 'var(--dim)', whiteSpace: 'nowrap' }}>#{issue.github_id}</div>
+              <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.35, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{issue.title}</span>
+                  {expandedIssue === issue.id ? <ChevronUp size={14} style={{ color: 'var(--dim)', flexShrink: 0 }} /> : <ChevronDown size={14} style={{ color: 'var(--dim)', flexShrink: 0 }} />}
                 </div>
-                <div className="font-mono" style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3 }}>{issue.repo}</div>
+                <div className="font-mono" style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{issue.repo}</div>
               </div>
               <div><span className={`chip ${categoryChipClass[issue.category] || 'chip-dim'}`}>{issue.category}</span></div>
               <div><span className="font-mono" style={{ fontSize: 12, fontWeight: 700, color: issue.confidence >= 75 ? 'var(--green)' : '#d97706' }}>{issue.confidence}</span></div>

@@ -1,14 +1,22 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, GitPullRequestArrow, Shield, CheckSquare, BarChart3, Radio, Settings, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, GitPullRequestArrow, Shield, CheckSquare, BarChart3, Radio, Settings, Sun, Moon, AlertCircle } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useState, useEffect } from 'react';
 import api from '../../api/client';
 
+interface StatusData {
+  repos_connected: number;
+  devin_connected: boolean;
+  issues_count: number;
+  security_count: number;
+  review_count: number;
+}
+
 const mainNav = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/issues', icon: GitPullRequestArrow, label: 'Issue Triage', badgeKey: 'issues' },
-  { to: '/security', icon: Shield, label: 'Security', badgeKey: 'security', badgeColor: 'red' },
-  { to: '/approvals', icon: CheckSquare, label: 'Review Work', badgeKey: 'review', badgeColor: 'green' },
+  { to: '/issues', icon: GitPullRequestArrow, label: 'Issue Triage', badgeKey: 'issues' as const },
+  { to: '/security', icon: Shield, label: 'Security', badgeKey: 'security' as const, badgeColor: 'red' },
+  { to: '/approvals', icon: CheckSquare, label: 'Review Work', badgeKey: 'review' as const, badgeColor: 'green' },
 ];
 
 const insightNav = [
@@ -20,21 +28,19 @@ const insightNav = [
 export default function Sidebar() {
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
-  const [repoCount, setRepoCount] = useState(0);
-  const [devinConnected, setDevinConnected] = useState(false);
+  const [status, setStatus] = useState<StatusData | null>(null);
 
   useEffect(() => {
-    api.getSettings().then((s: Record<string, unknown>) => {
-      if (s.github_token) setRepoCount((s.repos as string[] || []).length || 0);
-      if (s.devin_api_token) setDevinConnected(true);
-    }).catch(() => {});
+    api.getStatus().then((s: StatusData) => setStatus(s)).catch(() => {});
   }, []);
 
   const badges: Record<string, number> = {
-    issues: 47,
-    security: 12,
-    review: 8,
+    issues: status?.issues_count ?? 0,
+    security: status?.security_count ?? 0,
+    review: status?.review_count ?? 0,
   };
+
+  const needsSetup = status !== null && status.repos_connected === 0;
 
   return (
     <aside
@@ -56,6 +62,24 @@ export default function Sidebar() {
           style={{ height: 42, width: 'auto', display: 'block' }}
         />
       </div>
+
+      {/* Onboarding prompt */}
+      {needsSetup && (
+        <NavLink to="/settings" style={{ textDecoration: 'none' }}>
+          <div style={{
+            margin: '12px 12px 0', padding: '10px 14px', borderRadius: 10,
+            background: 'linear-gradient(135deg, rgba(57,105,202,.08), rgba(33,193,154,.06))',
+            border: '1px solid rgba(57,105,202,.15)',
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+          }}>
+            <AlertCircle size={16} style={{ color: 'var(--purple)', flexShrink: 0, marginTop: 1 }} />
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>Connect a repository</div>
+              <div style={{ fontSize: 11, color: 'var(--dim)', lineHeight: 1.4, marginTop: 2 }}>Add a repo in Settings to start triaging issues.</div>
+            </div>
+          </div>
+        </NavLink>
+      )}
 
       {/* Main nav */}
       <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--dim)', padding: '20px 20px 8px' }}>
@@ -127,14 +151,14 @@ export default function Sidebar() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0,
         }}>
-          {repoCount > 0 ? 'U' : 'BZ'}
+          {status && status.repos_connected > 0 ? 'U' : 'BZ'}
         </div>
         <div>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
-            {repoCount > 0 ? repoCount + ' repo' + (repoCount !== 1 ? 's' : '') : 'Not connected'}
+            {status ? (status.repos_connected > 0 ? status.repos_connected + ' repo' + (status.repos_connected !== 1 ? 's' : '') : 'Not connected') : '...'}
           </div>
           <div style={{ fontSize: 11, color: 'var(--dim)' }}>
-            {devinConnected ? 'Devin active' : 'Setup required'}
+            {status ? (status.devin_connected ? 'Devin active' : 'Setup required') : '...'}
           </div>
         </div>
         <button onClick={toggleTheme}

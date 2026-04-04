@@ -6,6 +6,7 @@ import Security from './pages/Security';
 import Approvals from './pages/Approvals';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
+import Integrations from './pages/Integrations';
 
 function App() {
   return (
@@ -18,7 +19,7 @@ function App() {
           <Route path="/approvals" element={<Approvals />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/integrations" element={<Settings />} />
+          <Route path="/integrations" element={<Integrations />} />
         </Route>
       </Routes>
     </BrowserRouter>
