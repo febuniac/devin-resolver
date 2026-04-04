@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video } from 'lucide-react';
+import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video, FileDiff, Plus, Minus } from 'lucide-react';
 import api from '../api/client';
 
 interface Session {
@@ -38,6 +38,14 @@ interface TodoItem {
   content: string;
 }
 
+interface FileChange {
+  path: string;
+  action: string;
+  lines_added: number;
+  lines_removed: number;
+  description: string;
+}
+
 interface LiveData {
   title: string;
   status: string;
@@ -49,6 +57,7 @@ interface LiveData {
   timeline: TimelineStep[];
   todos: TodoItem[];
   messages: DevinMessage[];
+  file_changes: FileChange[];
   created_at: string;
   updated_at: string;
 }
@@ -771,6 +780,52 @@ export default function Approvals() {
                               </div>
                             );
                           })()}
+
+                          {/* Code Changes (Diff view) */}
+                          {(liveData[session.id]?.file_changes || []).length > 0 && (
+                            <div style={{ marginTop: 14 }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <FileDiff size={9} /> Code Changes
+                                <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 500, color: '#58a6ff' }}>
+                                  {(liveData[session.id]?.file_changes || []).length} file{(liveData[session.id]?.file_changes || []).length !== 1 ? 's' : ''}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {(liveData[session.id]?.file_changes || []).map((fc, i) => (
+                                  <div key={i} style={{ background: '#161b22', borderRadius: 8, border: '1px solid #21262d', overflow: 'hidden' }}>
+                                    <div style={{ padding: '6px 10px', background: '#0d1117', borderBottom: '1px solid #21262d', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      <FileCode size={10} style={{ color: fc.action === 'create' ? '#3fb950' : '#58a6ff', flexShrink: 0 }} />
+                                      <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#e6edf3', fontWeight: 600 }}>{fc.path}</span>
+                                      <span style={{ marginLeft: 'auto', fontSize: 9, padding: '1px 6px', borderRadius: 4, background: fc.action === 'create' ? 'rgba(63,185,80,0.15)' : 'rgba(88,166,255,0.15)', color: fc.action === 'create' ? '#3fb950' : '#58a6ff', fontWeight: 600 }}>
+                                        {fc.action === 'create' ? 'NEW' : 'MODIFIED'}
+                                      </span>
+                                    </div>
+                                    <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                                      <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#3fb950', fontFamily: 'monospace', fontWeight: 600 }}>
+                                        <Plus size={9} /> {fc.lines_added}
+                                      </span>
+                                      {fc.lines_removed > 0 && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#f85149', fontFamily: 'monospace', fontWeight: 600 }}>
+                                          <Minus size={9} /> {fc.lines_removed}
+                                        </span>
+                                      )}
+                                      <span style={{ fontSize: 10, color: '#8b949e', marginLeft: 4 }}>{fc.description}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                                {/* Total summary */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0', fontSize: 9, color: '#8b949e' }}>
+                                  <span style={{ color: '#3fb950', fontFamily: 'monospace', fontWeight: 700 }}>
+                                    +{(liveData[session.id]?.file_changes || []).reduce((sum, f) => sum + f.lines_added, 0)}
+                                  </span>
+                                  <span style={{ color: '#f85149', fontFamily: 'monospace', fontWeight: 700 }}>
+                                    -{(liveData[session.id]?.file_changes || []).reduce((sum, f) => sum + f.lines_removed, 0)}
+                                  </span>
+                                  <span>across {(liveData[session.id]?.file_changes || []).length} file{(liveData[session.id]?.file_changes || []).length !== 1 ? 's' : ''}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Footer with link */}
