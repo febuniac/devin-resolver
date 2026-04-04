@@ -77,6 +77,8 @@ export const api = {
     }),
   refreshSession: (sessionId: string) =>
     request<any>(`/api/devin/sessions/${sessionId}/refresh`, { method: 'POST' }),
+  pollSessions: () =>
+    request<any>('/api/devin/sessions/poll', { method: 'POST' }),
 
   // Settings
   getSettings: () => request<any>('/api/settings'),

@@ -120,44 +120,37 @@ export default function IssueTriage() {
     <div className="space-y-6 animate-fade-in">
       {/* Success Modal */}
       {successModal.show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSuccessModal({ ...successModal, show: false })}>
-          <div className="glass rounded-2xl p-8 max-w-md mx-4 text-center border border-violet-500/30 shadow-2xl shadow-violet-500/20 animate-slide-in" onClick={(e) => e.stopPropagation()}>
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-500 to-emerald-500 flex items-center justify-center mx-auto mb-5 glow">
-              <PartyPopper className="w-8 h-8 text-white" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-modal-bg" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setSuccessModal({ ...successModal, show: false })}>
+          <div className="relative bg-zinc-900 border border-violet-500/30 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl shadow-violet-500/20 animate-modal-pop success-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-500 to-emerald-500 flex items-center justify-center mx-auto mb-6 glow animate-confetti-pop">
+              <PartyPopper className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">
+            <h2 className="text-2xl font-bold text-white mb-3">
               {successModal.count} issue{successModal.count !== 1 ? 's' : ''} off your plate!
             </h2>
-            <p className="text-zinc-400 mb-1">
+            <p className="text-zinc-400 mb-1 text-base">
               That's {successModal.count} fewer thing{successModal.count !== 1 ? 's' : ''} you have to worry about.
             </p>
-            <p className="text-violet-400 font-medium mb-6">
+            <p className="text-violet-400 font-semibold text-lg mb-8">
               Devin takes it from here.
             </p>
-            <div className="flex items-center justify-center gap-3 text-xs text-zinc-500 mb-6">
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-                <span>Analyzing code</span>
-              </div>
-              <span className="text-zinc-700">•</span>
-              <div className="flex items-center gap-1.5">
-                <Brain className="w-3.5 h-3.5 text-violet-400" />
-                <span>Writing fix</span>
-              </div>
-              <span className="text-zinc-700">•</span>
-              <div className="flex items-center gap-1.5">
-                <Play className="w-3.5 h-3.5 text-violet-400" />
-                <span>Testing</span>
-              </div>
-              <span className="text-zinc-700">•</span>
-              <div className="flex items-center gap-1.5">
-                <GitPullRequest className="w-3.5 h-3.5 text-violet-400" />
-                <span>Opening PR</span>
-              </div>
+            <div className="flex items-center justify-center gap-4 text-xs text-zinc-500 mb-8">
+              {[
+                { Icon: Sparkles, label: 'Analyzing' },
+                { Icon: Brain, label: 'Writing fix' },
+                { Icon: Play, label: 'Testing' },
+                { Icon: GitPullRequest, label: 'Opening PR' },
+              ].map((step, i) => (
+                <div key={step.label} className="flex items-center gap-1.5">
+                  {i > 0 && <span className="text-zinc-700 mr-2">→</span>}
+                  <step.Icon className="w-3.5 h-3.5 text-violet-400" />
+                  <span>{step.label}</span>
+                </div>
+              ))}
             </div>
             <button
               onClick={() => setSuccessModal({ ...successModal, show: false })}
-              className="bg-violet-600 hover:bg-violet-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
+              className="bg-violet-600 hover:bg-violet-500 text-white px-8 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105"
             >
               Got it!
             </button>

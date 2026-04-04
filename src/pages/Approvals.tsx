@@ -51,9 +51,16 @@ export default function Approvals() {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [mergedItems, setMergedItems] = useState<Set<string>>(new Set());
   const [rejectedItems, setRejectedItems] = useState<Set<string>>(new Set());
+  const [polling, setPolling] = useState(false);
+  const [lastPolled, setLastPolled] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
+    // Auto-poll every 30 seconds
+    const interval = setInterval(() => {
+      pollSessions();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
@@ -70,6 +77,19 @@ export default function Approvals() {
       setError('Failed to load data. Is the backend running?');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const pollSessions = async () => {
+    setPolling(true);
+    try {
+      await api.pollSessions();
+      await loadData();
+      setLastPolled(new Date().toLocaleTimeString());
+    } catch {
+      // Silent fail for polling
+    } finally {
+      setPolling(false);
     }
   };
 
@@ -181,9 +201,13 @@ export default function Approvals() {
               Merge All PRs ({totalWithPRs})
             </button>
           )}
-          <button onClick={loadData} className="glass glass-hover px-3 py-2 rounded-lg text-sm text-zinc-300">
-            <RefreshCw className="w-4 h-4" />
+          <button onClick={pollSessions} disabled={polling} className="glass glass-hover px-3 py-2 rounded-lg text-sm text-zinc-300 flex items-center gap-2" title="Poll Devin sessions for updates">
+            <RefreshCw className={`w-4 h-4 ${polling ? 'animate-spin' : ''}`} />
+            {polling ? 'Polling...' : 'Refresh'}
           </button>
+          {lastPolled && (
+            <span className="text-xs text-zinc-500">Last: {lastPolled}</span>
+          )}
         </div>
       </div>
 

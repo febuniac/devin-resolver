@@ -170,6 +170,12 @@
   color: rgb(24 24 27) !important; /* zinc-900 */
 }
 
+/* Light mode success modal */
+.light .success-modal-card {
+  background-color: rgb(255 255 255) !important;
+  border-color: rgb(196 181 253) !important;
+}
+
 /* Light mode pipeline card overrides */
 .light .pipeline-card {
   background-color: rgb(255 255 255) !important;
@@ -229,6 +235,38 @@
 @keyframes slideIn {
   from { opacity: 0; transform: translateX(-12px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes modalPopIn {
+  0% { opacity: 0; transform: scale(0.8) translateY(20px); }
+  50% { transform: scale(1.03) translateY(-5px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes modalBgIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes confettiPop {
+  0% { transform: scale(0) rotate(0deg); }
+  50% { transform: scale(1.2) rotate(10deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.animate-modal-bg {
+  animation: modalBgIn 0.3s ease-out forwards;
+}
+
+.animate-modal-pop {
+  animation: modalPopIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-confetti-pop {
+  animation: confettiPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: 0.2s;
+  opacity: 0;
+  animation-fill-mode: forwards;
 }
 
 @keyframes pulse-glow {
