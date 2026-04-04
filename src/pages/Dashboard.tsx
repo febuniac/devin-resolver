@@ -99,7 +99,7 @@ export default function Dashboard() {
       </div>
 
       <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden', marginBottom: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr 100px 80px 90px 80px', padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--rule)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 100px 80px 90px 80px', padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--rule)', gap: '0 10px' }}>
           {['ID', 'Issue', 'Type', 'Score', 'Status', 'Action'].map(h => (
             <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'var(--dim)' }}>{h}</div>
           ))}
@@ -109,8 +109,8 @@ export default function Dashboard() {
         ) : topIssues.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--dim)', fontSize: 13 }}>No issues yet. Connect a repo in Settings, then Sync GitHub.</div>
         ) : topIssues.map(issue => (
-          <div key={issue.id} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 100px 80px 90px 80px', padding: '12px 16px', borderBottom: '1px solid var(--rule)', alignItems: 'center' }}>
-            <div className="font-mono" style={{ fontSize: 11, fontWeight: 500, color: 'var(--dim)' }}>#{issue.github_id}</div>
+          <div key={issue.id} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 100px 80px 90px 80px', padding: '12px 16px', borderBottom: '1px solid var(--rule)', alignItems: 'center', gap: '0 10px' }}>
+            <div className="font-mono" style={{ fontSize: 11, fontWeight: 500, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>#{issue.github_id}</div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.35 }}>{issue.title}</div>
               <div className="font-mono" style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3 }}>{issue.repo}</div>

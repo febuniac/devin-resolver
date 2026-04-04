@@ -146,26 +146,35 @@ export default function Sidebar() {
       }}>
         {/* Devin status row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <img
-            src={theme === 'dark' ? '/brand/cognition-logo-white.png' : '/brand/cognition-logo-black.png'}
-            alt="Devin"
-            style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, objectFit: 'contain' }}
-          />
+          <div style={{
+            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: status?.devin_connected ? 'rgba(33,193,154,.08)' : 'var(--bg2)',
+          }}>
+            <img
+              src="/brand/devin-icon.png"
+              alt="Devin"
+              style={{
+                width: 18, height: 18, objectFit: 'contain',
+                filter: status?.devin_connected ? 'none' : 'grayscale(100%) opacity(0.4)',
+              }}
+            />
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)' }}>Devin AI</div>
             <div style={{ fontSize: 10, color: status?.devin_connected ? 'var(--green)' : 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: status?.devin_connected ? 'var(--green)' : '#e53e3e', display: 'inline-block' }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: status?.devin_connected ? 'var(--green)' : '#999', display: 'inline-block' }} />
               {status ? (status.devin_connected ? 'Connected' : 'Not connected') : '...'}
             </div>
           </div>
         </div>
 
         {/* GitHub status row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: status && status.repos_connected > 0 ? 'rgba(33,193,154,.1)' : 'rgba(229,62,62,.08)',
+            background: status && status.repos_connected > 0 ? 'rgba(33,193,154,.08)' : 'var(--bg2)',
           }}>
             <Github size={16} style={{ color: status && status.repos_connected > 0 ? 'var(--green)' : '#e53e3e' }} />
           </div>
@@ -176,13 +185,10 @@ export default function Sidebar() {
               {status ? (status.repos_connected > 0 ? status.repos_connected + ' repo' + (status.repos_connected !== 1 ? 's' : '') : 'No repos') : '...'}
             </div>
           </div>
-        </div>
-
-        {/* Theme toggle */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          {/* Theme toggle - aligned right with GitHub row */}
           <button onClick={toggleTheme}
             style={{
-              width: 28, height: 28, borderRadius: '50%',
+              width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
               background: 'var(--bg2)', border: '1px solid var(--rule)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', color: 'var(--mid)',
