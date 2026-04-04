@@ -35,10 +35,30 @@ const severityChipClass: Record<string, string> = {
 
 /* ---- Success Modal Component ---- */
 function SuccessModal({ count, issues, onClose, onViewProgress }: { count: number; issues: Issue[]; onClose: () => void; onViewProgress: () => void }) {
-  const firstIssue = issues[0];
-  const issueNum = firstIssue ? (firstIssue.number || firstIssue.github_id) : 0;
-  const issueTitle = firstIssue ? firstIssue.title : 'Issue';
-  const issueCategory = firstIssue ? firstIssue.category : 'bug';
+  const isMultiple = count > 1;
+
+  // Compute real estimated time from issues
+  const getEstTime = () => {
+    if (issues.length === 0) return '~1h';
+    const efforts = issues.map(i => {
+      const e = (i.estimated_effort || '').toLowerCase();
+      if (e.includes('high') || e.includes('3') || e.includes('4')) return 3;
+      if (e.includes('medium') || e.includes('2')) return 2;
+      return 1;
+    });
+    // Parallel: time = max effort, not sum
+    const maxEffort = Math.max(...efforts);
+    if (maxEffort >= 3) return '~2h';
+    if (maxEffort >= 2) return '~1.5h';
+    return '~45m';
+  };
+
+  // Compute avg confidence as merge rate
+  const getMergeRate = () => {
+    if (issues.length === 0) return '95%';
+    const avg = Math.round(issues.reduce((sum, i) => sum + (i.ai_confidence || 90), 0) / issues.length);
+    return `${avg}%`;
+  };
 
   const steps = [
     { icon: Sparkles, label: 'Analyzing' },
@@ -52,7 +72,7 @@ function SuccessModal({ count, issues, onClose, onViewProgress }: { count: numbe
       style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)' }}
       onClick={onClose}>
       <div className="animate-modal-pop"
-        style={{ position: 'relative', borderRadius: 20, maxWidth: 420, width: '100%', overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.35)' }}
+        style={{ position: 'relative', borderRadius: 20, maxWidth: 440, width: '100%', overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.35)' }}
         onClick={e => e.stopPropagation()}>
 
         {/* Dark gradient header */}
@@ -65,7 +85,7 @@ function SuccessModal({ count, issues, onClose, onViewProgress }: { count: numbe
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '5px 14px', marginBottom: 16 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#21C19A', display: 'inline-block' }}></span>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#e4e5e7', fontFamily: 'var(--mono)' }}>
-              {count === 1 ? `Issue #${issueNum} approved` : `${count} issues approved`}
+              {count === 1 ? `Issue #${issues[0]?.number || issues[0]?.github_id || 0} approved` : `${count} issues approved`}
             </span>
           </div>
 
@@ -80,6 +100,15 @@ function SuccessModal({ count, issues, onClose, onViewProgress }: { count: numbe
 
         {/* White body */}
         <div style={{ background: '#fff', padding: '24px 28px 20px' }}>
+
+          {/* Parallel fleet badge for multiple issues */}
+          {isMultiple && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: '#f0fdf8', border: '1px solid #d1fae5', marginBottom: 16 }}>
+              <Cpu size={14} style={{ color: '#0d7c5f' }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#0d7c5f' }}>Parallel fleet</span>
+              <span style={{ fontSize: 11, color: '#6b7280' }}>{"\u2014"} {count} Devin sessions running simultaneously at linear cost</span>
+            </div>
+          )}
 
           {/* Pipeline steps */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
@@ -96,20 +125,24 @@ function SuccessModal({ count, issues, onClose, onViewProgress }: { count: numbe
             ))}
           </div>
 
-          {/* Issue card */}
-          <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-            <span style={{ background: '#f0f4ff', border: '1px solid #dbeafe', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, color: '#3969CA', fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>
-              #{issueNum}
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#1f2937', flex: 1, lineHeight: 1.3 }}>{issueTitle}</span>
-            <span style={{ background: '#f0f4ff', border: '1px solid #dbeafe', borderRadius: 20, padding: '3px 10px', fontSize: 10, fontWeight: 700, color: '#3969CA', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{issueCategory}</span>
+          {/* Issue cards — show ALL issues */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14, maxHeight: isMultiple ? 160 : 'none', overflowY: isMultiple ? 'auto' : 'visible' }}>
+            {issues.map(issue => (
+              <div key={issue.id} style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ background: '#f0f4ff', border: '1px solid #dbeafe', borderRadius: 8, padding: '3px 8px', fontSize: 11, fontWeight: 700, color: '#3969CA', fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>
+                  #{issue.number || issue.github_id}
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#1f2937', flex: 1, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{issue.title}</span>
+                <span style={{ background: '#f0f4ff', border: '1px solid #dbeafe', borderRadius: 20, padding: '2px 8px', fontSize: 9, fontWeight: 700, color: '#3969CA', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{issue.category}</span>
+              </div>
+            ))}
           </div>
 
-          {/* Stats row */}
+          {/* Stats row — real data */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
             {[
-              { value: '~1.5h', label: 'EST. TIME', color: '#21C19A' },
-              { value: '98%', label: 'MERGE RATE', color: '#1f2937' },
+              { value: getEstTime(), label: isMultiple ? 'EST. TIME (PARALLEL)' : 'EST. TIME', color: '#21C19A' },
+              { value: getMergeRate(), label: 'CONFIDENCE', color: '#1f2937' },
               { value: 'Slack', label: 'NOTIFY VIA', color: '#3969CA' },
             ].map(stat => (
               <div key={stat.label} style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: '12px 10px', textAlign: 'center' }}>
