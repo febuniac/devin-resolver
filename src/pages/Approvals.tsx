@@ -28,6 +28,16 @@ interface TimelineStep {
   detail: string;
 }
 
+interface DevinMessage {
+  message: string;
+  timestamp: string;
+}
+
+interface TodoItem {
+  status: string;
+  content: string;
+}
+
 interface LiveData {
   title: string;
   status: string;
@@ -37,6 +47,8 @@ interface LiveData {
   pr_url: string;
   structured_output: Record<string, unknown>;
   timeline: TimelineStep[];
+  todos: TodoItem[];
+  messages: DevinMessage[];
   created_at: string;
   updated_at: string;
 }
@@ -601,7 +613,73 @@ export default function Approvals() {
                             </div>
                           </div>
 
-                          {/* Timeline activity log */}
+                          {/* Devin's Messages */}
+                          {(liveData[session.id]?.messages || []).length > 0 && (
+                            <div style={{ marginBottom: 10 }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <MessageSquare size={9} /> Devin's Updates
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {(liveData[session.id]?.messages || []).map((msg, i) => (
+                                  <div key={i} style={{ background: '#161b22', borderRadius: 8, padding: '8px 10px', border: '1px solid #21262d' }}>
+                                    <div style={{ fontSize: 11, color: '#e6edf3', lineHeight: 1.5 }}>{msg.message}</div>
+                                    <div style={{ fontSize: 9, color: '#484f58', marginTop: 4 }}>
+                                      {(() => { try { const d = new Date(msg.timestamp + (msg.timestamp.includes('Z') || msg.timestamp.includes('+') ? '' : 'Z')); return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }); } catch { return ''; } })()}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Task Progress (Todos) */}
+                          {(liveData[session.id]?.todos || []).length > 0 && (
+                            <div style={{ marginBottom: 10 }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <CheckCheck size={9} /> Task Progress
+                                <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 500, color: '#58a6ff' }}>
+                                  {(liveData[session.id]?.todos || []).filter(t => t.status === 'completed').length}/{(liveData[session.id]?.todos || []).length} done
+                                </span>
+                              </div>
+                              <div style={{ background: '#161b22', borderRadius: 8, padding: '10px 12px', border: '1px solid #21262d' }}>
+                                {/* Progress bar */}
+                                <div style={{ height: 3, borderRadius: 2, background: '#21262d', marginBottom: 8 }}>
+                                  <div style={{
+                                    height: '100%', borderRadius: 2,
+                                    background: 'linear-gradient(90deg, #3fb950, #58a6ff)',
+                                    width: `${Math.round(((liveData[session.id]?.todos || []).filter(t => t.status === 'completed').length / Math.max((liveData[session.id]?.todos || []).length, 1)) * 100)}%`,
+                                    transition: 'width 0.5s ease'
+                                  }} />
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                  {(liveData[session.id]?.todos || []).map((todo, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 10, lineHeight: 1.4 }}>
+                                      <span style={{
+                                        width: 12, height: 12, borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        flexShrink: 0, marginTop: 1, fontSize: 7, fontWeight: 700,
+                                        background: todo.status === 'completed' ? 'rgba(63,185,80,0.15)' : todo.status === 'in_progress' ? 'rgba(88,166,255,0.15)' : 'rgba(139,148,158,0.1)',
+                                        color: todo.status === 'completed' ? '#3fb950' : todo.status === 'in_progress' ? '#58a6ff' : '#484f58',
+                                        border: `1px solid ${todo.status === 'completed' ? 'rgba(63,185,80,0.3)' : todo.status === 'in_progress' ? 'rgba(88,166,255,0.3)' : 'rgba(139,148,158,0.15)'}`,
+                                      }}>
+                                        {todo.status === 'completed' ? '✓' : todo.status === 'in_progress' ? '▶' : '○'}
+                                      </span>
+                                      <span style={{
+                                        color: todo.status === 'completed' ? '#8b949e' : todo.status === 'in_progress' ? '#e6edf3' : '#484f58',
+                                        textDecoration: todo.status === 'completed' ? 'line-through' : 'none',
+                                        fontWeight: todo.status === 'in_progress' ? 600 : 400,
+                                      }}>
+                                        {todo.content}
+                                        {todo.status === 'in_progress' && <span style={{ marginLeft: 4, color: '#58a6ff', fontSize: 9 }}>in progress</span>}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Timeline activity log (fallback if no todos) */}
+                          {(liveData[session.id]?.todos || []).length === 0 && (
                           <div style={{ background: '#161b22', borderRadius: 8, padding: '14px 16px', fontSize: 12, color: '#8b949e', lineHeight: 1.6 }}>
                             {loadingLive.has(session.id) ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8 }}>
@@ -647,6 +725,7 @@ export default function Approvals() {
                               </div>
                             )}
                           </div>
+                          )}
 
                           {/* Worklog: Description, Impact, Recommended Fix */}
                           {session.issue_body && (() => {
