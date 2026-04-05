@@ -141,14 +141,25 @@ export default function Settings() {
         <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
           <div style={{ ...labelStyle, marginBottom: 10 }}><Zap size={14} style={{ color: 'var(--purple)' }} /> Auto-Approve Mode</div>
           <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 14, lineHeight: 1.6 }}>
-            When enabled, Devin will automatically merge PRs that meet the confidence threshold. Only issues at or below the selected severity will be auto-approved.
+            When enabled, PRs will be automatically merged <strong>only after Devin Review passes</strong> (no critical issues found) and the confidence threshold is met. This gives you the speed of automation with an AI quality gate.
+          </div>
+
+          {/* Devin Review explainer */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(57,105,202,0.06)', border: '1px solid rgba(57,105,202,0.12)', marginBottom: 12 }}>
+            <img src="/brand/devin-logo.png" alt="Devin Review" style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'contain', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>Powered by Devin Review</div>
+              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 1, lineHeight: 1.5 }}>
+                Every PR is automatically reviewed by Devin Review for code quality, security vulnerabilities, and potential bugs before auto-approve can trigger.
+              </div>
+            </div>
           </div>
 
           {/* Toggle */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--bg)', marginBottom: 10 }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Enable Auto-Approve</div>
-              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>Devin will auto-merge PRs above the confidence threshold</div>
+              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>PRs auto-merge only when Devin Review passes + confidence threshold is met</div>
             </div>
             <button onClick={() => setAutoApprove(!autoApprove)}
               style={{ width: 42, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', position: 'relative', transition: '0.2s', background: autoApprove ? 'var(--green)' : 'var(--rule)' }}>

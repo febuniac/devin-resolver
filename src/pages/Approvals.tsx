@@ -559,6 +559,26 @@ export default function Approvals() {
                             </span>
                           </div>
                         )}
+                        {/* Devin Review badge */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: isMerged ? 'rgba(33,193,154,0.06)' : 'rgba(57,105,202,0.06)', border: `1px solid ${isMerged ? 'rgba(33,193,154,0.15)' : 'rgba(57,105,202,0.15)'}` }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: isMerged ? 'rgba(33,193,154,0.12)' : 'rgba(57,105,202,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <DevinIcon size={16} />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              Reviewed by Devin Review
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: isMerged ? 'rgba(33,193,154,0.15)' : 'rgba(57,105,202,0.12)', color: isMerged ? '#21C19A' : '#3969CA', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+                                {isMerged ? 'Passed' : 'Reviewing'}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>
+                              {isMerged
+                                ? 'Devin Review approved this PR — no critical issues found.'
+                                : 'Devin Review is analyzing code quality, security, and potential bugs.'}
+                            </div>
+                          </div>
+                          <Eye size={14} style={{ color: isMerged ? '#21C19A' : '#3969CA', flexShrink: 0 }} />
+                        </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                           {!isMerged ? (
                             <button
