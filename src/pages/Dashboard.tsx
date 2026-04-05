@@ -503,20 +503,27 @@ function BacklogTrendChart({ trend }: { trend: TrendPoint[] }) {
   if (!trend || trend.length === 0) return null;
 
   const maxOpen = Math.max(...trend.map(t => t.open_count), 1);
-  const chartH = 140;
-  const chartW = 100; // percentage-based
+  const minOpen = Math.min(...trend.map(t => t.open_count));
+  const range = Math.max(maxOpen - minOpen, 1);
+  const svgW = 700;
+  const svgH = 160;
+  const padX = 20;
+  const padTop = 15;
+  const padBot = 5;
+  const plotH = svgH - padTop - padBot;
 
-  // Build SVG path for the line
   const points = trend.map((t, i) => ({
-    x: (i / (trend.length - 1)) * chartW,
-    y: chartH - (t.open_count / maxOpen) * (chartH - 20),
+    x: padX + (i / (trend.length - 1)) * (svgW - 2 * padX),
+    y: padTop + plotH - ((t.open_count - minOpen) / range) * plotH,
   }));
 
   const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  const areaPath = linePath + ` L ${points[points.length - 1].x} ${chartH} L ${points[0].x} ${chartH} Z`;
+  const areaPath = linePath + ` L ${points[points.length - 1].x} ${svgH} L ${points[0].x} ${svgH} Z`;
 
   // Is trend going down?
-  const trendingDown = trend.length >= 2 && trend[trend.length - 1].open_count <= trend[0].open_count;
+  const trendingDown = trend.length >= 2 && trend[trend.length - 1].open_count < trend[0].open_count;
+
+  const lineColor = trendingDown ? 'var(--green)' : 'var(--purple)';
 
   return (
     <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '16px 20px', marginBottom: 24 }}>
@@ -545,35 +552,33 @@ function BacklogTrendChart({ trend }: { trend: TrendPoint[] }) {
       </div>
 
       {/* Chart */}
-      <div style={{ position: 'relative', height: chartH + 30 }}>
-        <svg viewBox={`0 0 ${chartW} ${chartH}`} preserveAspectRatio="none" style={{ width: '100%', height: chartH, display: 'block' }}>
+      <div style={{ position: 'relative' }}>
+        <svg viewBox={`0 0 ${svgW} ${svgH}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
           <defs>
             <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={trendingDown ? 'rgba(33,193,154,.2)' : 'rgba(57,105,202,.2)'} />
-              <stop offset="100%" stopColor={trendingDown ? 'rgba(33,193,154,.02)' : 'rgba(57,105,202,.02)'} />
+              <stop offset="0%" stopColor={trendingDown ? 'rgba(33,193,154,.15)' : 'rgba(57,105,202,.15)'} />
+              <stop offset="100%" stopColor={trendingDown ? 'rgba(33,193,154,.01)' : 'rgba(57,105,202,.01)'} />
             </linearGradient>
           </defs>
           {/* Grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map(pct => (
-            <line key={pct} x1="0" y1={chartH - pct * (chartH - 20)} x2={chartW} y2={chartH - pct * (chartH - 20)} stroke="var(--rule)" strokeWidth="0.3" />
+            <line key={pct} x1={padX} y1={padTop + plotH - pct * plotH} x2={svgW - padX} y2={padTop + plotH - pct * plotH} stroke="var(--rule)" strokeWidth="0.5" />
           ))}
           {/* Area fill */}
           <path d={areaPath} fill="url(#trendGrad)" />
           {/* Line */}
-          <path d={linePath} fill="none" stroke={trendingDown ? 'var(--green)' : 'var(--purple)'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={linePath} fill="none" stroke={lineColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           {/* Data points */}
           {points.map((p, i) => (
-            <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={trendingDown ? 'var(--green)' : 'var(--purple)'} stroke="var(--white)" strokeWidth="1" />
+            <circle key={i} cx={p.x} cy={p.y} r="4" fill={lineColor} stroke="var(--white)" strokeWidth="2" />
+          ))}
+          {/* X-axis labels */}
+          {trend.map((t, i) => (
+            <text key={i} x={points[i].x} y={svgH + 14} textAnchor="middle" fill="var(--dim)" fontSize="10" fontFamily="var(--mono)">
+              {t.week_date}
+            </text>
           ))}
         </svg>
-        {/* X-axis labels */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-          {trend.map((t, i) => (
-            <div key={i} style={{ fontSize: 9, color: 'var(--dim)', textAlign: 'center', flex: 1, fontFamily: 'var(--mono)' }}>
-              {t.week_date}
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Bottom stats row */}
