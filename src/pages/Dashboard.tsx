@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Plus, Loader2, Activity, GitPullRequest, CheckCircle, DollarSign, Clock, Play, RotateCcw } from 'lucide-react';
+import { RefreshCw, Plus, Loader2, Activity, GitPullRequest, CheckCircle, DollarSign, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
@@ -275,9 +275,6 @@ export default function Dashboard() {
           footnote={'VS $150\u2013300 ENGINEER HOUR'}
           footnoteColor="var(--blue)" />
       </div>
-
-      {/* FOLLOW THE BUG — animated pipeline */}
-      <FollowTheBug />
 
       {/* ZONE 3: NEEDS ATTENTION */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
@@ -636,135 +633,6 @@ function BeforeAfterCard({ data }: { data: BeforeAfter }) {
 }
 
 /* ---- Time Saved Card ---- */
-/* ---- Follow the Bug — animated pipeline ---- */
-const PIPELINE_STEPS = [
-  { label: 'TRIGGER', title: 'GitHub / CodeQL', sub: 'Issue #1847 opens', color: 'var(--green)', icon: '\u2699\uFE0F', barStyle: 'solid' as const },
-  { label: 'STEP 1', title: 'AI Triage', sub: 'Score \u00b7 classify', color: 'var(--purple)', icon: '\uD83E\uDDE0', barStyle: 'solid' as const },
-  { label: 'STEP 2', title: 'Your Approval', sub: '30 seconds', color: '#d97706', icon: '\uD83D\uDC64', barStyle: 'dashed' as const },
-  { label: 'STEP 3', title: 'Devin Fixes', sub: 'Writes + tests', color: 'var(--purple)', icon: '\u26A1', barStyle: 'solid' as const },
-  { label: 'STEP 4', title: 'PR + Slack', sub: 'Ready to merge', color: 'var(--purple)', icon: '\uD83D\uDD00', barStyle: 'solid' as const },
-  { label: 'STEP 5', title: 'Resolved', sub: 'In ~47 minutes', color: 'var(--purple)', icon: '\uD83D\uDCCA', barStyle: 'solid' as const },
-];
-
-function FollowTheBug() {
-  const [activeStep, setActiveStep] = useState(-1);
-  const [playing, setPlaying] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const play = useCallback(() => {
-    setActiveStep(-1);
-    setPlaying(true);
-    let step = 0;
-    const advance = () => {
-      setActiveStep(step);
-      step++;
-      if (step <= PIPELINE_STEPS.length - 1) {
-        timerRef.current = setTimeout(advance, 1200);
-      } else {
-        timerRef.current = setTimeout(() => setPlaying(false), 600);
-      }
-    };
-    timerRef.current = setTimeout(advance, 400);
-  }, []);
-
-  const reset = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setActiveStep(-1);
-    setPlaying(false);
-  }, []);
-
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
-
-  return (
-    <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px', marginBottom: 24 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>How it works — follow the bug</div>
-          <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>Watch a real issue travel through the full BacklogZero pipeline</div>
-        </div>
-        {!playing ? (
-          <button onClick={activeStep >= 0 ? reset : play} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, border: 'none', background: 'var(--ink)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: '.15s' }}>
-            {activeStep >= 0 ? <><RotateCcw size={13} /> Reset</> : <><Play size={13} /> Play</>}
-          </button>
-        ) : (
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--purple)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', animation: 'pulse 1s infinite' }} />
-            Running...
-          </div>
-        )}
-      </div>
-
-      {/* Pipeline */}
-      <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, marginTop: 18, position: 'relative' }}>
-        {PIPELINE_STEPS.map((step, i) => {
-          const isActive = i <= activeStep;
-          const isCurrent = i === activeStep;
-          return (
-            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-              {/* Top color bar */}
-              <div style={{
-                height: 3, width: '80%', borderRadius: 2, marginBottom: 12, transition: 'all 0.5s ease',
-                background: isActive ? step.color : 'var(--rule)',
-                ...(step.barStyle === 'dashed' && !isActive ? { backgroundImage: 'repeating-linear-gradient(90deg, var(--rule) 0, var(--rule) 6px, transparent 6px, transparent 12px)', background: 'transparent' } : {}),
-                ...(step.barStyle === 'dashed' && isActive ? { backgroundImage: `repeating-linear-gradient(90deg, ${step.color} 0, ${step.color} 6px, transparent 6px, transparent 12px)`, background: 'transparent' } : {}),
-              }} />
-
-              {/* Card */}
-              <div style={{
-                background: isActive ? 'var(--bg)' : 'var(--white)',
-                border: `1.5px solid ${isCurrent ? step.color : isActive ? 'var(--rule)' : 'var(--rule)'}`,
-                borderRadius: 10, padding: '14px 10px', textAlign: 'center', width: '90%',
-                transition: 'all 0.5s ease',
-                transform: isCurrent ? 'scale(1.04)' : 'scale(1)',
-                boxShadow: isCurrent ? `0 4px 16px rgba(0,0,0,.08)` : 'none',
-                opacity: activeStep < 0 ? 0.5 : isActive ? 1 : 0.35,
-              }}>
-                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.1em', color: isActive ? step.color : 'var(--dim)', marginBottom: 8, transition: 'color 0.5s' }}>
-                  {step.label}
-                </div>
-                <div style={{ fontSize: 24, lineHeight: 1, marginBottom: 8 }}>{step.icon}</div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 3 }}>{step.title}</div>
-                <div style={{ fontSize: 10, color: 'var(--dim)' }}>{step.sub}</div>
-              </div>
-
-              {/* Arrow connector */}
-              {i < PIPELINE_STEPS.length - 1 && (
-                <div style={{
-                  position: 'absolute', right: -6, top: '55%', fontSize: 12, color: i < activeStep ? 'var(--purple)' : 'var(--rule)',
-                  transition: 'color 0.5s', zIndex: 2,
-                }}>
-                  {'\u2192'}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Footer legend */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--rule)' }}>
-        <div style={{ fontSize: 11, color: 'var(--dim)', fontFamily: 'var(--mono)' }}>
-          {activeStep < 0 ? 'Ready \u2014 click Play to follow the bug' : activeStep >= PIPELINE_STEPS.length - 1 ? '\u2713 Issue resolved in ~47 minutes \u2014 zero engineer time' : `Step ${activeStep + 1} of ${PIPELINE_STEPS.length}...`}
-        </div>
-        <div style={{ display: 'flex', gap: 14 }}>
-          {[
-            { color: 'var(--green)', label: 'TRIGGER', style: 'solid' },
-            { color: 'var(--purple)', label: 'AUTO', style: 'solid' },
-            { color: '#d97706', label: 'HUMAN', style: 'dashed' },
-            { color: 'var(--purple)', label: 'OUTPUT', style: 'solid' },
-          ].map(l => (
-            <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <div style={{ width: 14, height: 3, borderRadius: 2, background: l.style === 'dashed' ? 'transparent' : l.color, ...(l.style === 'dashed' ? { backgroundImage: `repeating-linear-gradient(90deg, ${l.color} 0, ${l.color} 4px, transparent 4px, transparent 7px)` } : {}) }} />
-              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.06em', color: 'var(--dim)' }}>{l.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function TimeSavedCard({ savings, hoursSaved, costSaved, issuesResolved }: {
   savings: { cost_saved: number; issues_resolved: number; hours_saved: number; avg_resolution_min: number; total_devin_cost: number };
   hoursSaved: number; costSaved: number; issuesResolved: number;
