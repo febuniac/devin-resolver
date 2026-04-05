@@ -262,17 +262,17 @@ export default function Dashboard() {
           footnoteColor="#d97706" />
 
         <PerfCard icon={<CheckCircle size={16} color="#3969CA" />} iconBg="rgba(57,105,202,.1)"
-          value={dp.merge_rate_pct + '%'} valueColor="var(--purple)"
+          value={dp.merge_rate_pct > 0 ? dp.merge_rate_pct + '%' : '\u2014'} valueColor="var(--purple)"
           label="PR merge rate this month"
           tooltip={{ title: 'PR Merge Rate', text: 'Percentage of Devin-opened PRs that were merged without being closed or rejected. Baseline: 67%.' }}
-          footnote={'\u2191 FROM 67% BASELINE'}
+          footnote={dp.merge_rate_pct > 0 ? '\u2191 FROM 67% BASELINE' : 'No PRs merged yet'}
           footnoteColor="var(--purple)" />
 
         <PerfCard icon={<DollarSign size={16} color="#0294DE" />} iconBg="rgba(2,148,222,.1)"
-          value={'~$' + dp.cost_per_pr} valueColor="var(--blue)"
+          value={dp.cost_per_pr > 0 ? '~$' + dp.cost_per_pr : '\u2014'} valueColor="var(--blue)"
           label="Cost per merged PR"
           tooltip={{ title: 'Cost per Merged PR', text: 'Total Devin ACU cost this month divided by number of PRs merged. One ACU \u2248 $0.09.' }}
-          footnote={'VS $150\u2013300 ENGINEER HOUR'}
+          footnote={dp.cost_per_pr > 0 ? 'VS $150\u2013300 ENGINEER HOUR' : 'No PRs merged yet'}
           footnoteColor="var(--blue)" />
       </div>
 
@@ -377,9 +377,9 @@ export default function Dashboard() {
               </div>
             ))}
             <div style={{ marginTop: 13, paddingTop: 11, borderTop: '1px solid var(--rule)', display: 'flex', gap: 14 }}>
-              <div style={{ fontSize: 11, color: 'var(--dim)' }}>Merge rate <span style={{ fontWeight: 700, color: 'var(--green)' }}>{tm.merge_rate_pct}%</span></div>
-              <div style={{ fontSize: 11, color: 'var(--dim)' }}>Cost/PR <span style={{ fontWeight: 700, color: 'var(--purple)' }}>~${tm.cost_per_pr}</span></div>
-              <div style={{ fontSize: 11, color: 'var(--dim)' }}>Avg time <span style={{ fontWeight: 700, color: 'var(--blue)' }}>{tm.avg_resolution_min}min</span></div>
+              <div style={{ fontSize: 11, color: 'var(--dim)' }}>Merge rate <span style={{ fontWeight: 700, color: 'var(--green)' }}>{tm.total_merged > 0 ? tm.merge_rate_pct + '%' : '\u2014'}</span></div>
+              <div style={{ fontSize: 11, color: 'var(--dim)' }}>Cost/PR <span style={{ fontWeight: 700, color: 'var(--purple)' }}>{tm.cost_per_pr > 0 ? '~$' + tm.cost_per_pr : '\u2014'}</span></div>
+              <div style={{ fontSize: 11, color: 'var(--dim)' }}>Avg time <span style={{ fontWeight: 700, color: 'var(--blue)' }}>{tm.avg_resolution_min > 0 ? tm.avg_resolution_min + 'min' : '\u2014'}</span></div>
             </div>
           </div>
         </div>
@@ -426,7 +426,7 @@ export default function Dashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <SavingsBox value={tm.savings.issues_resolved} label="Issues resolved by Devin" color="var(--green)" />
               <SavingsBox value={'~' + tm.savings.hours_saved + 'h'} label="Engineer hours freed up" color="var(--purple)" />
-              <SavingsBox value={tm.savings.avg_resolution_min + 'min'} label="Avg resolution time" color="var(--blue)" />
+              <SavingsBox value={tm.savings.avg_resolution_min > 0 ? tm.savings.avg_resolution_min + 'min' : '\u2014'} label="Avg resolution time" color="var(--blue)" />
               <SavingsBox value={'$' + tm.savings.total_devin_cost} label="Total Devin cost this month" color="#d97706" />
             </div>
           </div>
