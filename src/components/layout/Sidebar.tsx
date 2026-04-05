@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, GitPullRequestArrow, Shield, CheckSquare, BarChart3, Radio, Settings, Sun, Moon, AlertCircle, Github } from 'lucide-react';
+import { LayoutDashboard, GitPullRequestArrow, Shield, CheckSquare, BarChart3, Radio, Settings, Sun, Moon, AlertCircle, Github, BookOpen } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useState, useEffect } from 'react';
 import api from '../../api/client';
@@ -20,6 +20,7 @@ const mainNav = [
 ];
 
 const insightNav = [
+  { to: '/wiki', icon: BookOpen, label: 'Wiki' },
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
   { to: '/integrations', icon: Radio, label: 'Integrations' },
   { to: '/settings', icon: Settings, label: 'Settings' },

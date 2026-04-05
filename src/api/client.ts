@@ -122,6 +122,13 @@ export const api = {
   // Dashboard
   getDashboardMetrics: () => request<any>('/api/dashboard/metrics'),
 
+  // Wiki
+  listWikiRepos: () => request<any[]>('/api/wiki/repos'),
+  getWikiPages: (owner: string, name: string) => request<any[]>(`/api/wiki/${owner}/${name}`),
+  generateWiki: (owner: string, name: string) =>
+    request<any>(`/api/wiki/${owner}/${name}/generate`, { method: 'POST' }),
+  generateAllWikis: () => request<any>('/api/wiki/generate-all', { method: 'POST' }),
+
   // Slack
   sendNotification: (data: { message: string; issue_id?: number; finding_id?: number }) =>
     request<any>('/api/slack/notify', {

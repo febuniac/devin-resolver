@@ -7,6 +7,7 @@ import Approvals from './pages/Approvals';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Integrations from './pages/Integrations';
+import Wiki from './pages/Wiki';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/integrations" element={<Integrations />} />
+          <Route path="/wiki" element={<Wiki />} />
         </Route>
       </Routes>
     </BrowserRouter>
