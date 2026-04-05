@@ -196,7 +196,7 @@ export function IssueTriage() {
 
   const loadIssues = async () => {
     try {
-      const data = await api.listIssues() as Issue[];
+      const data = await api.listIssues({ exclude_category: 'security' }) as Issue[];
       setIssues(data);
     }
     catch { setError('Failed to load issues'); }
@@ -298,7 +298,7 @@ export function IssueTriage() {
         {[
           { val: severityFilter, set: setSeverityFilter, opts: ['all','critical','high','medium','low'], label: 'Severity' },
           { val: statusFilter, set: setStatusFilter, opts: ['all','triaged','approved','in_progress','resolved'], label: 'Status' },
-          { val: categoryFilter, set: setCategoryFilter, opts: ['all','bug','security','feature','enhancement','performance'], label: 'Category' },
+          { val: categoryFilter, set: setCategoryFilter, opts: ['all','bug','feature','enhancement','performance'], label: 'Category' },
         ].map(f => (
           <select key={f.label} value={f.val} onChange={e => f.set(e.target.value)}
             style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--white)', fontSize: 12, color: 'var(--mid)', cursor: 'pointer' }}>
