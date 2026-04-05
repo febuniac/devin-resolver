@@ -4,17 +4,17 @@ export default function Analytics() {
   const topbarEl = document.getElementById('topbar-actions');
 
   const stats = [
-    { label: 'Issues Resolved', value: '312', color: 'var(--purple)', delta: '+45% vs last quarter' },
-    { label: 'Engineer Hours Saved', value: '1,248', color: 'var(--green)', delta: '~$187K value' },
+    { label: 'Issues Resolved', value: '45', color: 'var(--purple)', delta: '+12 this week' },
+    { label: 'Engineer Hours Saved', value: '168', color: 'var(--green)', delta: '~$25K value' },
     { label: 'Avg Resolution Time', value: '47m', color: 'var(--blue)', delta: 'Down from 4.2h manual' },
-    { label: 'PR Merge Rate', value: '98%', color: 'var(--green)', delta: 'Up from 67% baseline' },
+    { label: 'PR Merge Rate', value: '79%', color: 'var(--green)', delta: 'Up from 67% baseline' },
   ];
 
   const monthly = [
-    { month: 'Jan', issues: 42, prs: 38 },
-    { month: 'Feb', issues: 56, prs: 51 },
-    { month: 'Mar', issues: 73, prs: 68 },
-    { month: 'Apr', issues: 87, prs: 82 },
+    { month: 'Jan', issues: 0, prs: 0 },
+    { month: 'Feb', issues: 0, prs: 0 },
+    { month: 'Mar', issues: 18, prs: 14 },
+    { month: 'Apr', issues: 27, prs: 22 },
   ];
 
   return (
@@ -72,9 +72,9 @@ export default function Analytics() {
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Cost Savings</div>
           <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 18 }}>Estimated value delivered</div>
           {[
-            { label: 'Engineer hours saved', value: '1,248 hrs', sub: '@$150/hr = $187,200', color: 'var(--green)' },
-            { label: 'Devin API costs', value: '$4,056', sub: '312 sessions x ~$13 avg', color: 'var(--purple)' },
-            { label: 'Net savings', value: '$183,144', sub: '46x ROI', color: 'var(--green)' },
+            { label: 'Engineer hours saved', value: '168 hrs', sub: '@$150/hr = $25,200', color: 'var(--green)' },
+            { label: 'Devin API costs', value: '$585', sub: '45 sessions x ~$13 avg', color: 'var(--purple)' },
+            { label: 'Net savings', value: '$24,615', sub: '43x ROI', color: 'var(--green)' },
           ].map((item, i) => (
             <div key={i} style={{ padding: '12px 0', borderBottom: i < 2 ? '1px solid var(--rule)' : 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -93,11 +93,11 @@ export default function Analytics() {
         <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 18 }}>Breakdown of issues resolved by type</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
           {[
-            { label: 'Bugs', value: 142, pct: 46, color: '#e53e3e' },
-            { label: 'Security', value: 67, pct: 22, color: 'var(--purple)' },
-            { label: 'Features', value: 48, pct: 15, color: 'var(--blue)' },
-            { label: 'Enhancements', value: 35, pct: 11, color: '#d97706' },
-            { label: 'Performance', value: 20, pct: 6, color: 'var(--green)' },
+            { label: 'Bugs', value: 18, pct: 40, color: '#e53e3e' },
+            { label: 'Security', value: 12, pct: 27, color: 'var(--purple)' },
+            { label: 'Features', value: 7, pct: 16, color: 'var(--blue)' },
+            { label: 'Enhancements', value: 5, pct: 11, color: '#d97706' },
+            { label: 'Performance', value: 3, pct: 6, color: 'var(--green)' },
           ].map(c => (
             <div key={c.label} style={{ textAlign: 'center' }}>
               <div className="font-mono" style={{ fontSize: 24, fontWeight: 800, color: c.color, marginBottom: 4 }}>{c.value}</div>
