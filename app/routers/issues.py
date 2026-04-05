@@ -234,10 +234,23 @@ async def _create_devin_sessions(issue_ids: list[int]):
                     github_pat=github_pat,
                 )
 
-                result = await devin.create_session(
-                    prompt=prompt,
-                    idempotency_key=f"issue-{issue_id}",
-                )
+                # Retry with exponential backoff on 429 rate limiting
+                max_retries = 4
+                result = None
+                for attempt in range(max_retries):
+                    try:
+                        result = await devin.create_session(
+                            prompt=prompt,
+                            idempotency_key=f"issue-{issue_id}",
+                        )
+                        break  # Success
+                    except Exception as api_err:
+                        if "429" in str(api_err) and attempt < max_retries - 1:
+                            wait_time = 5 * (2 ** attempt)  # 5s, 10s, 20s, 40s
+                            logger.warning(f"Rate limited creating session for issue #{issue_id}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                            await asyncio.sleep(wait_time)
+                        else:
+                            raise  # Re-raise if not 429 or last attempt
                 logger.info(f"Devin API response for issue #{issue_id}: {result}")
 
                 session_id = result.get("session_id", "")
@@ -259,9 +272,9 @@ async def _create_devin_sessions(issue_ids: list[int]):
                 await db.commit()
                 logger.info(f"Created Devin session {session_id} for issue #{issue_id}")
 
-                # Small delay between session creations to avoid Devin API rate limiting
+                # Delay between session creations to avoid Devin API rate limiting
                 if len(issue_ids) > 1:
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(5)
 
                 # Send "Issue Sent to Devin" Slack notification
                 if slack.webhook_url and notif_prefs.get("issue_sent_to_devin", True):
