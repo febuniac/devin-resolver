@@ -69,7 +69,7 @@ function MetricInfo({ title, text }: { title: string; text: string }) {
         fontSize: 11, fontWeight: 400, color: show ? '#fff' : '#999',
         fontStyle: 'italic', fontFamily: 'Georgia, "Times New Roman", serif', lineHeight: 1, transition: '.15s',
         letterSpacing: 0
-      }}>I</span>
+      }}>i</span>
       {show && createPortal(
         <span style={{
           position: 'fixed', top: pos.top, left: pos.left,
