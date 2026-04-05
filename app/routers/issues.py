@@ -234,23 +234,10 @@ async def _create_devin_sessions(issue_ids: list[int]):
                     github_pat=github_pat,
                 )
 
-                # Retry with exponential backoff on 429 rate limiting
-                max_retries = 4
-                result = None
-                for attempt in range(max_retries):
-                    try:
-                        result = await devin.create_session(
-                            prompt=prompt,
-                            idempotency_key=f"issue-{issue_id}",
-                        )
-                        break  # Success
-                    except Exception as api_err:
-                        if "429" in str(api_err) and attempt < max_retries - 1:
-                            wait_time = 5 * (2 ** attempt)  # 5s, 10s, 20s, 40s
-                            logger.warning(f"Rate limited creating session for issue #{issue_id}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
-                            await asyncio.sleep(wait_time)
-                        else:
-                            raise  # Re-raise if not 429 or last attempt
+                result = await devin.create_session(
+                    prompt=prompt,
+                    idempotency_key=f"issue-{issue_id}",
+                )
                 logger.info(f"Devin API response for issue #{issue_id}: {result}")
 
                 session_id = result.get("session_id", "")
@@ -292,13 +279,30 @@ async def _create_devin_sessions(issue_ids: list[int]):
 
             except Exception as e:
                 logger.error(f"Failed to create Devin session for issue {issue_id}: {e}", exc_info=True)
-                # Mark issue back to triaged so user can retry
-                await db.execute(
-                    "UPDATE issues SET status = 'triaged' WHERE id = ? AND status = 'approved'",
-                    (issue_id,),
-                )
-                await db.commit()
-                continue
+                if "429" in str(e):
+                    # Rate limited — mark as queued so auto-retry picks it up later
+                    await db.execute(
+                        "UPDATE issues SET status = 'queued' WHERE id = ? AND status IN ('approved', 'queued')",
+                        (issue_id,),
+                    )
+                    await db.commit()
+                    logger.warning(f"Issue {issue_id} queued for retry due to rate limiting")
+                    # Stop trying remaining issues — API is rate limited
+                    for remaining_id in issue_ids[issue_ids.index(issue_id) + 1:]:
+                        await db.execute(
+                            "UPDATE issues SET status = 'queued' WHERE id = ? AND status = 'approved'",
+                            (remaining_id,),
+                        )
+                    await db.commit()
+                    break
+                else:
+                    # Non-rate-limit error — mark back to triaged for manual retry
+                    await db.execute(
+                        "UPDATE issues SET status = 'triaged' WHERE id = ? AND status = 'approved'",
+                        (issue_id,),
+                    )
+                    await db.commit()
+                    continue
 
     except Exception as e:
         logger.error(f"Background Devin session creation failed: {e}", exc_info=True)
@@ -616,9 +620,9 @@ async def retry_stuck_issues(
     background_tasks: BackgroundTasks,
     db: aiosqlite.Connection = Depends(get_db),
 ):
-    """Retry issues stuck in 'approved' status without a Devin session."""
+    """Retry issues stuck in 'approved' or 'queued' status without a Devin session."""
     cursor = await db.execute(
-        "SELECT id FROM issues WHERE status = 'approved' AND (devin_session_id IS NULL OR devin_session_id = '')"
+        "SELECT id FROM issues WHERE status IN ('approved', 'queued') AND (devin_session_id IS NULL OR devin_session_id = '')"
     )
     rows = await cursor.fetchall()
     stuck_ids = [row[0] for row in rows]

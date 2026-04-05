@@ -712,7 +712,52 @@ async def poll_all_sessions(
             results.append({"session_id": sid, "error": str(e)})
 
     await db.commit()
-    return {"polled": len(results), "results": results}
+
+    # Auto-retry ONE queued issue per poll cycle (rate-limit friendly)
+    queued_retried = None
+    try:
+        cursor = await db.execute(
+            "SELECT id, issue_number, title, body, repo_full_name, labels FROM issues WHERE status = 'queued' ORDER BY id ASC LIMIT 1"
+        )
+        queued_row = await cursor.fetchone()
+        if queued_row and devin.token:
+            q_id = queued_row[0]
+            q_number = queued_row[1]
+            q_title = queued_row[2]
+            q_body = queued_row[3] or ""
+            q_repo = queued_row[4]
+            q_labels = json.loads(queued_row[5]) if queued_row[5] else []
+            logger.info(f"Auto-retrying queued issue #{q_id}: {q_title}")
+            prompt = devin.build_issue_prompt(
+                {"number": q_number, "title": q_title, "body": q_body, "labels": q_labels},
+                q_repo,
+                github_pat=github_pat,
+            )
+            try:
+                result = await devin.create_session(
+                    prompt=prompt,
+                    idempotency_key=f"issue-{q_id}",
+                )
+                session_id = result.get("session_id", "")
+                session_url = result.get("url", f"https://app.devin.ai/sessions/{session_id}")
+                await db.execute(
+                    "UPDATE issues SET status = 'in_progress', devin_session_id = ?, devin_session_url = ? WHERE id = ?",
+                    (session_id, session_url, q_id),
+                )
+                await db.execute(
+                    "INSERT OR REPLACE INTO devin_sessions (session_id, session_url, issue_id, status, created_at) VALUES (?, ?, ?, 'running', datetime('now'))",
+                    (session_id, session_url, q_id),
+                )
+                await db.commit()
+                queued_retried = {"issue_id": q_id, "session_id": session_id, "status": "created"}
+                logger.info(f"Auto-retry success: created session {session_id} for queued issue #{q_id}")
+            except Exception as retry_err:
+                logger.warning(f"Auto-retry failed for issue #{q_id}: {retry_err}")
+                queued_retried = {"issue_id": q_id, "error": str(retry_err)[:100]}
+    except Exception as q_err:
+        logger.error(f"Error checking queued issues: {q_err}")
+
+    return {"polled": len(results), "results": results, "queued_retry": queued_retried}
 
 
 @router.get("/sessions/{session_id}/live")
