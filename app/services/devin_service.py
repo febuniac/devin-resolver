@@ -152,6 +152,60 @@ class DevinService:
             resp.raise_for_status()
             return resp.json()
 
+    async def sync_org_secret(self, key: str, value: str, note: str = "") -> dict:
+        """Create or update an org-level secret so all future sessions get it automatically."""
+        if not self.is_v3:
+            return {"error": "Org secrets require v3 API (cog_ token + org_id)"}
+        payload: dict = {
+            "type": "key-value",
+            "key": key,
+            "value": value,
+            "is_sensitive": True,
+        }
+        if note:
+            payload["note"] = note
+        async with httpx.AsyncClient() as client:
+            # First try to list existing secrets to find if one with this key exists
+            try:
+                resp = await client.get(
+                    f"{self.base_url}/secrets",
+                    headers=self.headers,
+                    timeout=15.0,
+                )
+                if resp.status_code == 200:
+                    secrets = resp.json()
+                    existing = None
+                    secret_list = secrets if isinstance(secrets, list) else secrets.get("secrets", secrets.get("items", []))
+                    for s in secret_list:
+                        if s.get("key") == key:
+                            existing = s
+                            break
+                    if existing:
+                        # Update existing secret
+                        secret_id = existing.get("id", existing.get("secret_id", ""))
+                        if secret_id:
+                            resp2 = await client.patch(
+                                f"{self.base_url}/secrets/{secret_id}",
+                                headers=self.headers,
+                                json={"value": value, "note": note} if note else {"value": value},
+                                timeout=15.0,
+                            )
+                            if resp2.status_code in (200, 204):
+                                return {"status": "updated", "key": key}
+            except Exception:
+                pass  # Fall through to create
+
+            # Create new secret
+            resp = await client.post(
+                f"{self.base_url}/secrets",
+                headers=self.headers,
+                json=payload,
+                timeout=15.0,
+            )
+            if resp.status_code in (200, 201):
+                return {"status": "created", "key": key, "data": resp.json()}
+            return {"status": "error", "code": resp.status_code, "detail": resp.text[:200]}
+
     async def validate_token(self) -> tuple[bool, str]:
         """Validate token. Returns (is_valid, detail_message)."""
         if self.token.startswith("cog_") and not self.org_id:
@@ -173,7 +227,10 @@ class DevinService:
             return False, f"Connection error: {str(e)}"
 
     def _build_git_auth_block(self, repo: str, github_pat: str) -> str:
-        """Build mandatory git authentication instructions that go at the TOP of prompts."""
+        """Build mandatory git authentication instructions that go at the TOP of prompts.
+        
+        Uses $GITHUB_PAT env var (synced as Devin org secret) with inline PAT as fallback.
+        """
         if not github_pat:
             return ""
         owner = repo.split("/")[0] if "/" in repo else ""
@@ -181,11 +238,14 @@ class DevinService:
             f"== MANDATORY GIT AUTHENTICATION (DO THIS FIRST) ==\n"
             f"You do NOT have write access to {repo} via the Devin GitHub App.\n"
             f"You MUST run these commands IMMEDIATELY after cloning the repo, BEFORE doing anything else:\n\n"
+            f"  # Use the GITHUB_PAT org secret (available as env var)\n"
+            f"  git remote set-url origin https://{owner}:$GITHUB_PAT@github.com/{repo}.git\n\n"
+            f"If $GITHUB_PAT is not set, use this fallback:\n"
             f"  git remote set-url origin https://{owner}:{github_pat}@github.com/{repo}.git\n\n"
             f"This gives you push access. Without this, every push and PR creation WILL fail.\n"
             f"Do NOT use git_create_pr — it will fail. Instead create PRs with curl:\n\n"
             f"  curl -X POST https://api.github.com/repos/{repo}/pulls "
-            f'-H "Authorization: token {github_pat}" '
+            f'-H "Authorization: token $GITHUB_PAT" '
             f'-H "Accept: application/vnd.github.v3+json" '
             f"-d '{{\"title\": \"your title\", \"head\": \"your-branch\", \"base\": \"initial-setup\"}}'"
             f"\n\nDo NOT ask the user for repo access. You already have it via the PAT above.\n"
