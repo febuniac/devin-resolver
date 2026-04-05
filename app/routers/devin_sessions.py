@@ -382,7 +382,22 @@ async def poll_all_sessions(
         db_pr_url = session_row[4] or ""
 
         try:
-            live_data = await devin.get_session(sid)
+            try:
+                live_data = await devin.get_session(sid)
+            except Exception as fetch_err:
+                # Session not found on Devin API — mark as stopped locally
+                err_str = str(fetch_err)
+                if "404" in err_str or "not found" in err_str.lower():
+                    logger.warning(f"Session {sid} not found on Devin API — marking stopped")
+                    await db.execute(
+                        "UPDATE devin_sessions SET status = 'stopped', updated_at = datetime('now') WHERE session_id = ?",
+                        (sid,),
+                    )
+                    results.append({"session_id": sid, "old_status": old_status, "new_status": "stopped", "reason": "not_found"})
+                else:
+                    logger.error(f"Failed to poll session {sid}: {fetch_err}")
+                    results.append({"session_id": sid, "error": str(fetch_err)[:100]})
+                continue
             new_status = live_data.get("status", live_data.get("status_enum", old_status))
 
             # Update session status and status_detail
