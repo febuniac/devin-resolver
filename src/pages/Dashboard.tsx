@@ -204,19 +204,6 @@ export default function Dashboard() {
         </div>, topbarEl
       )}
 
-      {/* BACKLOG TREND CHART */}
-      {metrics.backlog_trend && metrics.backlog_trend.length > 0 && (
-        <BacklogTrendChart trend={metrics.backlog_trend} />
-      )}
-
-      {/* BEFORE/AFTER + TIME SAVED */}
-      {metrics.before_after && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
-          <BeforeAfterCard data={metrics.before_after} />
-          <TimeSavedCard savings={tm.savings} hoursSaved={tm.savings.hours_saved} costSaved={tm.savings.cost_saved} issuesResolved={tm.savings.issues_resolved} />
-        </div>
-      )}
-
       {/* ZONE 1: BACKLOG HEALTH */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Backlog Health</div>
@@ -445,6 +432,19 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* BACKLOG TREND CHART */}
+      {metrics.backlog_trend && metrics.backlog_trend.length > 0 && (
+        <BacklogTrendChart trend={metrics.backlog_trend} />
+      )}
+
+      {/* BEFORE/AFTER + TIME SAVED */}
+      {metrics.before_after && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+          <BeforeAfterCard data={metrics.before_after} />
+          <TimeSavedCard savings={tm.savings} hoursSaved={tm.savings.hours_saved} costSaved={tm.savings.cost_saved} issuesResolved={tm.savings.issues_resolved} />
+        </div>
+      )}
     </div>
   );
 }
