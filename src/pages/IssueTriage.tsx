@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, RefreshCw, Loader2, X, Sparkles, Cpu, Play, GitPullRequest, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, RefreshCw, Loader2, X, Sparkles, Cpu, Play, GitPullRequest, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
@@ -297,7 +297,7 @@ export function IssueTriage() {
         </div>
         {[
           { val: severityFilter, set: setSeverityFilter, opts: ['all','critical','high','medium','low'], label: 'Severity' },
-          { val: statusFilter, set: setStatusFilter, opts: ['all','triaged','approved','in_progress','resolved'], label: 'Status' },
+          { val: statusFilter, set: setStatusFilter, opts: ['all','triaged','queued','approved','in_progress','resolved'], label: 'Status' },
           { val: categoryFilter, set: setCategoryFilter, opts: ['all','bug','feature','enhancement','performance'], label: 'Category' },
         ].map(f => (
           <select key={f.label} value={f.val} onChange={e => f.set(e.target.value)}
@@ -343,13 +343,16 @@ export function IssueTriage() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}>
                   {issue.status === 'resolved' ? <><span className="dot dot-green" /><span style={{ color: 'var(--green)' }}>Merged</span></> :
                    issue.status === 'in_progress' ? <><span className="dot dot-blue" /><span style={{ color: 'var(--blue)' }}>Running</span></> :
-                   issue.status === 'approved' ? <><span className="dot dot-amber" /><span style={{ color: '#d97706' }}>Approved</span></> :
-                   <><span className="dot dot-dim" /><span style={{ color: 'var(--dim)' }}>Queued</span></>}
+                   issue.status === 'approved' ? <><span className="dot dot-amber" /><span style={{ color: '#d97706' }}>Sending...</span></> :
+                   issue.status === 'queued' ? <><span className="dot dot-amber" /><span style={{ color: '#d97706' }}>Queued</span></> :
+                   <><span className="dot dot-dim" /><span style={{ color: 'var(--dim)' }}>Triaged</span></>}
                 </span>
               </div>
               <div onClick={e => e.stopPropagation()}>
                 {issue.status === 'triaged' ? (
                   <button onClick={() => sendToDevin([issue.id])} style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: 'var(--green)', color: '#fff', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', flexShrink: 0 }}><img src="/brand/devin-icon.png" alt="Devin" style={{ width: 12, height: 12, borderRadius: 2, filter: 'brightness(0) invert(1)', flexShrink: 0 }} /> Send {'\u2192'}</button>
+                ) : issue.status === 'queued' ? (
+                  <span style={{ fontSize: 10, fontWeight: 600, color: '#d97706', display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> Retrying</span>
                 ) : (issue.status === 'approved' || issue.status === 'in_progress') ? (
                   <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--green)' }}>{'\u2713'} Sent</span>
                 ) : <span style={{ color: 'var(--dim)' }}>{'\u2014'}</span>}
