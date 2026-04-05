@@ -119,6 +119,9 @@ export const api = {
   // Analytics
   getAnalytics: () => request<any>('/api/analytics'),
 
+  // Dashboard
+  getDashboardMetrics: () => request<any>('/api/dashboard/metrics'),
+
   // Slack
   sendNotification: (data: { message: string; issue_id?: number; finding_id?: number }) =>
     request<any>('/api/slack/notify', {
