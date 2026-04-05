@@ -463,6 +463,8 @@ export default function Approvals() {
                     <><GitMerge size={14} style={{ color: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>Merged</span></>
                   ) : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                     <><CheckCircle size={14} style={{ color: 'var(--green)' }} /><span style={{ color: 'var(--green)' }}>Done</span></>
+                  ) : session.pr_url ? (
+                    <><span className="dot" style={{ background: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>PR Ready</span></>
                   ) : session.status_detail === 'waiting_for_user' ? (
                     <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Needs Input</span></>
                   ) : (session.status === 'running' || session.status === 'pending') ? (
