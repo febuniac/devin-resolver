@@ -87,6 +87,8 @@ export const api = {
     request<any>(`/api/devin/sessions/${sessionId}/approve`, { method: 'POST' }),
   getSessionLive: (sessionId: string) =>
     request<any>(`/api/devin/sessions/${sessionId}/live`),
+  getSessionRecording: (sessionId: string) =>
+    request<any>(`/api/devin/sessions/${sessionId}/recording`),
   getPrDiff: (owner: string, repo: string, prNumber: number) =>
     request<any>(`/api/github/pr-diff/${owner}/${repo}/${prNumber}`),
   mergePr: (owner: string, repo: string, prNumber: number) =>
