@@ -151,12 +151,14 @@ export default function Approvals() {
     api.getSettings().then((s: { auto_approve_enabled?: boolean }) => {
       setAutoApproveEnabled(!!s.auto_approve_enabled);
     }).catch(() => {});
-    // Auto-poll on page load + every 30s
+    // Load sessions immediately (fast DB call), then sync in background
     const initialRefresh = async () => {
-      try { await api.syncPrs(); } catch { /* ignore - sync PRs from GitHub */ }
-      try { await api.pollSessions(); } catch { /* ignore */ }
       try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
       setLoading(false);
+      // Background sync — don't block the UI
+      try { await api.syncPrs(); } catch { /* ignore */ }
+      try { await api.pollSessions(); } catch { /* ignore */ }
+      try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
     };
     initialRefresh();
     const interval = setInterval(async () => {
