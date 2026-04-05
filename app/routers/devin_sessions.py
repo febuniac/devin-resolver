@@ -431,8 +431,8 @@ async def poll_all_sessions(
                     )
                     logger.info(f"Session {sid} was {old_display}/{status_detail} with PR — marking as finished")
 
-            # Auto-send GitHub PAT when session is waiting for push access (only if no PR yet)
-            if status_detail == 'waiting_for_user' and github_pat and not pr_url:
+            # Auto-send GitHub PAT when session is stuck on push access (waiting or running)
+            if github_pat and not pr_url and (status_detail == 'waiting_for_user' or new_status == 'running'):
                 # Check the latest messages to see if Devin is asking for push access
                 try:
                     last_msg = ""
