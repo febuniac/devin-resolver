@@ -41,8 +41,8 @@ export default function Sidebar() {
     // Refresh badges when issues change (sync, send to Devin, etc.)
     const handler = () => refreshStatus();
     window.addEventListener('issues-changed', handler);
-    // Also refresh every 30 seconds
-    const interval = setInterval(refreshStatus, 30000);
+    // Also refresh every 10 seconds for snappier badge updates
+    const interval = setInterval(refreshStatus, 10000);
     return () => {
       window.removeEventListener('issues-changed', handler);
       clearInterval(interval);
