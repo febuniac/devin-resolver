@@ -50,16 +50,10 @@ async def get_status(db: aiosqlite.Connection = Depends(get_db)):
     cursor = await db.execute("SELECT COUNT(*) FROM connected_repos")
     repo_count = (await cursor.fetchone())[0]
 
-    # Real Devin connection status
-    devin_connected = False
-    cursor = await db.execute("SELECT devin_api_token, devin_org_id FROM settings WHERE id = 1")
+    # Devin connection status — just check if token exists (fast, no network call)
+    cursor = await db.execute("SELECT devin_api_token FROM settings WHERE id = 1")
     row = await cursor.fetchone()
-    token = row[0] if row and row[0] else ""
-    org_id = row[1] if row and row[1] else ""
-    if token:
-        service = DevinService(token, org_id=org_id)
-        valid, _ = await service.validate_token()
-        devin_connected = valid
+    devin_connected = bool(row and row[0])
 
     # Issue Triage badge — only triaged issues needing attention (excludes security)
     cursor = await db.execute("SELECT COUNT(*) FROM issues WHERE category != 'security' AND status = 'triaged'")
@@ -69,8 +63,8 @@ async def get_status(db: aiosqlite.Connection = Depends(get_db)):
     cursor = await db.execute("SELECT COUNT(*) FROM issues WHERE category = 'security' AND status = 'triaged'")
     security_count = (await cursor.fetchone())[0]
 
-    # Review work count (in_progress or pr_open)
-    cursor = await db.execute("SELECT COUNT(*) FROM issues WHERE status IN ('in_progress','pr_open')")
+    # Review work count — count active Devin sessions (running/pending/suspended)
+    cursor = await db.execute("SELECT COUNT(*) FROM devin_sessions WHERE status IN ('running','pending','suspended')")
     review_count = (await cursor.fetchone())[0]
 
     return {

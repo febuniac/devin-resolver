@@ -259,6 +259,10 @@ async def _create_devin_sessions(issue_ids: list[int]):
                 await db.commit()
                 logger.info(f"Created Devin session {session_id} for issue #{issue_id}")
 
+                # Small delay between session creations to avoid Devin API rate limiting
+                if len(issue_ids) > 1:
+                    await asyncio.sleep(2)
+
                 # Send "Issue Sent to Devin" Slack notification
                 if slack.webhook_url and notif_prefs.get("issue_sent_to_devin", True):
                     try:

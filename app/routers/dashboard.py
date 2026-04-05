@@ -105,7 +105,7 @@ async def get_dashboard_metrics(db: aiosqlite.Connection = Depends(get_db)):
     merge_rate = round((merged_prs_month / max(total_prs_month, 1)) * 100)
 
     # Cost per PR (estimate: ~$13 per PR based on ACU costs)
-    cost_per_pr = round(merged_prs_month * 13 / max(merged_prs_month, 1)) if merged_prs_month > 0 else 13
+    cost_per_pr = 13 if merged_prs_month > 0 else 0
 
     # ── ZONE 3: NEEDS ATTENTION ──
 
@@ -206,7 +206,7 @@ async def get_dashboard_metrics(db: aiosqlite.Connection = Depends(get_db)):
     hours_saved = round(issues_resolved_month * 0.5)
     cost_saved = hours_saved * 150
     total_devin_cost = merged_prs_month * 13  # ~$13 per PR
-    avg_resolution_min = 47  # default estimate
+    avg_resolution_min = 0  # no data yet until sessions complete
 
     # Try to compute actual avg resolution time from sessions
     cursor = await db.execute(
@@ -357,7 +357,7 @@ async def get_dashboard_metrics(db: aiosqlite.Connection = Depends(get_db)):
             "open_issues": open_issues,
             "resolved_per_week": round(resolved_last_4w / 4) if resolved_last_4w > 0 else resolved_week,
             "security_findings_open": critical_cves,
-            "avg_remediation_hrs": avg_security_remediation_hrs if avg_security_remediation_hrs > 0 else 18,
+            "avg_remediation_hrs": avg_security_remediation_hrs,
             "engineer_hours_saved": hours_saved,
         }
     }
