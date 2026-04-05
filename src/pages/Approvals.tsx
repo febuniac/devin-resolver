@@ -142,8 +142,14 @@ export default function Approvals() {
   const [commentPosted, setCommentPosted] = useState<Set<string>>(new Set());
   const [recordingUrls, setRecordingUrls] = useState<Record<string, string>>({});
   const [loadingRecording, setLoadingRecording] = useState<Set<string>>(new Set());
+  const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
+  const [autoMerging, setAutoMerging] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    // Fetch settings to check auto-approve
+    api.getSettings().then((s: { auto_approve_enabled?: boolean }) => {
+      setAutoApproveEnabled(!!s.auto_approve_enabled);
+    }).catch(() => {});
     // Auto-poll on page load + every 30s
     const initialRefresh = async () => {
       try { await api.syncPrs(); } catch { /* ignore - sync PRs from GitHub */ }
@@ -159,6 +165,21 @@ export default function Approvals() {
     }, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-merge PR Ready sessions when auto-approve is enabled
+  useEffect(() => {
+    if (!autoApproveEnabled) return;
+    const prReadySessions = sessions.filter(s =>
+      s.pr_url && !merged.has(s.id) && !merging.has(s.id) && !autoMerging.has(s.id) &&
+      s.status !== 'merged' && s.status !== 'running' && s.status !== 'pending'
+    );
+    for (const session of prReadySessions) {
+      setAutoMerging(prev => new Set(prev).add(session.id));
+      mergePr(session.id, session.pr_url!).finally(() => {
+        setAutoMerging(prev => { const next = new Set(prev); next.delete(session.id); return next; });
+      });
+    }
+  }, [autoApproveEnabled, sessions]);
 
   const loadSessions = async () => {
     try { setSessions(await api.listSessions() as Session[]); }
@@ -488,12 +509,22 @@ export default function Approvals() {
                     )}
                   </span>
                 ) : session.pr_url ? (
-                  <button
-                    onClick={() => mergePr(session.id, session.pr_url!)}
-                    disabled={merging.has(session.id)}
-                    style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: merging.has(session.id) ? 0.6 : 1 }}>
-                    {merging.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {merging.has(session.id) ? 'Merging...' : 'Validate & Approve'}
-                  </button>
+                  autoApproveEnabled ? (
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(57,105,202,0.1)', color: '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {merging.has(session.id) || autoMerging.has(session.id) ? (
+                        <><Loader2 size={10} className="animate-spin" /> Auto-Approving...</>
+                      ) : (
+                        <><DevinIcon size={12} /> Auto-Approve Queued</>
+                      )}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => mergePr(session.id, session.pr_url!)}
+                      disabled={merging.has(session.id)}
+                      style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: merging.has(session.id) ? 0.6 : 1 }}>
+                      {merging.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {merging.has(session.id) ? 'Merging...' : 'Validate & Approve'}
+                    </button>
+                  )
                 ) : (session.status_detail === 'waiting_for_user' && !approved.has(session.id)) ? (
                   <button
                     onClick={() => approveSession(session.id)}
