@@ -138,6 +138,20 @@ class DevinService:
             resp.raise_for_status()
             return ""
 
+    async def terminate_session(self, session_id: str) -> dict:
+        """Terminate a running session."""
+        sid = session_id
+        if self.is_v3 and not session_id.startswith("devin-"):
+            sid = f"devin-{session_id}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self.base_url}/sessions/{sid}/terminate",
+                headers=self.headers,
+                timeout=30.0,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
     async def validate_token(self) -> tuple[bool, str]:
         """Validate token. Returns (is_valid, detail_message)."""
         if self.token.startswith("cog_") and not self.org_id:

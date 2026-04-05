@@ -1029,3 +1029,38 @@ async def approve_session(
     await db.commit()
 
     return {"session_id": actual_session_id, "status": "approved", "result": result}
+
+
+@router.post("/sessions/{session_id}/terminate")
+async def terminate_session(
+    session_id: str,
+    db: aiosqlite.Connection = Depends(get_db),
+    devin: DevinService = Depends(get_devin_service),
+):
+    """Terminate a stuck Devin session."""
+    if not devin.token:
+        raise HTTPException(status_code=400, detail="Devin API token not configured")
+
+    # Resolve actual session_id
+    actual_session_id = session_id
+    try:
+        row_id = int(session_id)
+        cursor = await db.execute("SELECT session_id FROM devin_sessions WHERE id = ?", (row_id,))
+        row = await cursor.fetchone()
+        if row and row[0]:
+            actual_session_id = row[0]
+    except (ValueError, TypeError):
+        pass
+
+    try:
+        result = await devin.terminate_session(actual_session_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to terminate session: {str(e)}")
+
+    await db.execute(
+        "UPDATE devin_sessions SET status = 'stopped', status_detail = 'terminated', updated_at = datetime('now') WHERE session_id = ?",
+        (actual_session_id,),
+    )
+    await db.commit()
+
+    return {"session_id": actual_session_id, "status": "terminated", "result": result}
