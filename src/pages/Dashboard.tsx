@@ -154,7 +154,7 @@ export default function Dashboard() {
 
   const syncGithub = async () => {
     setSyncing(true);
-    try { await api.triageAll(); await loadMetrics(); }
+    try { await api.syncAndTriage(); await loadMetrics(); }
     catch { /* ignore */ }
     finally { setSyncing(false); }
   };
