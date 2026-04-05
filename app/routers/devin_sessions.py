@@ -1052,10 +1052,15 @@ async def terminate_session(
     except (ValueError, TypeError):
         pass
 
+    result = {}
     try:
         result = await devin.terminate_session(actual_session_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to terminate session: {str(e)}")
+        # If session is 404 on Devin's side, it's already gone — still clean up our DB
+        if "404" in str(e):
+            result = {"note": "Session already terminated/expired on Devin side"}
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to terminate session: {str(e)}")
 
     await db.execute(
         "UPDATE devin_sessions SET status = 'stopped', status_detail = 'terminated', updated_at = datetime('now') WHERE session_id = ?",
