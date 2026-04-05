@@ -419,8 +419,20 @@ async def poll_all_sessions(
                     (pr_url, sid),
                 )
 
-            # Auto-send GitHub PAT when session is waiting for push access
-            if status_detail == 'waiting_for_user' and github_pat:
+            # If session is suspended/blocked/waiting but has a PR, treat as finished
+            # This prevents showing "Needs Input" when Devin already created the PR
+            if pr_url and new_status not in ('finished', 'stopped', 'merged', 'completed', 'succeeded'):
+                if new_status in ('suspended', 'blocked') or status_detail == 'waiting_for_user':
+                    old_display = new_status
+                    new_status = 'finished'
+                    await db.execute(
+                        "UPDATE devin_sessions SET status = 'finished', updated_at = datetime('now') WHERE session_id = ?",
+                        (sid,),
+                    )
+                    logger.info(f"Session {sid} was {old_display}/{status_detail} with PR — marking as finished")
+
+            # Auto-send GitHub PAT when session is waiting for push access (only if no PR yet)
+            if status_detail == 'waiting_for_user' and github_pat and not pr_url:
                 # Check the latest messages to see if Devin is asking for push access
                 try:
                     last_msg = ""
@@ -464,8 +476,8 @@ async def poll_all_sessions(
                 except Exception as e:
                     logger.warning(f"Failed to auto-send PAT to session {sid}: {e}")
 
-            # Send Slack notification when session needs user input
-            if status_detail == 'waiting_for_user' and slack.webhook_url and notif_prefs.get("devin_needs_input", True):
+            # Send Slack notification when session needs user input (only if no PR — with PR it's done, not stuck)
+            if status_detail == 'waiting_for_user' and not pr_url and slack.webhook_url and notif_prefs.get("devin_needs_input", True):
                 # Check if we already notified for this waiting state
                 notif_cursor = await db.execute(
                     "SELECT status_detail FROM devin_sessions WHERE session_id = ?",
