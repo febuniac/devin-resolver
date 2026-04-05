@@ -122,6 +122,12 @@ export const api = {
   // Dashboard
   getDashboardMetrics: () => request<any>('/api/dashboard/metrics'),
 
+  // Security Metrics
+  getSecurityMetrics: () => request<any>('/api/security/metrics'),
+
+  // Audit Report
+  getAuditReport: () => request<any>('/api/audit/report'),
+
   // Wiki
   listWikiRepos: () => request<any[]>('/api/wiki/repos'),
   getWikiPages: (owner: string, name: string) => request<any[]>(`/api/wiki/${owner}/${name}`),

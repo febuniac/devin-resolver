@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, RefreshCw, Loader2, Sparkles, Cpu, Play, GitPullRequest, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, RefreshCw, Loader2, Sparkles, Cpu, Play, GitPullRequest, X, ChevronDown, ChevronUp, Shield, Clock, TrendingDown, FileCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
@@ -159,6 +159,22 @@ function SuccessModal({ count, issues, onClose, onViewProgress }: { count: numbe
   );
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+interface SecurityMetrics {
+  total_findings: number;
+  open_findings: number;
+  resolved_findings: number;
+  avg_remediation_hrs: number;
+  resolved_this_week: number;
+  resolved_this_month: number;
+  remediation_rate: number;
+  audit_readiness_score: number;
+  fastest_remediation_hrs: number;
+  slowest_remediation_hrs: number;
+  open_by_severity: Record<string, number>;
+}
+
 export default function Security() {
   const navigate = useNavigate();
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -172,8 +188,16 @@ export default function Security() {
   const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
   const [successModal, setSuccessModal] = useState<{ show: boolean; count: number; issues: Issue[] }>({ show: false, count: 0, issues: [] });
   const [error, setError] = useState('');
+  const [secMetrics, setSecMetrics] = useState<SecurityMetrics | null>(null);
 
-  useEffect(() => { loadIssues(); }, []);
+  useEffect(() => { loadIssues(); loadSecurityMetrics(); }, []);
+
+  const loadSecurityMetrics = async () => {
+    try {
+      const data = await api.getSecurityMetrics();
+      setSecMetrics(data);
+    } catch { /* ignore */ }
+  };
 
   const loadIssues = async () => {
     try {
@@ -262,6 +286,67 @@ export default function Security() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 12, borderRadius: 8, background: 'rgba(229,62,62,.1)', border: '1px solid rgba(229,62,62,.2)', color: '#c53030', fontSize: 13, marginBottom: 14 }}>
           {error}
           <button onClick={() => setError('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#c53030', cursor: 'pointer', fontSize: 12 }}>dismiss</button>
+        </div>
+      )}
+
+      {/* Security Metrics Header */}
+      {secMetrics && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 18 }}>
+          <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--green)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <Clock size={13} style={{ color: 'var(--green)' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' as any, color: 'var(--dim)' }}>Time to Remediation</span>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-.04em', lineHeight: 1, color: 'var(--green)', marginBottom: 4 }}>
+              {secMetrics.avg_remediation_hrs}h
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+              avg {'\u00b7'} fastest {secMetrics.fastest_remediation_hrs}h {'\u00b7'} slowest {secMetrics.slowest_remediation_hrs}h
+            </div>
+          </div>
+
+          <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--purple)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <TrendingDown size={13} style={{ color: 'var(--purple)' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' as any, color: 'var(--dim)' }}>Remediation Rate</span>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-.04em', lineHeight: 1, color: 'var(--purple)', marginBottom: 4 }}>
+              {secMetrics.remediation_rate}%
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+              {secMetrics.resolved_findings} of {secMetrics.total_findings} resolved
+            </div>
+          </div>
+
+          <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#e53e3e' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <Shield size={13} style={{ color: '#e53e3e' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' as any, color: 'var(--dim)' }}>Open Findings</span>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-.04em', lineHeight: 1, color: '#e53e3e', marginBottom: 4 }}>
+              {secMetrics.open_findings}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+              {secMetrics.open_by_severity?.critical || 0} critical {'\u00b7'} {secMetrics.open_by_severity?.high || 0} high
+            </div>
+          </div>
+
+          <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 11, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--blue)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <FileCheck size={13} style={{ color: 'var(--blue)' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' as any, color: 'var(--dim)' }}>Audit Readiness</span>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-.04em', lineHeight: 1, color: 'var(--blue)', marginBottom: 4 }}>
+              {secMetrics.audit_readiness_score}%
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+              {secMetrics.resolved_this_month} resolved this month
+            </div>
+          </div>
         </div>
       )}
 

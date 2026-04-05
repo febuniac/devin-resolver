@@ -201,6 +201,35 @@ export default function Integrations() {
           </div>
         </div>
 
+        {/* CodeQL Integration */}
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
+          <div style={labelStyle}>
+            CodeQL / Security Scanning
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 10, background: 'rgba(33,193,154,.12)', color: 'var(--green)', fontSize: 10, fontWeight: 700 }}><CheckCircle size={11} /> Connected</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 10, background: 'linear-gradient(135deg, #1a1e24, #2d333b)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" stroke="#9b6dff" strokeWidth="1.5" fill="none"/><path d="M12 8a4 4 0 100 8 4 4 0 000-8z" stroke="#9b6dff" strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="1.5" fill="#9b6dff"/></svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>GitHub CodeQL Analysis</div>
+              <div style={{ fontSize: 11, color: 'var(--dim)', lineHeight: 1.5 }}>
+                Security findings from CodeQL are automatically imported as security issues. Backlog Zero triages them by severity and routes critical/high findings to Devin for automated remediation.
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', color: 'var(--green)', marginBottom: 4 }}>AUTO-IMPORT</div>
+              <div style={{ fontSize: 10, color: 'var(--dim)' }}>via GitHub API</div>
+            </div>
+          </div>
+          <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--rule)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />
+            <div style={{ fontSize: 11, color: 'var(--mid)', flex: 1 }}>
+              CodeQL findings are synced automatically when you connect a GitHub repository. No additional configuration needed.
+            </div>
+          </div>
+        </div>
+
         {/* Notification Toggles */}
         <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px' }}>
           <div style={{ ...labelStyle, marginBottom: 16 }}>

@@ -6,6 +6,21 @@ import api from '../api/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+interface TrendPoint {
+  week_label: string;
+  week_date: string;
+  opened: number;
+  resolved: number;
+  security_resolved: number;
+  net_change: number;
+  open_count: number;
+}
+
+interface BeforeAfter {
+  before: { open_issues: number; resolved_per_week: number; security_findings_open: number; avg_remediation_days: string; engineer_hours_on_triage: number };
+  after: { open_issues: number; resolved_per_week: number; security_findings_open: number; avg_remediation_hrs: number; engineer_hours_saved: number };
+}
+
 interface DashboardMetrics {
   backlog_health: {
     open_issues: number;
@@ -44,6 +59,8 @@ interface DashboardMetrics {
       total_devin_cost: number;
     };
   };
+  backlog_trend: TrendPoint[];
+  before_after: BeforeAfter;
 }
 
 function MetricInfo({ title, text }: { title: string; text: string }) {
@@ -185,6 +202,19 @@ export default function Dashboard() {
             <Plus size={12} /> Approve Batch
           </button>
         </div>, topbarEl
+      )}
+
+      {/* BACKLOG TREND CHART */}
+      {metrics.backlog_trend && metrics.backlog_trend.length > 0 && (
+        <BacklogTrendChart trend={metrics.backlog_trend} />
+      )}
+
+      {/* BEFORE/AFTER + TIME SAVED */}
+      {metrics.before_after && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+          <BeforeAfterCard data={metrics.before_after} />
+          <TimeSavedCard savings={tm.savings} hoursSaved={tm.savings.hours_saved} costSaved={tm.savings.cost_saved} issuesResolved={tm.savings.issues_resolved} />
+        </div>
       )}
 
       {/* ZONE 1: BACKLOG HEALTH */}
@@ -464,6 +494,179 @@ function SavingsBox({ value, label, color }: { value: string | number; label: st
     <div style={{ background: 'var(--bg2)', borderRadius: 7, padding: 10, textAlign: 'center' }}>
       <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 2, color }}>{value}</div>
       <div style={{ fontSize: 10, color: 'var(--dim)', lineHeight: 1.3 }}>{label}</div>
+    </div>
+  );
+}
+
+/* ---- Backlog Trend Chart ---- */
+function BacklogTrendChart({ trend }: { trend: TrendPoint[] }) {
+  if (!trend || trend.length === 0) return null;
+
+  const maxOpen = Math.max(...trend.map(t => t.open_count), 1);
+  const chartH = 140;
+  const chartW = 100; // percentage-based
+
+  // Build SVG path for the line
+  const points = trend.map((t, i) => ({
+    x: (i / (trend.length - 1)) * chartW,
+    y: chartH - (t.open_count / maxOpen) * (chartH - 20),
+  }));
+
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const areaPath = linePath + ` L ${points[points.length - 1].x} ${chartH} L ${points[0].x} ${chartH} Z`;
+
+  // Is trend going down?
+  const trendingDown = trend.length >= 2 && trend[trend.length - 1].open_count <= trend[0].open_count;
+
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '16px 20px', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            Backlog Trend
+            {trendingDown && (
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: 'rgba(33,193,154,.1)', color: 'var(--green)' }}>
+                {'\u2193'} Shrinking
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>Open issues over the last 8 weeks</div>
+        </div>
+        <div style={{ display: 'flex', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 10, height: 3, borderRadius: 2, background: 'var(--purple)' }} />
+            <span style={{ fontSize: 10, color: 'var(--dim)' }}>Open issues</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 10, height: 3, borderRadius: 2, background: 'var(--green)' }} />
+            <span style={{ fontSize: 10, color: 'var(--dim)' }}>Resolved</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div style={{ position: 'relative', height: chartH + 30 }}>
+        <svg viewBox={`0 0 ${chartW} ${chartH}`} preserveAspectRatio="none" style={{ width: '100%', height: chartH, display: 'block' }}>
+          <defs>
+            <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={trendingDown ? 'rgba(33,193,154,.2)' : 'rgba(57,105,202,.2)'} />
+              <stop offset="100%" stopColor={trendingDown ? 'rgba(33,193,154,.02)' : 'rgba(57,105,202,.02)'} />
+            </linearGradient>
+          </defs>
+          {/* Grid lines */}
+          {[0, 0.25, 0.5, 0.75, 1].map(pct => (
+            <line key={pct} x1="0" y1={chartH - pct * (chartH - 20)} x2={chartW} y2={chartH - pct * (chartH - 20)} stroke="var(--rule)" strokeWidth="0.3" />
+          ))}
+          {/* Area fill */}
+          <path d={areaPath} fill="url(#trendGrad)" />
+          {/* Line */}
+          <path d={linePath} fill="none" stroke={trendingDown ? 'var(--green)' : 'var(--purple)'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          {/* Data points */}
+          {points.map((p, i) => (
+            <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={trendingDown ? 'var(--green)' : 'var(--purple)'} stroke="var(--white)" strokeWidth="1" />
+          ))}
+        </svg>
+        {/* X-axis labels */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+          {trend.map((t, i) => (
+            <div key={i} style={{ fontSize: 9, color: 'var(--dim)', textAlign: 'center', flex: 1, fontFamily: 'var(--mono)' }}>
+              {t.week_date}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Bottom stats row */}
+      <div style={{ display: 'flex', gap: 16, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--rule)' }}>
+        {trend.slice(-3).map((t, i) => (
+          <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)', fontFamily: 'var(--mono)' }}>{t.open_count}</div>
+            <div style={{ fontSize: 9, color: 'var(--dim)', marginTop: 1 }}>{t.week_date}</div>
+            <div style={{ fontSize: 9, fontWeight: 600, color: t.resolved > 0 ? 'var(--green)' : 'var(--dim)', marginTop: 2 }}>
+              {t.resolved > 0 ? `${t.resolved} resolved` : 'No change'}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---- Before/After Comparison Card ---- */
+function BeforeAfterCard({ data }: { data: BeforeAfter }) {
+  const rows = [
+    { label: 'Open issues', before: data.before.open_issues.toString(), after: data.after.open_issues.toString(), improved: data.after.open_issues < data.before.open_issues },
+    { label: 'Resolved/week', before: data.before.resolved_per_week.toString(), after: data.after.resolved_per_week.toString(), improved: data.after.resolved_per_week > data.before.resolved_per_week },
+    { label: 'Security findings', before: data.before.security_findings_open.toString(), after: data.after.security_findings_open.toString(), improved: data.after.security_findings_open < data.before.security_findings_open },
+    { label: 'Remediation time', before: data.before.avg_remediation_days, after: data.after.avg_remediation_hrs + 'h', improved: true },
+    { label: 'Engineer hours on triage', before: data.before.engineer_hours_on_triage + 'h/mo', after: data.after.engineer_hours_saved + 'h saved', improved: true },
+  ];
+
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Before vs After Backlog Zero</div>
+        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: 'rgba(33,193,154,.1)', color: 'var(--green)' }}>Last 4 weeks</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px', padding: '8px 18px', background: 'var(--bg)', borderBottom: '1px solid var(--rule)' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', color: 'var(--dim)' }}>METRIC</div>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', color: '#e53e3e', textAlign: 'center' }}>BEFORE</div>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', color: 'var(--green)', textAlign: 'center' }}>AFTER</div>
+      </div>
+      {rows.map(row => (
+        <div key={row.label} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px', padding: '10px 18px', borderBottom: '1px solid var(--rule)', alignItems: 'center' }}>
+          <div style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 500 }}>{row.label}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, textAlign: 'center', color: '#e53e3e', fontFamily: 'var(--mono)', textDecoration: 'line-through', opacity: 0.6 }}>{row.before}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, textAlign: 'center', color: row.improved ? 'var(--green)' : 'var(--ink)', fontFamily: 'var(--mono)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            {row.improved && <span style={{ fontSize: 10 }}>{'\u2713'}</span>}
+            {row.after}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---- Time Saved Card ---- */
+function TimeSavedCard({ savings, hoursSaved, costSaved, issuesResolved }: {
+  savings: { cost_saved: number; issues_resolved: number; hours_saved: number; avg_resolution_min: number; total_devin_cost: number };
+  hoursSaved: number; costSaved: number; issuesResolved: number;
+}) {
+  const roi = costSaved > 0 && savings.total_devin_cost > 0 ? Math.round(costSaved / savings.total_devin_cost) : 0;
+
+  return (
+    <div style={{ background: 'linear-gradient(135deg, #0d1117, #1a2332)', border: '1px solid rgba(57,105,202,.3)', borderRadius: 12, overflow: 'hidden', color: '#fff' }}>
+      <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 13, fontWeight: 700 }}>Time & Cost Impact</div>
+        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: 'rgba(33,193,154,.2)', color: '#21C19A' }}>This month</span>
+      </div>
+      <div style={{ padding: '20px 18px', textAlign: 'center' }}>
+        <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: '-.04em', color: '#21C19A', lineHeight: 1, marginBottom: 4 }}>
+          ~{hoursSaved}h
+        </div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginBottom: 20 }}>Engineer hours saved this month</div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <div style={{ background: 'rgba(255,255,255,.05)', borderRadius: 8, padding: '10px 8px' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#21C19A', fontFamily: 'var(--mono)' }}>
+              ${costSaved >= 1000 ? Math.round(costSaved / 1000) + 'k' : costSaved}
+            </div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', marginTop: 2 }}>Cost saved</div>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,.05)', borderRadius: 8, padding: '10px 8px' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--purple)', fontFamily: 'var(--mono)' }}>{issuesResolved}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', marginTop: 2 }}>Issues resolved</div>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,.05)', borderRadius: 8, padding: '10px 8px' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#0294DE', fontFamily: 'var(--mono)' }}>{roi > 0 ? roi + 'x' : 'N/A'}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', marginTop: 2 }}>ROI vs manual</div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 14, padding: '8px 12px', borderRadius: 8, background: 'rgba(33,193,154,.1)', border: '1px solid rgba(33,193,154,.2)', fontSize: 11, color: '#21C19A', fontWeight: 600 }}>
+          {'\u2713'} Devin cost: ${savings.total_devin_cost} {'\u00b7'} Avg {savings.avg_resolution_min}min per fix
+        </div>
+      </div>
     </div>
   );
 }
