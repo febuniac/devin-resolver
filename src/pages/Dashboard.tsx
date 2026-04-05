@@ -62,11 +62,11 @@ function MetricInfo({ title, text }: { title: string; text: string }) {
       onMouseLeave={() => setShow(false)}
     >
       <span ref={iconRef} style={{
-        width: 14, height: 14, borderRadius: '50%',
-        background: show ? 'var(--purple)' : 'var(--bg3)',
-        border: '1px solid ' + (show ? 'var(--purple)' : 'var(--rule2)'),
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 10, fontWeight: 600, color: show ? '#fff' : 'var(--dim)',
+        width: 16, height: 16, borderRadius: '50%',
+        background: show ? 'var(--purple)' : 'transparent',
+        border: '1.5px solid ' + (show ? 'var(--purple)' : '#b0b0b0'),
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 10, fontWeight: 600, color: show ? '#fff' : '#999',
         fontStyle: 'italic', fontFamily: 'Georgia, serif', lineHeight: 1, transition: '.15s',
         textTransform: 'lowercase' as any
       }}>i</span>
