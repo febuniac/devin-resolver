@@ -717,7 +717,7 @@ async def poll_all_sessions(
     queued_retried = None
     try:
         cursor = await db.execute(
-            "SELECT id, issue_number, title, body, repo_full_name, labels FROM issues WHERE status = 'queued' ORDER BY id ASC LIMIT 1"
+            "SELECT id, number, title, body, repo_full_name, labels FROM issues WHERE status = 'queued' ORDER BY id ASC LIMIT 1"
         )
         queued_row = await cursor.fetchone()
         if queued_row and devin.token:

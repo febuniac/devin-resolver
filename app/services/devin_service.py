@@ -26,6 +26,7 @@ class DevinService:
         playbook_id: Optional[str] = None,
         idempotency_key: Optional[str] = None,
     ) -> dict:
+        import asyncio
         payload: dict = {"prompt": prompt}
         if playbook_id:
             payload["playbook_id"] = playbook_id
@@ -39,6 +40,17 @@ class DevinService:
                 json=payload,
                 timeout=30.0,
             )
+            # On 429, wait for Retry-After and try once more
+            if resp.status_code == 429:
+                retry_after = int(resp.headers.get("Retry-After", "30"))
+                retry_after = min(retry_after, 60)  # cap at 60s
+                await asyncio.sleep(retry_after)
+                resp = await client.post(
+                    f"{self.base_url}/sessions",
+                    headers=self.headers,
+                    json=payload,
+                    timeout=30.0,
+                )
             resp.raise_for_status()
             return resp.json()
 
