@@ -144,6 +144,7 @@ export default function Approvals() {
   const [loadingRecording, setLoadingRecording] = useState<Set<string>>(new Set());
   const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
   const [autoMerging, setAutoMerging] = useState<Set<string>>(new Set());
+  const [manuallyMerged, setManuallyMerged] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Fetch settings to check auto-approve
@@ -501,8 +502,8 @@ export default function Approvals() {
               </div>
               <div onClick={e => e.stopPropagation()}>
                 {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: approved.has(session.id) ? 'rgba(33,193,154,0.12)' : 'rgba(57,105,202,0.1)', color: approved.has(session.id) ? 'var(--green)' : '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    {approved.has(session.id) ? (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: (approved.has(session.id) || manuallyMerged.has(session.id)) ? 'rgba(33,193,154,0.12)' : 'rgba(57,105,202,0.1)', color: (approved.has(session.id) || manuallyMerged.has(session.id)) ? 'var(--green)' : '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    {(approved.has(session.id) || manuallyMerged.has(session.id)) ? (
                       <><CheckCircle size={10} /> Manually Approved</>
                     ) : (
                       <><DevinIcon size={12} /> Auto-Approved by Devin</>
@@ -519,7 +520,7 @@ export default function Approvals() {
                     </span>
                   ) : (
                     <button
-                      onClick={() => mergePr(session.id, session.pr_url!)}
+                      onClick={() => { setManuallyMerged(prev => new Set(prev).add(session.id)); mergePr(session.id, session.pr_url!); }}
                       disabled={merging.has(session.id)}
                       style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: merging.has(session.id) ? 0.6 : 1 }}>
                       {merging.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {merging.has(session.id) ? 'Merging...' : 'Validate & Approve'}
