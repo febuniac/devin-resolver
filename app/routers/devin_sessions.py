@@ -656,8 +656,19 @@ async def poll_all_sessions(
                             )
 
             # Auto-merge PR for suspended/finished sessions that have a PR but aren't merged yet
-            # Only auto-merge if auto_approve is enabled in settings
-            if auto_approve_enabled and new_status in ("suspended", "finished", "stopped", "completed", "succeeded") and pr_url and github_pat:
+            # Only auto-merge if auto_approve is enabled in settings AND issue severity is within threshold
+            severity_order = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+            issue_sev = None
+            if issue_id:
+                sev_cursor = await db.execute("SELECT severity FROM issues WHERE id = ?", (issue_id,))
+                sev_row = await sev_cursor.fetchone()
+                issue_sev = (sev_row[0] or "medium").lower() if sev_row else "medium"
+            elif finding_id:
+                sev_cursor = await db.execute("SELECT severity FROM security_findings WHERE id = ?", (finding_id,))
+                sev_row = await sev_cursor.fetchone()
+                issue_sev = (sev_row[0] or "medium").lower() if sev_row else "medium"
+            severity_ok = issue_sev is not None and severity_order.get(issue_sev, 2) <= severity_order.get(auto_approve_max_severity, 2)
+            if auto_approve_enabled and severity_ok and new_status in ("suspended", "finished", "stopped", "completed", "succeeded") and pr_url and github_pat:
                 try:
                     # Check if already merged
                     merged_cursor = await db.execute(
