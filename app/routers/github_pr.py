@@ -6,6 +6,7 @@ import httpx
 import aiosqlite
 
 from app.db.database import get_db
+from app.services.devin_service import DevinService
 from app.services.slack_service import SlackService
 
 logger = logging.getLogger(__name__)
@@ -406,7 +407,90 @@ async def merge_pr(
             }
         else:
             error_detail = merge_resp.json().get("message", merge_resp.text[:300])
+            # Check if failure is due to merge conflicts — auto-resolve
+            if merge_resp.status_code == 405 or "not mergeable" in error_detail.lower():
+                try:
+                    resolve_result = await _auto_resolve_conflicts(
+                        db, pat, owner, repo, pr_number, pr_data, headers
+                    )
+                    if resolve_result:
+                        return resolve_result
+                except Exception as resolve_err:
+                    logger.error(f"Auto-resolve conflicts failed: {resolve_err}")
             raise HTTPException(
                 status_code=merge_resp.status_code,
                 detail=f"Failed to merge PR: {error_detail}",
             )
+
+
+async def _auto_resolve_conflicts(
+    db: aiosqlite.Connection,
+    pat: str,
+    owner: str,
+    repo: str,
+    pr_number: int,
+    pr_data: dict,
+    headers: dict,
+) -> dict | None:
+    """Spawn a Devin session to rebase and resolve merge conflicts for a PR.
+    
+    Returns a dict response if a resolve session was created, or None if not applicable.
+    """
+    head_branch = pr_data.get("head", {}).get("ref", "")
+    base_branch = pr_data.get("base", {}).get("ref", "main")
+    full_repo = f"{owner}/{repo}"
+
+    if not head_branch:
+        logger.warning(f"Cannot auto-resolve: no head branch found for PR #{pr_number}")
+        return None
+
+    # Get Devin API credentials
+    cursor = await db.execute("SELECT devin_api_token, devin_org_id FROM settings WHERE id = 1")
+    row = await cursor.fetchone()
+    devin_token = (row[0] if row else "") or ""
+    devin_org_id = (row[1] if row else "") or ""
+    if not devin_token:
+        logger.warning("Cannot auto-resolve: no Devin API token configured")
+        return None
+
+    devin = DevinService(devin_token, org_id=devin_org_id)
+    prompt = devin.build_conflict_resolve_prompt(
+        repo=full_repo,
+        pr_number=pr_number,
+        head_branch=head_branch,
+        base_branch=base_branch,
+        github_pat=pat,
+    )
+
+    # Create Devin session to resolve conflicts
+    try:
+        session_data = await devin.create_session(
+            prompt=prompt,
+            idempotency_key=f"resolve-conflicts-{full_repo}-{pr_number}",
+        )
+    except Exception as e:
+        logger.error(f"Failed to create conflict resolve session: {e}")
+        return None
+
+    session_id = session_data.get("session_id", "")
+    session_url = session_data.get("url", f"https://app.devin.ai/sessions/{session_id}")
+
+    # Find the local session record for this PR and update it
+    pr_url_pattern = f"%/{owner}/{repo}/pull/{pr_number}%"
+    await db.execute(
+        """UPDATE devin_sessions
+        SET status = 'running', status_detail = 'resolving_conflicts', updated_at = datetime('now')
+        WHERE pr_url LIKE ?""",
+        (pr_url_pattern,),
+    )
+    await db.commit()
+
+    logger.info(
+        f"Auto-resolve session created for {full_repo}#{pr_number}: {session_id}"
+    )
+    return {
+        "status": "resolving_conflicts",
+        "message": f"Merge conflicts detected. Devin is automatically resolving them (session: {session_id})",
+        "session_id": session_id,
+        "session_url": session_url,
+    }

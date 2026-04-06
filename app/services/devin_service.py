@@ -280,6 +280,28 @@ class DevinService:
             f"4. Record a test demonstrating the fix works"
         )
 
+    def build_conflict_resolve_prompt(self, repo: str, pr_number: int, head_branch: str, base_branch: str, github_pat: str = "") -> str:
+        """Build a prompt instructing Devin to rebase and resolve merge conflicts for a PR."""
+        git_block = self._build_git_auth_block(repo, github_pat)
+        return (
+            f"{git_block}"
+            f"Resolve merge conflicts for PR #{pr_number} in the repository {repo}.\n\n"
+            f"The PR branch is '{head_branch}' and the base branch is '{base_branch}'.\n\n"
+            f"Instructions:\n"
+            f"1. Clone the repo: git clone https://github.com/{repo}.git && cd {repo.split('/')[-1]}\n"
+            f"2. Set up git auth using the MANDATORY GIT AUTHENTICATION above\n"
+            f"3. Checkout the PR branch: git checkout {head_branch}\n"
+            f"4. Rebase onto the base branch: git rebase origin/{base_branch}\n"
+            f"5. Resolve any merge conflicts:\n"
+            f"   - For package-lock.json or yarn.lock: accept the base branch version, then run npm install / yarn install to regenerate\n"
+            f"   - For code conflicts: understand both changes and merge them correctly\n"
+            f"   - After resolving each file: git add <file> && git rebase --continue\n"
+            f"6. Force push the rebased branch: git push --force-with-lease origin {head_branch}\n"
+            f"7. Verify the PR is now conflict-free on GitHub\n\n"
+            f"IMPORTANT: Do NOT create a new PR. Just rebase and force-push the existing branch.\n"
+            f"Do NOT modify the intent of any code changes - only resolve the conflicts.\n"
+        )
+
     def build_security_prompt(self, finding: dict, repo: str, github_pat: str = "") -> str:
         git_block = self._build_git_auth_block(repo, github_pat)
         return (
