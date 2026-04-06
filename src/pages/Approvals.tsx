@@ -390,7 +390,7 @@ export default function Approvals() {
   const topbarEl = document.getElementById('topbar-actions');
   const queued = sessions.filter(s => s.status === 'queued').length;
   const running = sessions.filter(s => (s.status === 'running' || s.status === 'pending') && s.status_detail !== 'waiting_for_user' && !s.pr_url).length;
-  const needsInput = sessions.filter(s => s.status_detail === 'waiting_for_user' || mergeErrors[s.id]).length;
+  const needsInput = sessions.filter(s => (s.status_detail === 'waiting_for_user' || mergeErrors[s.id]) && s.status !== 'merged' && !merged.has(s.id) && !['completed', 'succeeded', 'finished', 'stopped'].includes(s.status)).length;
   const needsPrApproval = sessions.filter(s => !!s.pr_url && s.status !== 'merged' && !merged.has(s.id)).length;
   const approvedSolved = sessions.filter(s => s.status === 'merged' || merged.has(s.id) || ['completed', 'succeeded', 'finished', 'stopped'].includes(s.status)).length;
 
@@ -398,7 +398,7 @@ export default function Approvals() {
     switch (filter) {
       case 'queued': return s.status === 'queued';
       case 'running': return (s.status === 'running' || s.status === 'pending') && s.status_detail !== 'waiting_for_user' && !s.pr_url;
-      case 'needs_input': return s.status_detail === 'waiting_for_user' || !!mergeErrors[s.id];
+      case 'needs_input': return (s.status_detail === 'waiting_for_user' || !!mergeErrors[s.id]) && s.status !== 'merged' && !merged.has(s.id) && !['completed', 'succeeded', 'finished', 'stopped'].includes(s.status);
       case 'needs_pr_approval': return !!s.pr_url && s.status !== 'merged' && !merged.has(s.id);
       case 'approved_solved': return s.status === 'merged' || merged.has(s.id) || ['completed', 'succeeded', 'finished', 'stopped'].includes(s.status);
       default: return true;
