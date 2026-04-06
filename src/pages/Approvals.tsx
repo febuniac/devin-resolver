@@ -127,7 +127,7 @@ export default function Approvals() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [approving, setApproving] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [mergeErrors, setMergeErrors] = useState<Record<string, { prUrl: string; reason: string }>>({});
   const [approved, setApproved] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterType>('all');
@@ -312,11 +312,19 @@ export default function Approvals() {
     if (!parsed) return;
     setMerging(prev => new Set(prev).add(sessionId));
     try {
-      await api.mergePr(parsed.owner, parsed.repo, parsed.number);
-      setMerged(prev => new Set(prev).add(sessionId));
-      setToast({ message: 'PR merged successfully! Issue resolved.', type: 'success' });
-      setTimeout(() => setToast(null), 5000);
-      await loadSessions();
+      const result = await api.mergePr(parsed.owner, parsed.repo, parsed.number);
+      if (result?.status === 'resolving_conflicts') {
+        setToast({ message: 'Merge conflicts detected — Devin is automatically resolving them!', type: 'info' });
+        setTimeout(() => setToast(null), 8000);
+        // Clear any previous merge error for this session
+        setMergeErrors(prev => { const next = { ...prev }; delete next[sessionId]; return next; });
+        await loadSessions();
+      } else {
+        setMerged(prev => new Set(prev).add(sessionId));
+        setToast({ message: 'PR merged successfully! Issue resolved.', type: 'success' });
+        setTimeout(() => setToast(null), 5000);
+        await loadSessions();
+      }
     } catch (e: unknown) {
       console.error('Failed to merge PR:', e);
       const msg = e instanceof Error ? e.message : 'Unknown error';
@@ -519,6 +527,8 @@ export default function Approvals() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}>
                   {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
                     <><GitMerge size={14} style={{ color: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>Merged</span></>
+                  ) : session.status_detail === 'resolving_conflicts' ? (
+                    <><span className="dot dot-blue" /><span style={{ color: 'var(--blue)' }}>Resolving Conflicts</span></>
                   ) : mergeErrors[session.id] ? (
                     <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Needs Input</span></>
                   ) : session.pr_url && ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
@@ -1385,13 +1395,13 @@ export default function Approvals() {
         <div style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
           padding: '12px 20px', borderRadius: 10,
-          background: toast.type === 'success' ? '#21C19A' : '#e53e3e',
+          background: toast.type === 'success' ? '#21C19A' : toast.type === 'info' ? '#3b82f6' : '#e53e3e',
           color: '#fff', fontSize: 13, fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: 8,
           boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
           animation: 'slideIn 0.3s ease-out',
         }}>
-          {toast.type === 'success' ? <CheckCircle size={16} /> : <Eye size={16} />}
+          {toast.type === 'success' ? <CheckCircle size={16} /> : toast.type === 'info' ? <GitMerge size={16} /> : <Eye size={16} />}
           {toast.message}
         </div>
       )}
