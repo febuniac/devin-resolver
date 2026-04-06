@@ -195,7 +195,11 @@ export default function Approvals() {
   }, [autoApproveEnabled, sessions]);
 
   const loadSessions = async () => {
-    try { setSessions(await api.listSessions() as Session[]); }
+    try {
+      const raw = await api.listSessions() as (Session & { session_id?: string })[];
+      // Use session_id as the unique key (queued pseudo-sessions all have id=0)
+      setSessions(raw.map(s => ({ ...s, id: s.session_id || String(s.id) })));
+    }
     catch { /* ignore */ }
     finally { setLoading(false); }
   };
