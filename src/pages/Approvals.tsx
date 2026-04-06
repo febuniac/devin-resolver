@@ -499,6 +499,8 @@ export default function Approvals() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}>
                   {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
                     <><GitMerge size={14} style={{ color: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>Merged</span></>
+                  ) : session.pr_url && ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                    <><span className="dot" style={{ background: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>PR Ready</span></>
                   ) : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                     <><CheckCircle size={14} style={{ color: 'var(--green)' }} /><span style={{ color: 'var(--green)' }}>Done</span></>
                   ) : session.pr_url ? (
