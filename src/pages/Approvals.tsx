@@ -539,7 +539,7 @@ export default function Approvals() {
                   <span style={{ fontSize: 10, color: '#e9a820', fontWeight: 600 }}>Awaiting Approval</span>
                 ) : session.status === 'queued' ? (
                   <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600 }}>Queued</span>
-                ) : session.status === 'running' ? (
+                ) : session.status === 'running' || session.status === 'claimed' ? (
                   <span style={{ fontSize: 10, color: 'var(--blue)' }}>In progress...</span>
                 ) : session.status === 'suspended' ? (
                   <span style={{ fontSize: 10, color: '#e53e3e' }}>Suspended</span>
@@ -556,7 +556,7 @@ export default function Approvals() {
                   <span className="font-mono" style={{ fontSize: 10, color: 'var(--green)', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at)}</span>
                 ) : session.status_detail === 'waiting_for_user' ? (
                   <span className="font-mono" style={{ fontSize: 10, color: '#e9a820', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at || new Date().toISOString())}</span>
-                ) : (session.status === 'running' || session.status === 'pending') ? (
+                ) : (session.status === 'running' || session.status === 'pending' || session.status === 'claimed') ? (
                   <span className="font-mono" style={{ fontSize: 10, color: 'var(--blue)' }}>{timeDiff(session.created_at, new Date().toISOString())}</span>
                 ) : (
                   <span style={{ fontSize: 10, color: 'var(--dim)' }}>{'—'}</span>
@@ -580,7 +580,7 @@ export default function Approvals() {
                     <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Awaiting Approval</span></>
                   ) : session.status === 'queued' ? (
                     <><span className="dot" style={{ background: '#f59e0b' }} /><span style={{ color: '#f59e0b' }}>Queued</span></>
-                  ) : (session.status === 'running' || session.status === 'pending') ? (
+                  ) : (session.status === 'running' || session.status === 'pending' || session.status === 'claimed') ? (
                     <><span className="dot dot-blue" /><span style={{ color: 'var(--blue)' }}>Running</span></>
                   ) : session.status === 'suspended' ? (
                     <><span className="dot" style={{ background: '#9ca3af' }} /><span style={{ color: '#9ca3af' }}>Suspended</span></>
