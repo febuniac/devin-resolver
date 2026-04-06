@@ -780,7 +780,11 @@ async def poll_all_sessions(
     else:
       try:
         cursor = await db.execute(
-            "SELECT id, number, title, body, repo_full_name, labels FROM issues WHERE status = 'queued' ORDER BY id ASC LIMIT 1"
+            """SELECT i.id, i.number, i.title, i.body, i.repo_full_name, i.labels
+            FROM issues i
+            LEFT JOIN devin_sessions ds ON ds.issue_id = i.id AND ds.status IN ('running', 'pending', 'suspended')
+            WHERE i.status = 'queued' AND ds.id IS NULL
+            ORDER BY i.id ASC LIMIT 1"""
         )
         queued_row = await cursor.fetchone()
         if queued_row and devin.token:

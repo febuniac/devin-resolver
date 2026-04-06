@@ -238,6 +238,17 @@ async def _create_devin_sessions(issue_ids: list[int]):
                 repo = issue_row[5]  # repo_full_name
                 issue_title = issue_row[3]
                 issue_number = issue_row[2]
+
+                # Guard: skip if this issue already has an active session
+                dup_cursor = await db.execute(
+                    "SELECT session_id FROM devin_sessions WHERE issue_id = ? AND status IN ('running', 'pending', 'suspended') LIMIT 1",
+                    (issue_id,),
+                )
+                existing = await dup_cursor.fetchone()
+                if existing:
+                    logger.warning(f"Issue {issue_id} already has active session {existing[0]} — skipping")
+                    continue
+
                 logger.info(f"Creating Devin session for issue #{issue_id} in {repo}")
                 prompt = devin.build_issue_prompt(
                     {
