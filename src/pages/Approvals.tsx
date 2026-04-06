@@ -479,6 +479,8 @@ export default function Approvals() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dim)' }}>
                 {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
                   <><CheckCheck size={10} style={{ color: '#8b5cf6', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: '#8b5cf6' }}>{formatTimestamp(session.updated_at)}</span></>
+                ) : session.pr_url && ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                  <><CheckCheck size={10} style={{ color: '#8b5cf6', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: '#8b5cf6' }}>{formatTimestamp(session.updated_at)}</span></>
                 ) : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                   <><CheckCheck size={10} style={{ color: 'var(--green)', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: 'var(--green)' }}>{formatTimestamp(session.updated_at)}</span></>
                 ) : session.status_detail === 'waiting_for_user' ? (
@@ -496,7 +498,9 @@ export default function Approvals() {
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dim)' }}>
-                {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                {session.pr_url && ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                  <span className="font-mono" style={{ fontSize: 10, color: '#8b5cf6', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at)}</span>
+                ) : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                   <span className="font-mono" style={{ fontSize: 10, color: 'var(--green)', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at)}</span>
                 ) : session.status_detail === 'waiting_for_user' ? (
                   <span className="font-mono" style={{ fontSize: 10, color: '#e9a820', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at || new Date().toISOString())}</span>
@@ -537,7 +541,7 @@ export default function Approvals() {
                     <Clock size={10} /> Waiting
                   </span>
                 ) : merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: (approved.has(session.id) || manuallyMerged.has(session.id)) ? 'rgba(33,193,154,0.12)' : 'rgba(57,105,202,0.1)', color: (approved.has(session.id) || manuallyMerged.has(session.id)) ? 'var(--green)' : '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.12)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     {(approved.has(session.id) || manuallyMerged.has(session.id)) ? (
                       <><CheckCircle size={10} /> Manually Approved</>
                     ) : (
