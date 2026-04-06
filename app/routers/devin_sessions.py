@@ -116,6 +116,9 @@ async def list_sessions(db: aiosqlite.Connection = Depends(get_db)):
     rows = await cursor.fetchall()
     sessions = [parse_session_row_with_issue(row) for row in rows]
 
+    # Deduplicate: collect issue_ids that already have session records
+    existing_issue_ids = {s.issue_id for s in sessions if s.issue_id}
+
     # Also include queued issues as pseudo-sessions so they appear in Review Work
     queued_cursor = await db.execute(
         """SELECT id, number, title, repo_full_name, body, ai_summary, severity, category, approved_at
@@ -124,6 +127,8 @@ async def list_sessions(db: aiosqlite.Connection = Depends(get_db)):
     )
     queued_rows = await queued_cursor.fetchall()
     for qr in queued_rows:
+        if qr[0] in existing_issue_ids:
+            continue  # Skip issues that already have a session record
         sessions.append(DevinSessionResponse(
             id=0,
             session_id=f"queued-{qr[0]}",
