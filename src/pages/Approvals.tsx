@@ -519,7 +519,7 @@ export default function Approvals() {
                 ) : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                   <><CheckCheck size={10} style={{ color: 'var(--green)', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: 'var(--green)' }}>{formatTimestamp(session.updated_at)}</span></>
                 ) : session.status_detail === 'waiting_for_user' ? (
-                  <span style={{ fontSize: 10, color: '#e9a820', fontWeight: 600 }}>Waiting...</span>
+                  <span style={{ fontSize: 10, color: '#e9a820', fontWeight: 600 }}>Awaiting Approval</span>
                 ) : session.status === 'queued' ? (
                   <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600 }}>Queued</span>
                 ) : session.status === 'running' ? (
@@ -559,8 +559,8 @@ export default function Approvals() {
                     <><CheckCircle size={14} style={{ color: 'var(--green)' }} /><span style={{ color: 'var(--green)' }}>Done</span></>
                   ) : session.pr_url ? (
                     <><span className="dot" style={{ background: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>PR Ready</span></>
-                  ) : session.status_detail === 'waiting_for_user' ? (
-                    <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Needs Input</span></>
+                  ) : session.status_detail === 'waiting_for_user' || (session.status === 'queued' && session.status_detail === 'waiting_for_user') ? (
+                    <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Awaiting Approval</span></>
                   ) : session.status === 'queued' ? (
                     <><span className="dot" style={{ background: '#f59e0b' }} /><span style={{ color: '#f59e0b' }}>Queued</span></>
                   ) : (session.status === 'running' || session.status === 'pending') ? (
@@ -575,7 +575,14 @@ export default function Approvals() {
                 </span>
               </div>
               <div onClick={e => e.stopPropagation()}>
-                {session.status === 'queued' ? (
+                {(session.status_detail === 'waiting_for_user' && !approved.has(session.id) && !session.pr_url) ? (
+                  <button
+                    onClick={() => approveSession(session.id)}
+                    disabled={approving.has(session.id)}
+                    style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: approving.has(session.id) ? 0.6 : 1 }}>
+                    {approving.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <MessageSquare size={10} />} {approving.has(session.id) ? 'Approving...' : 'Approve Approach'}
+                  </button>
+                ) : session.status === 'queued' ? (
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(245,158,11,0.12)', color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <Clock size={10} /> Waiting
                   </span>
@@ -609,13 +616,6 @@ export default function Approvals() {
                       </span>
                     </div>
                   )
-                ) : (session.status_detail === 'waiting_for_user' && !approved.has(session.id)) ? (
-                  <button
-                    onClick={() => approveSession(session.id)}
-                    disabled={approving.has(session.id)}
-                    style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: approving.has(session.id) ? 0.6 : 1 }}>
-                    {approving.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <MessageSquare size={10} />} {approving.has(session.id) ? 'Approving...' : 'Approve'}
-                  </button>
                 ) : approved.has(session.id) ? (
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.15)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <CheckCircle size={10} /> Approved
