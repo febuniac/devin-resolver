@@ -128,6 +128,7 @@ export default function Approvals() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [approving, setApproving] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [mergeError, setMergeError] = useState<{ sessionId: string; prUrl: string; reason: string } | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterType>('all');
   const [liveData, setLiveData] = useState<Record<string, LiveData>>({});
@@ -314,8 +315,18 @@ export default function Approvals() {
     } catch (e: unknown) {
       console.error('Failed to merge PR:', e);
       const msg = e instanceof Error ? e.message : 'Unknown error';
-      setToast({ message: `Failed to merge PR: ${msg}`, type: 'error' });
-      setTimeout(() => setToast(null), 5000);
+      let reason = 'Unknown error';
+      if (msg.toLowerCase().includes('not mergeable') || msg.includes('405')) {
+        reason = 'This PR has merge conflicts or failing checks that need to be resolved on GitHub before it can be merged.';
+      } else if (msg.includes('409')) {
+        reason = 'This PR was already merged.';
+        setMerged(prev => new Set(prev).add(sessionId));
+      } else if (msg.includes('401') || msg.includes('403')) {
+        reason = 'GitHub token does not have permission to merge this PR. Check your GitHub PAT in Settings.';
+      } else {
+        reason = msg;
+      }
+      setMergeError({ sessionId, prUrl, reason });
     } finally {
       setMerging(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
     }
@@ -1336,6 +1347,43 @@ export default function Approvals() {
           </div>
         ))}
       </div>
+
+      {/* Merge Error Modal */}
+      {mergeError && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setMergeError(null)}>
+          <div style={{ background: '#fff', borderRadius: 16, maxWidth: 440, width: '100%', overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.35)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ background: '#fef2f2', padding: '20px 24px', borderBottom: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <AlertCircle size={18} style={{ color: '#e53e3e' }} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: '#991b1b' }}>PR Cannot Be Merged</div>
+                <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 2 }}>Action required on GitHub</div>
+              </div>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 16px' }}>{mergeError.reason}</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <a href={mergeError.prUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, background: '#1f2937', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }}>
+                  <GitHubIcon size={14} /> View PR on GitHub
+                </a>
+                <button onClick={() => { setMergeError(null); mergePr(mergeError.sessionId, mergeError.prUrl); }}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, background: '#8b5cf6', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+                  <RefreshCw size={12} /> Retry Merge
+                </button>
+              </div>
+              <button onClick={() => setMergeError(null)}
+                style={{ width: '100%', marginTop: 8, padding: '8px', borderRadius: 8, border: '1px solid #e5e7eb', background: 'transparent', color: '#6b7280', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Toast notification */}
       {toast && (
