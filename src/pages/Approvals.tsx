@@ -98,7 +98,7 @@ interface LiveData {
   updated_at: string;
 }
 
-type FilterType = 'all' | 'running' | 'needs_input' | 'needs_pr_approval' | 'approved_solved';
+type FilterType = 'all' | 'queued' | 'running' | 'needs_input' | 'needs_pr_approval' | 'approved_solved';
 
 function formatTimestamp(ts: string | null): string {
   if (!ts) return '—';
@@ -333,6 +333,7 @@ export default function Approvals() {
   };
 
   const topbarEl = document.getElementById('topbar-actions');
+  const queued = sessions.filter(s => s.status === 'queued').length;
   const running = sessions.filter(s => (s.status === 'running' || s.status === 'pending') && s.status_detail !== 'waiting_for_user' && !s.pr_url).length;
   const needsInput = sessions.filter(s => s.status_detail === 'waiting_for_user' && !s.pr_url).length;
   const needsPrApproval = sessions.filter(s => !!s.pr_url && s.status !== 'merged' && !merged.has(s.id)).length;
@@ -340,6 +341,7 @@ export default function Approvals() {
 
   const filteredSessions = sessions.filter(s => {
     switch (filter) {
+      case 'queued': return s.status === 'queued';
       case 'running': return (s.status === 'running' || s.status === 'pending') && s.status_detail !== 'waiting_for_user' && !s.pr_url;
       case 'needs_input': return s.status_detail === 'waiting_for_user' && !s.pr_url;
       case 'needs_pr_approval': return !!s.pr_url && s.status !== 'merged' && !merged.has(s.id);
@@ -352,6 +354,7 @@ export default function Approvals() {
 
   const filters: { key: FilterType; label: string; count: number; color: string }[] = [
     { key: 'all', label: 'All', count: sessions.length, color: 'var(--purple)' },
+    ...(queued > 0 ? [{ key: 'queued' as FilterType, label: 'Queued', count: queued, color: '#f59e0b' }] : []),
     { key: 'running', label: 'Running', count: running, color: 'var(--blue)' },
     { key: 'needs_input', label: 'Needs User Input', count: needsInput, color: '#e9a820' },
     { key: 'needs_pr_approval', label: 'Needs PR Approval', count: needsPrApproval, color: '#8b5cf6' },
@@ -373,8 +376,8 @@ export default function Approvals() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}>
         {[
           { label: 'Total Sessions', value: sessions.length, color: 'var(--purple)' },
+          { label: 'Queued', value: queued, color: '#f59e0b' },
           { label: 'Running', value: running, color: 'var(--blue)' },
-          { label: 'Needs User Input', value: needsInput, color: '#e9a820' },
           { label: 'Needs PR Approval', value: needsPrApproval, color: '#8b5cf6' },
           { label: 'Approved & Solved', value: approvedSolved, color: 'var(--green)' },
         ].map((s, i) => (
@@ -460,6 +463,8 @@ export default function Approvals() {
                   <><CheckCheck size={10} style={{ color: 'var(--green)', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: 'var(--green)' }}>{formatTimestamp(session.updated_at)}</span></>
                 ) : session.status_detail === 'waiting_for_user' ? (
                   <span style={{ fontSize: 10, color: '#e9a820', fontWeight: 600 }}>Waiting...</span>
+                ) : session.status === 'queued' ? (
+                  <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600 }}>Queued</span>
                 ) : session.status === 'running' ? (
                   <span style={{ fontSize: 10, color: 'var(--blue)' }}>In progress...</span>
                 ) : session.status === 'suspended' ? (
@@ -491,6 +496,8 @@ export default function Approvals() {
                     <><span className="dot" style={{ background: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>PR Ready</span></>
                   ) : session.status_detail === 'waiting_for_user' ? (
                     <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Needs Input</span></>
+                  ) : session.status === 'queued' ? (
+                    <><span className="dot" style={{ background: '#f59e0b' }} /><span style={{ color: '#f59e0b' }}>Queued</span></>
                   ) : (session.status === 'running' || session.status === 'pending') ? (
                     <><span className="dot dot-blue" /><span style={{ color: 'var(--blue)' }}>Running</span></>
                   ) : session.status === 'suspended' ? (
@@ -503,7 +510,11 @@ export default function Approvals() {
                 </span>
               </div>
               <div onClick={e => e.stopPropagation()}>
-                {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
+                {session.status === 'queued' ? (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(245,158,11,0.12)', color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Clock size={10} /> Waiting
+                  </span>
+                ) : merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: (approved.has(session.id) || manuallyMerged.has(session.id)) ? 'rgba(33,193,154,0.12)' : 'rgba(57,105,202,0.1)', color: (approved.has(session.id) || manuallyMerged.has(session.id)) ? 'var(--green)' : '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     {(approved.has(session.id) || manuallyMerged.has(session.id)) ? (
                       <><CheckCircle size={10} /> Manually Approved</>
