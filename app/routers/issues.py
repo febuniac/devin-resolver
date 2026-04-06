@@ -363,6 +363,14 @@ async def approve_issues(
 
     await db.commit()
 
+    # Check capacity before kicking off background task
+    active_cursor = await db.execute(
+        "SELECT COUNT(*) FROM devin_sessions WHERE status IN ('running', 'pending', 'suspended')"
+    )
+    active_count = (await active_cursor.fetchone())[0]
+    MAX_CONCURRENT_SESSIONS = 5
+    will_queue = max(0, len(approved) - max(0, MAX_CONCURRENT_SESSIONS - active_count))
+
     # Kick off Devin sessions in the background
     if approved:
         background_tasks.add_task(_create_devin_sessions, approved)
@@ -371,6 +379,9 @@ async def approve_issues(
         "approved": approved,
         "count": len(approved),
         "already_in_progress": already_in_progress,
+        "queued_count": will_queue,
+        "active_sessions": active_count,
+        "max_concurrent": MAX_CONCURRENT_SESSIONS,
     }
 
 
