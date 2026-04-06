@@ -1213,6 +1213,30 @@ async def dispatch_queued_session(
     }
 
 
+@router.delete("/sessions/{session_id}")
+async def delete_session(
+    session_id: str,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Delete a session record from the database."""
+    # Try by row id first
+    try:
+        row_id = int(session_id)
+        cursor = await db.execute("SELECT session_id FROM devin_sessions WHERE id = ?", (row_id,))
+        row = await cursor.fetchone()
+        if row:
+            await db.execute("DELETE FROM devin_sessions WHERE id = ?", (row_id,))
+            await db.commit()
+            return {"deleted": True, "session_id": row[0]}
+    except (ValueError, TypeError):
+        pass
+
+    # Try by session_id
+    await db.execute("DELETE FROM devin_sessions WHERE session_id = ?", (session_id,))
+    await db.commit()
+    return {"deleted": True, "session_id": session_id}
+
+
 @router.post("/sessions/{session_id}/terminate")
 async def terminate_session(
     session_id: str,
