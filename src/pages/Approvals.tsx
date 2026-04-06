@@ -609,7 +609,7 @@ export default function Approvals() {
                  ═══════════════════════════════════════════════════════ */
               if (hasPr) return (
                 <div style={{ borderBottom: '1px solid var(--rule)', background: 'var(--bg)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: 0, minHeight: 420 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: 0 }}>
 
                     {/* ── LEFT PANEL ── */}
                     <div style={{ borderRight: '1px solid var(--rule)', background: 'var(--white)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -844,7 +844,7 @@ export default function Approvals() {
                     </div>
 
                     {/* ── RIGHT PANEL ── */}
-                    <div style={{ background: 'var(--bg)', overflowY: 'auto', maxHeight: 600, padding: 20 }}>
+                    <div style={{ background: 'var(--bg)', overflowY: 'auto', padding: 20 }}>
 
                       {/* 1. Desktop Recording */}
                       {(() => {
