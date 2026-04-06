@@ -161,19 +161,21 @@ export default function Approvals() {
       setAutoApproveMaxSeverity(s.auto_approve_max_severity || 'medium');
     }).catch(() => {});
     // Load sessions immediately (fast DB call), then sync in background
+    const mapSessions = (raw: (Session & { session_id?: string })[]) =>
+      raw.map(s => ({ ...s, id: s.session_id || String(s.id) }));
     const initialRefresh = async () => {
-      try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
+      try { setSessions(mapSessions(await api.listSessions() as (Session & { session_id?: string })[])); } catch { /* ignore */ }
       setLoading(false);
       // Background sync — don't block the UI
       try { await api.syncPrs(); } catch { /* ignore */ }
       try { await api.pollSessions(); } catch { /* ignore */ }
-      try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
+      try { setSessions(mapSessions(await api.listSessions() as (Session & { session_id?: string })[])); } catch { /* ignore */ }
     };
     initialRefresh();
     const interval = setInterval(async () => {
       try { await api.syncPrs(); } catch { /* ignore */ }
       try { await api.pollSessions(); } catch { /* ignore */ }
-      try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
+      try { setSessions(mapSessions(await api.listSessions() as (Session & { session_id?: string })[])); } catch { /* ignore */ }
     }, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -197,7 +199,6 @@ export default function Approvals() {
   const loadSessions = async () => {
     try {
       const raw = await api.listSessions() as (Session & { session_id?: string })[];
-      // Use session_id as the unique key (queued pseudo-sessions all have id=0)
       setSessions(raw.map(s => ({ ...s, id: s.session_id || String(s.id) })));
     }
     catch { /* ignore */ }
