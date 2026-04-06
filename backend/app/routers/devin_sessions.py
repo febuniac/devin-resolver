@@ -1,7 +1,9 @@
 import json
 import logging
+import re
 from fastapi import APIRouter, Depends, HTTPException
 import aiosqlite
+import httpx
 
 from app.db.database import get_db
 from app.models.schemas import DevinSessionCreate, DevinSessionResponse
@@ -112,7 +114,44 @@ async def list_sessions(db: aiosqlite.Connection = Depends(get_db)):
         ORDER BY ds.created_at DESC"""
     )
     rows = await cursor.fetchall()
-    return [parse_session_row_with_issue(row) for row in rows]
+    sessions = [parse_session_row_with_issue(row) for row in rows]
+
+    # Deduplicate: collect issue_ids that already have session records
+    existing_issue_ids = {s.issue_id for s in sessions if s.issue_id}
+
+    # Also include queued issues as pseudo-sessions so they appear in Review Work
+    queued_cursor = await db.execute(
+        """SELECT id, number, title, repo_full_name, body, ai_summary, severity, category, approved_at
+        FROM issues WHERE status IN ('queued', 'approved')
+        ORDER BY id ASC"""
+    )
+    queued_rows = await queued_cursor.fetchall()
+    for qr in queued_rows:
+        if qr[0] in existing_issue_ids:
+            continue  # Skip issues that already have a session record
+        sessions.append(DevinSessionResponse(
+            id=0,
+            session_id=f"queued-{qr[0]}",
+            session_url="",
+            issue_id=qr[0],
+            finding_id=None,
+            status="queued",
+            status_detail="Waiting for available Devin slot",
+            created_at=qr[8] or "",
+            updated_at=None,
+            pr_url=None,
+            pr_number=None,
+            recording_url=None,
+            issue_title=qr[2],
+            issue_number=qr[1],
+            repo_full_name=qr[3],
+            issue_body=qr[4],
+            ai_summary=qr[5],
+            issue_severity=qr[6],
+            issue_category=qr[7],
+        ))
+
+    return sessions
 
 
 @router.get("/sessions/{session_id}")
@@ -347,19 +386,27 @@ async def poll_all_sessions(
     if not devin.token:
         return {"polled": 0, "message": "No Devin API token configured"}
 
-    # Fetch GitHub PAT + notification prefs for auto-sending to stuck sessions
-    pat_cursor = await db.execute("SELECT github_pat, notifications FROM settings WHERE id = 1")
+    # Fetch GitHub PAT + notification prefs + auto-approve settings
+    pat_cursor = await db.execute(
+        "SELECT github_pat, notifications, auto_approve_enabled, auto_approve_confidence, auto_approve_max_severity FROM settings WHERE id = 1"
+    )
     pat_row = await pat_cursor.fetchone()
     github_pat = ""
     notif_prefs = {}
+    auto_approve_enabled = False
+    auto_approve_confidence = 90
+    auto_approve_max_severity = "medium"
     if pat_row:
         github_pat = (pat_row["github_pat"] if hasattr(pat_row, 'keys') else pat_row[0]) or ""
         notif_json = (pat_row["notifications"] if hasattr(pat_row, 'keys') else pat_row[1]) or "{}"
         notif_prefs = json.loads(notif_json)
+        auto_approve_enabled = bool(pat_row["auto_approve_enabled"] if hasattr(pat_row, 'keys') else pat_row[2])
+        auto_approve_confidence = (pat_row["auto_approve_confidence"] if hasattr(pat_row, 'keys') else pat_row[3]) or 90
+        auto_approve_max_severity = (pat_row["auto_approve_max_severity"] if hasattr(pat_row, 'keys') else pat_row[4]) or "medium"
 
-    # Get all running/pending sessions
+    # Get all running/pending sessions + suspended sessions with PRs (for auto-merge)
     cursor = await db.execute(
-        "SELECT session_id, issue_id, finding_id, status FROM devin_sessions WHERE status IN ('running', 'pending')"
+        "SELECT session_id, issue_id, finding_id, status, pr_url FROM devin_sessions WHERE status IN ('running', 'pending', 'suspended')"
     )
     active_sessions = await cursor.fetchall()
 
@@ -369,9 +416,25 @@ async def poll_all_sessions(
         issue_id = session_row[1]
         finding_id = session_row[2]
         old_status = session_row[3]
+        db_pr_url = session_row[4] or ""
 
         try:
-            live_data = await devin.get_session(sid)
+            try:
+                live_data = await devin.get_session(sid)
+            except Exception as fetch_err:
+                # Session not found on Devin API — mark as stopped locally
+                err_str = str(fetch_err)
+                if "404" in err_str or "not found" in err_str.lower():
+                    logger.warning(f"Session {sid} not found on Devin API — marking stopped")
+                    await db.execute(
+                        "UPDATE devin_sessions SET status = 'stopped', updated_at = datetime('now') WHERE session_id = ?",
+                        (sid,),
+                    )
+                    results.append({"session_id": sid, "old_status": old_status, "new_status": "stopped", "reason": "not_found"})
+                else:
+                    logger.error(f"Failed to poll session {sid}: {fetch_err}")
+                    results.append({"session_id": sid, "error": str(fetch_err)[:100]})
+                continue
             new_status = live_data.get("status", live_data.get("status_enum", old_status))
 
             # Update session status and status_detail
@@ -381,7 +444,7 @@ async def poll_all_sessions(
                 (new_status, status_detail, sid),
             )
 
-            # Extract PR URL from pull_requests array first, then structured_output
+            # Extract PR URL from pull_requests array first, then structured_output, then DB
             prs = live_data.get("pull_requests") or []
             pr_url = ""
             if prs and isinstance(prs, list) and len(prs) > 0:
@@ -390,6 +453,8 @@ async def poll_all_sessions(
             if not pr_url:
                 structured = live_data.get("structured_output") or {}
                 pr_url = structured.get("pr_url", "")
+            if not pr_url:
+                pr_url = db_pr_url
             playback_url = live_data.get("playback_url", "")
 
             # Update recording URL on the session
@@ -406,8 +471,20 @@ async def poll_all_sessions(
                     (pr_url, sid),
                 )
 
-            # Auto-send GitHub PAT when session is waiting for push access
-            if status_detail == 'waiting_for_user' and github_pat:
+            # If session is suspended/blocked/waiting but has a PR, treat as finished
+            # This prevents showing "Needs Input" when Devin already created the PR
+            if pr_url and new_status not in ('finished', 'stopped', 'merged', 'completed', 'succeeded'):
+                if new_status in ('suspended', 'blocked') or status_detail == 'waiting_for_user':
+                    old_display = new_status
+                    new_status = 'finished'
+                    await db.execute(
+                        "UPDATE devin_sessions SET status = 'finished', updated_at = datetime('now') WHERE session_id = ?",
+                        (sid,),
+                    )
+                    logger.info(f"Session {sid} was {old_display}/{status_detail} with PR — marking as finished")
+
+            # Auto-send GitHub PAT when session is stuck on push access (waiting or running)
+            if github_pat and not pr_url and (status_detail == 'waiting_for_user' or new_status == 'running'):
                 # Check the latest messages to see if Devin is asking for push access
                 try:
                     last_msg = ""
@@ -451,8 +528,8 @@ async def poll_all_sessions(
                 except Exception as e:
                     logger.warning(f"Failed to auto-send PAT to session {sid}: {e}")
 
-            # Send Slack notification when session needs user input
-            if status_detail == 'waiting_for_user' and slack.webhook_url and notif_prefs.get("devin_needs_input", True):
+            # Send Slack notification when session needs user input (only if no PR — with PR it's done, not stuck)
+            if status_detail == 'waiting_for_user' and not pr_url and slack.webhook_url and notif_prefs.get("devin_needs_input", True):
                 # Check if we already notified for this waiting state
                 notif_cursor = await db.execute(
                     "SELECT status_detail FROM devin_sessions WHERE session_id = ?",
@@ -578,8 +655,82 @@ async def poll_all_sessions(
                                 pr_url=pr_url or None,
                             )
 
-            # Send "Devin Session Failed" notification for error/suspended
-            if new_status in ("error", "suspended") and old_status not in ("error", "suspended"):
+            # Auto-merge PR for suspended/finished sessions that have a PR but aren't merged yet
+            # Only auto-merge if auto_approve is enabled in settings AND issue severity is within threshold
+            severity_order = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+            issue_sev = None
+            if issue_id:
+                sev_cursor = await db.execute("SELECT severity FROM issues WHERE id = ?", (issue_id,))
+                sev_row = await sev_cursor.fetchone()
+                issue_sev = (sev_row[0] or "medium").lower() if sev_row else "medium"
+            elif finding_id:
+                sev_cursor = await db.execute("SELECT severity FROM security_findings WHERE id = ?", (finding_id,))
+                sev_row = await sev_cursor.fetchone()
+                issue_sev = (sev_row[0] or "medium").lower() if sev_row else "medium"
+            severity_ok = issue_sev is not None and severity_order.get(issue_sev, 2) <= severity_order.get(auto_approve_max_severity, 2)
+            if auto_approve_enabled and severity_ok and new_status in ("suspended", "finished", "stopped", "completed", "succeeded") and pr_url and github_pat:
+                try:
+                    # Check if already merged
+                    merged_cursor = await db.execute(
+                        "SELECT status FROM devin_sessions WHERE session_id = ?", (sid,)
+                    )
+                    merged_row = await merged_cursor.fetchone()
+                    current_db_status = merged_row[0] if merged_row else ""
+                    if current_db_status != "merged":
+                        # Parse PR URL: https://github.com/owner/repo/pull/123
+                        pr_match = re.search(r"github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
+                        if pr_match:
+                            pr_owner = pr_match.group(1)
+                            pr_repo = pr_match.group(2)
+                            pr_number = int(pr_match.group(3))
+                            merge_url = f"https://api.github.com/repos/{pr_owner}/{pr_repo}/pulls/{pr_number}/merge"
+                            async with httpx.AsyncClient() as gh_client:
+                                merge_resp = await gh_client.put(
+                                    merge_url,
+                                    headers={
+                                        "Authorization": f"token {github_pat}",
+                                        "Accept": "application/vnd.github.v3+json",
+                                    },
+                                    json={"merge_method": "squash"},
+                                    timeout=30.0,
+                                )
+                                if merge_resp.status_code in (200, 201):
+                                    await db.execute(
+                                        "UPDATE devin_sessions SET status = 'merged', updated_at = datetime('now') WHERE session_id = ?",
+                                        (sid,),
+                                    )
+                                    # Also update linked issue/finding
+                                    if issue_id:
+                                        await db.execute(
+                                            "UPDATE issues SET status = 'resolved' WHERE id = ?", (issue_id,)
+                                        )
+                                    if finding_id:
+                                        await db.execute(
+                                            "UPDATE security_findings SET status = 'resolved' WHERE id = ?", (finding_id,)
+                                        )
+                                    new_status = "merged"
+                                    logger.info(f"Auto-merged PR {pr_url} for session {sid}")
+                                elif merge_resp.status_code == 405:
+                                    logger.info(f"PR {pr_url} not mergeable yet (405) for session {sid}")
+                                elif merge_resp.status_code == 409:
+                                    # Already merged
+                                    await db.execute(
+                                        "UPDATE devin_sessions SET status = 'merged', updated_at = datetime('now') WHERE session_id = ?",
+                                        (sid,),
+                                    )
+                                    if issue_id:
+                                        await db.execute(
+                                            "UPDATE issues SET status = 'resolved' WHERE id = ?", (issue_id,)
+                                        )
+                                    new_status = "merged"
+                                    logger.info(f"PR {pr_url} already merged for session {sid}")
+                                else:
+                                    logger.warning(f"Failed to auto-merge PR {pr_url}: {merge_resp.status_code} {merge_resp.text[:200]}")
+                except Exception as merge_err:
+                    logger.error(f"Auto-merge error for session {sid}: {merge_err}")
+
+            # Send "Devin Session Failed" notification for error/suspended (only if no PR)
+            if new_status in ("error", "suspended") and old_status not in ("error", "suspended") and not pr_url:
                 if slack.webhook_url and notif_prefs.get("devin_session_failed", True) and issue_id:
                     try:
                         fail_cursor = await db.execute(
@@ -624,7 +775,67 @@ async def poll_all_sessions(
             results.append({"session_id": sid, "error": str(e)})
 
     await db.commit()
-    return {"polled": len(results), "results": results}
+
+    # Auto-retry ONE queued issue per poll cycle (rate-limit friendly)
+    # But first check if we have room — skip retry if already at concurrent session limit
+    MAX_CONCURRENT_SESSIONS = 5
+    active_cursor = await db.execute(
+        "SELECT COUNT(*) FROM devin_sessions WHERE status IN ('running', 'pending', 'suspended')"
+    )
+    active_count = (await active_cursor.fetchone())[0]
+
+    queued_retried = None
+    if active_count >= MAX_CONCURRENT_SESSIONS:
+        logger.info(f"Skipping queued retry: {active_count} active sessions (limit {MAX_CONCURRENT_SESSIONS})")
+        queued_retried = {"skipped": True, "reason": f"{active_count} active sessions, limit is {MAX_CONCURRENT_SESSIONS}"}
+    else:
+      try:
+        cursor = await db.execute(
+            """SELECT i.id, i.number, i.title, i.body, i.repo_full_name, i.labels
+            FROM issues i
+            LEFT JOIN devin_sessions ds ON ds.issue_id = i.id AND ds.status IN ('running', 'pending', 'suspended')
+            WHERE i.status = 'queued' AND ds.id IS NULL
+            ORDER BY i.id ASC LIMIT 1"""
+        )
+        queued_row = await cursor.fetchone()
+        if queued_row and devin.token:
+            q_id = queued_row[0]
+            q_number = queued_row[1]
+            q_title = queued_row[2]
+            q_body = queued_row[3] or ""
+            q_repo = queued_row[4]
+            q_labels = json.loads(queued_row[5]) if queued_row[5] else []
+            logger.info(f"Auto-retrying queued issue #{q_id}: {q_title}")
+            prompt = devin.build_issue_prompt(
+                {"number": q_number, "title": q_title, "body": q_body, "labels": q_labels},
+                q_repo,
+                github_pat=github_pat,
+            )
+            try:
+                result = await devin.create_session(
+                    prompt=prompt,
+                    idempotency_key=f"issue-{q_id}",
+                )
+                session_id = result.get("session_id", "")
+                session_url = result.get("url", f"https://app.devin.ai/sessions/{session_id}")
+                await db.execute(
+                    "UPDATE issues SET status = 'in_progress', devin_session_id = ?, devin_session_url = ? WHERE id = ?",
+                    (session_id, session_url, q_id),
+                )
+                await db.execute(
+                    "INSERT OR REPLACE INTO devin_sessions (session_id, session_url, issue_id, status, created_at) VALUES (?, ?, ?, 'running', datetime('now'))",
+                    (session_id, session_url, q_id),
+                )
+                await db.commit()
+                queued_retried = {"issue_id": q_id, "session_id": session_id, "status": "created"}
+                logger.info(f"Auto-retry success: created session {session_id} for queued issue #{q_id}")
+            except Exception as retry_err:
+                logger.warning(f"Auto-retry failed for issue #{q_id}: {retry_err}")
+                queued_retried = {"issue_id": q_id, "error": str(retry_err)[:100]}
+      except Exception as q_err:
+        logger.error(f"Error checking queued issues: {q_err}")
+
+    return {"polled": len(results), "results": results, "queued_retry": queued_retried}
 
 
 @router.get("/sessions/{session_id}/live")
@@ -757,6 +968,84 @@ async def get_session_live(
     }
 
 
+@router.get("/sessions/{session_id}/recording")
+async def get_session_recording(
+    session_id: str,
+    db: aiosqlite.Connection = Depends(get_db),
+    devin: DevinService = Depends(get_devin_service),
+):
+    """Get the video recording URL for a Devin session via the attachments API."""
+    if not devin.token:
+        raise HTTPException(status_code=400, detail="Devin API token not configured")
+
+    # Look up actual devin session UUID from db
+    actual_session_id = session_id
+    try:
+        row_id = int(session_id)
+        cursor = await db.execute("SELECT session_id FROM devin_sessions WHERE id = ?", (row_id,))
+        row = await cursor.fetchone()
+        if row and row[0]:
+            actual_session_id = row[0]
+    except (ValueError, TypeError):
+        pass
+
+    try:
+        attachments = await devin.get_session_attachments(actual_session_id)
+    except Exception as e:
+        return {"recording_url": "", "error": f"Failed to fetch attachments: {str(e)}"}
+
+    # Return ALL attachments with debug info so we can find the right URL field
+    # Find video attachments (mp4, webm, webp)
+    video_attachment = None
+    for att in attachments:
+        name = (att.get("name") or att.get("filename") or "").lower()
+        if any(name.endswith(ext) for ext in [".mp4", ".webm", ".webp", ".mov"]):
+            video_attachment = att
+            break
+
+    if not video_attachment:
+        return {"recording_url": "", "all_attachments": attachments}
+
+    # Get presigned download URL for the video
+    # Try multiple possible UUID field names from the API response
+    att_uuid = (
+        video_attachment.get("uuid")
+        or video_attachment.get("id")
+        or video_attachment.get("attachment_id")
+        or video_attachment.get("file_id")
+        or ""
+    )
+    att_name = video_attachment.get("name") or video_attachment.get("filename", "")
+
+    # If UUID is in the download_url or url field, extract it
+    if not att_uuid:
+        for url_field in ["download_url", "url", "href", "link"]:
+            url_val = video_attachment.get(url_field, "")
+            if url_val and "/attachments/" in url_val:
+                parts = url_val.split("/attachments/")[1].split("/")
+                if parts:
+                    att_uuid = parts[0]
+                    break
+
+    # If still no UUID, return debug info
+    if not att_uuid:
+        return {"recording_url": "", "debug": video_attachment}
+    try:
+        download_url = await devin.get_attachment_url(att_uuid, att_name)
+    except Exception as e:
+        return {"recording_url": "", "error": f"Failed to get download URL: {str(e)}"}
+
+    # Cache the recording URL in the database
+    if download_url:
+        await db.execute(
+            "UPDATE devin_sessions SET recording_url = ? WHERE session_id = ? OR id = ?",
+            (download_url, actual_session_id, session_id),
+        )
+        await db.commit()
+
+    return {"recording_url": download_url, "attachment_name": att_name}
+
+
 @router.post("/sessions/{session_id}/events")
 async def store_session_events(
     session_id: str,
@@ -863,3 +1152,126 @@ async def approve_session(
     await db.commit()
 
     return {"session_id": actual_session_id, "status": "approved", "result": result}
+
+
+@router.post("/sessions/dispatch/{issue_id}")
+async def dispatch_queued_session(
+    issue_id: int,
+    db: aiosqlite.Connection = Depends(get_db),
+    devin: DevinService = Depends(get_devin_service),
+):
+    """Dispatch a queued issue to Devin — creates a real Devin session."""
+    if not devin.token:
+        raise HTTPException(status_code=400, detail="Devin API token not configured")
+
+    # Fetch the issue
+    cursor = await db.execute("SELECT * FROM issues WHERE id = ?", (issue_id,))
+    issue_row = await cursor.fetchone()
+    if not issue_row:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    # Fetch GitHub PAT
+    pat_cursor = await db.execute("SELECT github_pat FROM settings WHERE id = 1")
+    pat_row = await pat_cursor.fetchone()
+    github_pat = (pat_row[0] if pat_row else "") or ""
+
+    labels = json.loads(issue_row[6] or "[]")
+    issue_dict = {
+        "number": issue_row[2],
+        "title": issue_row[3],
+        "body": issue_row[4] or "",
+        "labels": labels,
+    }
+    prompt = devin.build_issue_prompt(issue_dict, issue_row[5], github_pat=github_pat)
+
+    # Create Devin session
+    try:
+        session_data = await devin.create_session(prompt=prompt)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create Devin session: {str(e)}")
+
+    session_id = session_data.get("session_id", "")
+    session_url = session_data.get("url", f"https://app.devin.ai/sessions/{session_id}")
+
+    # Store in database
+    await db.execute(
+        """INSERT INTO devin_sessions (session_id, session_url, issue_id, status)
+        VALUES (?, ?, ?, 'running')""",
+        (session_id, session_url, issue_id),
+    )
+    # Update issue status
+    await db.execute(
+        "UPDATE issues SET status = 'in_progress', devin_session_id = ?, devin_session_url = ? WHERE id = ?",
+        (session_id, session_url, issue_id),
+    )
+    await db.commit()
+
+    return {
+        "session_id": session_id,
+        "session_url": session_url,
+        "status": "running",
+    }
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(
+    session_id: str,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Delete a session record from the database."""
+    # Try by row id first
+    try:
+        row_id = int(session_id)
+        cursor = await db.execute("SELECT session_id FROM devin_sessions WHERE id = ?", (row_id,))
+        row = await cursor.fetchone()
+        if row:
+            await db.execute("DELETE FROM devin_sessions WHERE id = ?", (row_id,))
+            await db.commit()
+            return {"deleted": True, "session_id": row[0]}
+    except (ValueError, TypeError):
+        pass
+
+    # Try by session_id
+    await db.execute("DELETE FROM devin_sessions WHERE session_id = ?", (session_id,))
+    await db.commit()
+    return {"deleted": True, "session_id": session_id}
+
+
+@router.post("/sessions/{session_id}/terminate")
+async def terminate_session(
+    session_id: str,
+    db: aiosqlite.Connection = Depends(get_db),
+    devin: DevinService = Depends(get_devin_service),
+):
+    """Terminate a stuck Devin session."""
+    if not devin.token:
+        raise HTTPException(status_code=400, detail="Devin API token not configured")
+
+    # Resolve actual session_id
+    actual_session_id = session_id
+    try:
+        row_id = int(session_id)
+        cursor = await db.execute("SELECT session_id FROM devin_sessions WHERE id = ?", (row_id,))
+        row = await cursor.fetchone()
+        if row and row[0]:
+            actual_session_id = row[0]
+    except (ValueError, TypeError):
+        pass
+
+    result = {}
+    try:
+        result = await devin.terminate_session(actual_session_id)
+    except Exception as e:
+        # If session is 404 on Devin's side, it's already gone — still clean up our DB
+        if "404" in str(e):
+            result = {"note": "Session already terminated/expired on Devin side"}
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to terminate session: {str(e)}")
+
+    await db.execute(
+        "UPDATE devin_sessions SET status = 'stopped', status_detail = 'terminated', updated_at = datetime('now') WHERE session_id = ?",
+        (actual_session_id,),
+    )
+    await db.commit()
+
+    return {"session_id": actual_session_id, "status": "terminated", "result": result}

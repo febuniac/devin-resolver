@@ -15,6 +15,101 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/issues", tags=["issues"])
 
+# ── Shared classification logic ──────────────────────────────────────
+# Priority order:
+#   1. GitHub labels are AUTHORITATIVE (your security team labels matter most)
+#   2. Title + body keyword analysis (OWASP patterns, CVE refs, CWE IDs)
+#   3. Default fallback = "bug"
+
+# Security keywords: OWASP Top 10 + common vuln patterns
+_SECURITY_TITLE_KEYWORDS = [
+    "security", "vulnerability", "cve", "cwe", "xss", "csrf",
+    "sql injection", "sqli", "injection", "auth bypass", "privilege escalation",
+    "remote code execution", "rce", "ssrf", "idor", "broken access",
+    "sensitive data", "cryptographic", "deserialization", "xxe",
+    "cors", "tls", "https", "certificate", "token", "jwt",
+    "password", "hashing", "encryption", "secret", "credential",
+    "open redirect", "path traversal", "directory traversal",
+    "rate limit", "brute force", "dos", "ddos",
+    "command injection", "code injection", "header injection",
+    "insecure", "hardcoded", "exposed", "leak",
+]
+_SECURITY_LABELS = ["security", "vulnerability", "cve", "security-fix"]
+_FEATURE_LABELS = ["feature", "enhancement", "feature-request"]
+_PERFORMANCE_LABELS = ["performance", "perf", "optimization"]
+
+
+def classify_issue(title: str, body: str, labels: list[str]) -> tuple[str, str, int, str]:
+    """Return (category, severity, confidence, effort) for an issue.
+
+    Classification rules:
+    1. Labels are authoritative — if the security team labeled it `security`, it IS security.
+    2. Title + body content analysis for security patterns (OWASP, CVE, CWE, etc.)
+    3. Keyword matching for feature / performance / refactor / docs.
+    4. Default = bug.
+    """
+    title_lower = title.lower()
+    body_lower = (body or "").lower()
+    labels_lower = [l.lower() for l in labels]
+    text = title_lower + " " + body_lower
+
+    # ── Step 1: Category (labels first, then content) ──
+    category = "bug"  # default
+
+    # Labels are AUTHORITATIVE — check them first
+    if any(lbl in labels_lower for lbl in _SECURITY_LABELS):
+        category = "security"
+    elif any(lbl in labels_lower for lbl in _FEATURE_LABELS):
+        category = "feature"
+    elif any(lbl in labels_lower for lbl in _PERFORMANCE_LABELS):
+        category = "performance"
+    elif "bug" in labels_lower:
+        category = "bug"
+    elif "refactor" in labels_lower or "tech-debt" in labels_lower:
+        category = "refactor"
+    elif "documentation" in labels_lower or "docs" in labels_lower:
+        category = "documentation"
+    else:
+        # No authoritative label → fall back to content analysis
+        if any(kw in text for kw in _SECURITY_TITLE_KEYWORDS):
+            category = "security"
+        elif any(kw in title_lower for kw in ["feature", "add", "implement", "request"]):
+            category = "feature"
+        elif any(kw in title_lower for kw in ["slow", "performance", "memory", "leak", "optimize"]):
+            category = "performance"
+        elif any(kw in title_lower for kw in ["refactor", "cleanup", "tech debt"]):
+            category = "refactor"
+        elif any(kw in title_lower for kw in ["doc", "readme", "documentation"]):
+            category = "documentation"
+
+    # ── Step 2: Severity ──
+    severity = "medium"
+    if any(k in labels_lower for k in ["p0", "critical", "urgent"]):
+        severity = "critical"
+    elif any(k in labels_lower for k in ["p1", "high"]):
+        severity = "high"
+    elif any(k in labels_lower for k in ["p3", "low", "minor"]):
+        severity = "low"
+    elif "crash" in title_lower or "broken" in title_lower:
+        severity = "high"
+    # Security issues default to at least "high" if not already set higher
+    if category == "security" and severity == "medium":
+        severity = "high"
+
+    # ── Step 3: Effort + Confidence ──
+    body_len = len(body or "")
+    if body_len < 200:
+        effort = "1-2 hours"
+        confidence = 85
+    elif body_len < 500:
+        effort = "2-4 hours"
+        confidence = 80
+    else:
+        effort = "4-8 hours"
+        confidence = 75
+
+    return category, severity, confidence, effort
+
 
 def parse_issue_row(row) -> IssueResponse:
     return IssueResponse(
@@ -50,6 +145,7 @@ async def list_issues(
     status: Optional[str] = Query(None),
     severity: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
+    exclude_category: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     db: aiosqlite.Connection = Depends(get_db),
 ):
@@ -68,6 +164,9 @@ async def list_issues(
     if category:
         query += " AND category = ?"
         params.append(category)
+    if exclude_category:
+        query += " AND category != ?"
+        params.append(exclude_category)
     if search:
         query += " AND (title LIKE ? OR body LIKE ?)"
         params.extend([f"%{search}%", f"%{search}%"])
@@ -112,6 +211,22 @@ async def _create_devin_sessions(issue_ids: list[int]):
         devin = DevinService(token, org_id=org_id)
         slack = SlackService(webhook_url=slack_webhook)
 
+        # Pre-check: how many sessions are already running?
+        MAX_CONCURRENT_SESSIONS = 5
+        active_cursor = await db.execute(
+            "SELECT COUNT(*) FROM devin_sessions WHERE status IN ('running', 'pending', 'suspended')"
+        )
+        active_count = (await active_cursor.fetchone())[0]
+        if active_count >= MAX_CONCURRENT_SESSIONS:
+            logger.warning(f"At session limit ({active_count}/{MAX_CONCURRENT_SESSIONS}) — queuing all {len(issue_ids)} issues")
+            for issue_id in issue_ids:
+                await db.execute(
+                    "UPDATE issues SET status = 'queued' WHERE id = ? AND status IN ('approved', 'triaged')",
+                    (issue_id,),
+                )
+            await db.commit()
+            return
+
         for issue_id in issue_ids:
             try:
                 cursor = await db.execute("SELECT * FROM issues WHERE id = ?", (issue_id,))
@@ -123,6 +238,17 @@ async def _create_devin_sessions(issue_ids: list[int]):
                 repo = issue_row[5]  # repo_full_name
                 issue_title = issue_row[3]
                 issue_number = issue_row[2]
+
+                # Guard: skip if this issue already has an active session
+                dup_cursor = await db.execute(
+                    "SELECT session_id FROM devin_sessions WHERE issue_id = ? AND status IN ('running', 'pending', 'suspended') LIMIT 1",
+                    (issue_id,),
+                )
+                existing = await dup_cursor.fetchone()
+                if existing:
+                    logger.warning(f"Issue {issue_id} already has active session {existing[0]} — skipping")
+                    continue
+
                 logger.info(f"Creating Devin session for issue #{issue_id} in {repo}")
                 prompt = devin.build_issue_prompt(
                     {
@@ -160,6 +286,10 @@ async def _create_devin_sessions(issue_ids: list[int]):
                 await db.commit()
                 logger.info(f"Created Devin session {session_id} for issue #{issue_id}")
 
+                # Delay between session creations to avoid Devin API rate limiting
+                if len(issue_ids) > 1:
+                    await asyncio.sleep(5)
+
                 # Send "Issue Sent to Devin" Slack notification
                 if slack.webhook_url and notif_prefs.get("issue_sent_to_devin", True):
                     try:
@@ -176,13 +306,30 @@ async def _create_devin_sessions(issue_ids: list[int]):
 
             except Exception as e:
                 logger.error(f"Failed to create Devin session for issue {issue_id}: {e}", exc_info=True)
-                # Mark issue back to triaged so user can retry
-                await db.execute(
-                    "UPDATE issues SET status = 'triaged' WHERE id = ? AND status = 'approved'",
-                    (issue_id,),
-                )
-                await db.commit()
-                continue
+                if "429" in str(e):
+                    # Rate limited — mark as queued so auto-retry picks it up later
+                    await db.execute(
+                        "UPDATE issues SET status = 'queued' WHERE id = ? AND status IN ('approved', 'queued')",
+                        (issue_id,),
+                    )
+                    await db.commit()
+                    logger.warning(f"Issue {issue_id} queued for retry due to rate limiting")
+                    # Stop trying remaining issues — API is rate limited
+                    for remaining_id in issue_ids[issue_ids.index(issue_id) + 1:]:
+                        await db.execute(
+                            "UPDATE issues SET status = 'queued' WHERE id = ? AND status = 'approved'",
+                            (remaining_id,),
+                        )
+                    await db.commit()
+                    break
+                else:
+                    # Non-rate-limit error — mark back to triaged for manual retry
+                    await db.execute(
+                        "UPDATE issues SET status = 'triaged' WHERE id = ? AND status = 'approved'",
+                        (issue_id,),
+                    )
+                    await db.commit()
+                    continue
 
     except Exception as e:
         logger.error(f"Background Devin session creation failed: {e}", exc_info=True)
@@ -216,6 +363,14 @@ async def approve_issues(
 
     await db.commit()
 
+    # Check capacity before kicking off background task
+    active_cursor = await db.execute(
+        "SELECT COUNT(*) FROM devin_sessions WHERE status IN ('running', 'pending', 'suspended')"
+    )
+    active_count = (await active_cursor.fetchone())[0]
+    MAX_CONCURRENT_SESSIONS = 5
+    will_queue = max(0, len(approved) - max(0, MAX_CONCURRENT_SESSIONS - active_count))
+
     # Kick off Devin sessions in the background
     if approved:
         background_tasks.add_task(_create_devin_sessions, approved)
@@ -224,6 +379,9 @@ async def approve_issues(
         "approved": approved,
         "count": len(approved),
         "already_in_progress": already_in_progress,
+        "queued_count": will_queue,
+        "active_sessions": active_count,
+        "max_concurrent": MAX_CONCURRENT_SESSIONS,
     }
 
 
@@ -254,58 +412,15 @@ async def triage_issue(issue_id: int, db: aiosqlite.Connection = Depends(get_db)
     if not row:
         raise HTTPException(status_code=404, detail="Issue not found")
 
-    # Basic AI triage logic - categorize based on labels and title
-    title = (row[3] or "").lower()
-    labels_str = row[6] or "[]"
-    labels = json.loads(labels_str)
-    labels_lower = [l.lower() for l in labels]
+    # Use shared classification logic
+    title = row[3] or ""
+    body = row[4] or ""
+    labels = json.loads(row[6] or "[]")
 
-    # Determine category
-    category = "bug"
-    if any(k in title for k in ["feature", "add", "implement", "request"]):
-        category = "feature"
-    elif any(k in title for k in ["security", "vulnerability", "cve", "xss", "sql injection"]):
-        category = "security"
-    elif any(k in title for k in ["slow", "performance", "memory", "leak", "optimize"]):
-        category = "performance"
-    elif any(k in title for k in ["refactor", "cleanup", "tech debt"]):
-        category = "refactor"
-    elif any(k in title for k in ["doc", "readme", "documentation"]):
-        category = "documentation"
-
-    # Override with labels
-    if "feature" in labels_lower or "enhancement" in labels_lower:
-        category = "feature"
-    elif "security" in labels_lower:
-        category = "security"
-    elif "performance" in labels_lower:
-        category = "performance"
-
-    # Determine severity
-    severity = "medium"
-    if any(k in labels_lower for k in ["p0", "critical", "urgent"]):
-        severity = "critical"
-    elif any(k in labels_lower for k in ["p1", "high"]):
-        severity = "high"
-    elif any(k in labels_lower for k in ["p3", "low", "minor"]):
-        severity = "low"
-    elif "crash" in title or "broken" in title or "security" in title:
-        severity = "high"
-
-    # Estimate effort
-    body_len = len(row[4] or "")
-    if body_len < 200:
-        effort = "1-2 hours"
-        confidence = 85
-    elif body_len < 500:
-        effort = "2-4 hours"
-        confidence = 80
-    else:
-        effort = "4-8 hours"
-        confidence = 75
+    category, severity, confidence, effort = classify_issue(title, body, labels)
 
     # Generate AI summary
-    ai_summary = f"Issue in {row[5]}: {row[3]}. Categorized as {category} with {severity} severity. Estimated effort: {effort}."
+    ai_summary = f"Issue in {row[5]}: {title}. Categorized as {category} with {severity} severity. Estimated effort: {effort}."
 
     await db.execute(
         """UPDATE issues SET severity = ?, category = ?, status = 'triaged',
@@ -331,35 +446,16 @@ async def triage_all_issues(db: aiosqlite.Connection = Depends(get_db)):
     rows = await cursor.fetchall()
     results = []
     for row in rows:
-        # Reuse single triage logic
         cursor2 = await db.execute("SELECT * FROM issues WHERE id = ?", (row[0],))
         issue_row = await cursor2.fetchone()
         if issue_row:
-            title = (issue_row[3] or "").lower()
+            title = issue_row[3] or ""
+            body = issue_row[4] or ""
             labels = json.loads(issue_row[6] or "[]")
-            labels_lower = [l.lower() for l in labels]
 
-            category = "bug"
-            if any(k in title for k in ["feature", "add", "implement"]):
-                category = "feature"
-            elif any(k in title for k in ["security", "vulnerability"]):
-                category = "security"
-            elif any(k in title for k in ["slow", "performance", "memory"]):
-                category = "performance"
+            category, severity, confidence, effort = classify_issue(title, body, labels)
 
-            severity = "medium"
-            if any(k in labels_lower for k in ["p0", "critical"]):
-                severity = "critical"
-            elif any(k in labels_lower for k in ["p1", "high"]):
-                severity = "high"
-            elif any(k in labels_lower for k in ["p3", "low"]):
-                severity = "low"
-
-            body_len = len(issue_row[4] or "")
-            effort = "1-2 hours" if body_len < 200 else "2-4 hours" if body_len < 500 else "4-8 hours"
-            confidence = 85 if body_len < 200 else 80 if body_len < 500 else 75
-
-            ai_summary = f"Issue in {issue_row[5]}: {issue_row[3]}. Categorized as {category} ({severity}). Est: {effort}."
+            ai_summary = f"Issue in {issue_row[5]}: {title}. Categorized as {category} ({severity}). Est: {effort}."
 
             await db.execute(
                 """UPDATE issues SET severity = ?, category = ?, status = 'triaged',
@@ -482,33 +578,13 @@ async def sync_and_triage(db: aiosqlite.Connection = Depends(get_db)):
         cursor2 = await db.execute("SELECT * FROM issues WHERE id = ?", (row[0],))
         issue_row = await cursor2.fetchone()
         if issue_row:
-            title = (issue_row[3] or "").lower()
+            title = issue_row[3] or ""
+            body = issue_row[4] or ""
             labels = json.loads(issue_row[6] or "[]")
-            labels_lower = [l.lower() for l in labels]
 
-            category = "bug"
-            if any(k in title for k in ["feature", "add", "implement"]):
-                category = "feature"
-            elif any(k in title for k in ["security", "vulnerability"]):
-                category = "security"
-            elif any(k in title for k in ["slow", "performance", "memory"]):
-                category = "performance"
+            category, severity, confidence, effort = classify_issue(title, body, labels)
 
-            severity = "medium"
-            if any(k in labels_lower for k in ["p0", "critical"]):
-                severity = "critical"
-            elif any(k in labels_lower for k in ["p1", "high"]):
-                severity = "high"
-            elif any(k in labels_lower for k in ["p3", "low"]):
-                severity = "low"
-            elif "crash" in title or "broken" in title or "security" in title:
-                severity = "high"
-
-            body_len = len(issue_row[4] or "")
-            effort = "1-2 hours" if body_len < 200 else "2-4 hours" if body_len < 500 else "4-8 hours"
-            confidence = 85 if body_len < 200 else 80 if body_len < 500 else 75
-
-            ai_summary = f"Issue in {issue_row[5]}: {issue_row[3]}. Categorized as {category} ({severity}). Est: {effort}."
+            ai_summary = f"Issue in {issue_row[5]}: {title}. Categorized as {category} ({severity}). Est: {effort}."
 
             await db.execute(
                 """UPDATE issues SET severity = ?, category = ?, status = 'triaged',
@@ -550,14 +626,41 @@ async def sync_and_triage(db: aiosqlite.Connection = Depends(get_db)):
     }
 
 
+@router.post("/reclassify-all")
+async def reclassify_all_issues(db: aiosqlite.Connection = Depends(get_db)):
+    """Re-run classification on ALL issues using the improved shared logic.
+    Does not change status — only updates category, severity, confidence, effort, and summary."""
+    cursor = await db.execute("SELECT * FROM issues")
+    rows = await cursor.fetchall()
+    updated = 0
+    for row in rows:
+        title = row[3] or ""
+        body = row[4] or ""
+        labels = json.loads(row[6] or "[]")
+
+        category, severity, confidence, effort = classify_issue(title, body, labels)
+
+        ai_summary = f"Issue in {row[5]}: {title}. Categorized as {category} ({severity}). Est: {effort}."
+
+        await db.execute(
+            """UPDATE issues SET severity = ?, category = ?,
+            ai_confidence = ?, ai_summary = ?, estimated_effort = ? WHERE id = ?""",
+            (severity, category, confidence, ai_summary, effort, row[0]),
+        )
+        updated += 1
+
+    await db.commit()
+    return {"reclassified": updated}
+
+
 @router.post("/retry-stuck")
 async def retry_stuck_issues(
     background_tasks: BackgroundTasks,
     db: aiosqlite.Connection = Depends(get_db),
 ):
-    """Retry issues stuck in 'approved' status without a Devin session."""
+    """Retry issues stuck in 'approved' or 'queued' status without a Devin session."""
     cursor = await db.execute(
-        "SELECT id FROM issues WHERE status = 'approved' AND (devin_session_id IS NULL OR devin_session_id = '')"
+        "SELECT id FROM issues WHERE status IN ('approved', 'queued') AND (devin_session_id IS NULL OR devin_session_id = '')"
     )
     rows = await cursor.fetchall()
     stuck_ids = [row[0] for row in rows]
