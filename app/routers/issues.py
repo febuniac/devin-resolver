@@ -211,6 +211,22 @@ async def _create_devin_sessions(issue_ids: list[int]):
         devin = DevinService(token, org_id=org_id)
         slack = SlackService(webhook_url=slack_webhook)
 
+        # Pre-check: how many sessions are already running?
+        MAX_CONCURRENT_SESSIONS = 5
+        active_cursor = await db.execute(
+            "SELECT COUNT(*) FROM devin_sessions WHERE status IN ('running', 'pending', 'suspended')"
+        )
+        active_count = (await active_cursor.fetchone())[0]
+        if active_count >= MAX_CONCURRENT_SESSIONS:
+            logger.warning(f"At session limit ({active_count}/{MAX_CONCURRENT_SESSIONS}) — queuing all {len(issue_ids)} issues")
+            for issue_id in issue_ids:
+                await db.execute(
+                    "UPDATE issues SET status = 'queued' WHERE id = ? AND status IN ('approved', 'triaged')",
+                    (issue_id,),
+                )
+            await db.commit()
+            return
+
         for issue_id in issue_ids:
             try:
                 cursor = await db.execute("SELECT * FROM issues WHERE id = ?", (issue_id,))

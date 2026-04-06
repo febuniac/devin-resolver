@@ -114,7 +114,39 @@ async def list_sessions(db: aiosqlite.Connection = Depends(get_db)):
         ORDER BY ds.created_at DESC"""
     )
     rows = await cursor.fetchall()
-    return [parse_session_row_with_issue(row) for row in rows]
+    sessions = [parse_session_row_with_issue(row) for row in rows]
+
+    # Also include queued issues as pseudo-sessions so they appear in Review Work
+    queued_cursor = await db.execute(
+        """SELECT id, number, title, repo_full_name, body, ai_summary, severity, category, approved_at
+        FROM issues WHERE status IN ('queued', 'approved')
+        ORDER BY id ASC"""
+    )
+    queued_rows = await queued_cursor.fetchall()
+    for qr in queued_rows:
+        sessions.append(DevinSessionResponse(
+            id=0,
+            session_id=f"queued-{qr[0]}",
+            session_url="",
+            issue_id=qr[0],
+            finding_id=None,
+            status="queued",
+            status_detail="Waiting for available Devin slot",
+            created_at=qr[8] or "",
+            updated_at=None,
+            pr_url=None,
+            pr_number=None,
+            recording_url=None,
+            issue_title=qr[2],
+            issue_number=qr[1],
+            repo_full_name=qr[3],
+            issue_body=qr[4],
+            ai_summary=qr[5],
+            issue_severity=qr[6],
+            issue_category=qr[7],
+        ))
+
+    return sessions
 
 
 @router.get("/sessions/{session_id}")
@@ -729,8 +761,19 @@ async def poll_all_sessions(
     await db.commit()
 
     # Auto-retry ONE queued issue per poll cycle (rate-limit friendly)
+    # But first check if we have room — skip retry if already at concurrent session limit
+    MAX_CONCURRENT_SESSIONS = 5
+    active_cursor = await db.execute(
+        "SELECT COUNT(*) FROM devin_sessions WHERE status IN ('running', 'pending', 'suspended')"
+    )
+    active_count = (await active_cursor.fetchone())[0]
+
     queued_retried = None
-    try:
+    if active_count >= MAX_CONCURRENT_SESSIONS:
+        logger.info(f"Skipping queued retry: {active_count} active sessions (limit {MAX_CONCURRENT_SESSIONS})")
+        queued_retried = {"skipped": True, "reason": f"{active_count} active sessions, limit is {MAX_CONCURRENT_SESSIONS}"}
+    else:
+      try:
         cursor = await db.execute(
             "SELECT id, number, title, body, repo_full_name, labels FROM issues WHERE status = 'queued' ORDER BY id ASC LIMIT 1"
         )
@@ -769,7 +812,7 @@ async def poll_all_sessions(
             except Exception as retry_err:
                 logger.warning(f"Auto-retry failed for issue #{q_id}: {retry_err}")
                 queued_retried = {"issue_id": q_id, "error": str(retry_err)[:100]}
-    except Exception as q_err:
+      except Exception as q_err:
         logger.error(f"Error checking queued issues: {q_err}")
 
     return {"polled": len(results), "results": results, "queued_retry": queued_retried}
