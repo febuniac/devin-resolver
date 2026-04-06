@@ -1,8 +1,10 @@
-"""Authentication router - reads credentials from environment variables."""
+"""Authentication router - reads credentials from environment or /data/auth.json."""
 import hashlib
+import json
 import os
 import secrets
 import time
+from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -11,9 +13,25 @@ load_dotenv()
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-# Read credentials from environment at startup
+
+def _load_auth_secret() -> str | None:
+    """Load auth secret from env var or /data/auth.json fallback."""
+    val = os.environ.get("BZ_AUTH_SECRET")
+    if val:
+        return val
+    auth_file = Path("/data/auth.json")
+    if auth_file.exists():
+        try:
+            data = json.loads(auth_file.read_text())
+            return data.get("secret")
+        except Exception:
+            pass
+    return None
+
+
+# Read credentials at startup
 _AUTH_USER = os.environ.get("ADMIN_USER", "admin")
-_AUTH_SECRET = os.environ.get("BZ_AUTH_SECRET")
+_AUTH_SECRET = _load_auth_secret()
 
 # Simple token store (in-memory; resets on restart)
 _active_tokens: dict[str, dict] = {}
@@ -65,3 +83,20 @@ async def verify_token(token: str = ""):
     if info:
         return {"valid": True, "username": info["username"], "role": info["role"]}
     return {"valid": False}
+
+
+class SetupRequest(BaseModel):
+    secret: str
+
+
+@router.post("/setup")
+async def setup_auth(req: SetupRequest):
+    """One-time setup: write auth secret to /data/auth.json. Only works if not already configured."""
+    global _AUTH_SECRET
+    if _AUTH_SECRET is not None:
+        raise HTTPException(status_code=409, detail="Auth already configured")
+    auth_file = Path("/data/auth.json")
+    auth_file.parent.mkdir(parents=True, exist_ok=True)
+    auth_file.write_text(json.dumps({"secret": req.secret}))
+    _AUTH_SECRET = req.secret
+    return {"ok": True, "message": "Auth configured"}
