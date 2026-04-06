@@ -3,8 +3,11 @@ import hashlib
 import os
 import secrets
 import time
+from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
+load_dotenv()
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
