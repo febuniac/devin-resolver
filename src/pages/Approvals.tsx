@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video, FileDiff, GitMerge, AlertCircle } from 'lucide-react';
+import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video, FileDiff, GitMerge, AlertCircle, AlertTriangle } from 'lucide-react';
 import api from '../api/client';
 
 const GitHubIcon = ({ size = 14 }: { size?: number }) => (
@@ -150,6 +150,7 @@ export default function Approvals() {
   const [autoResolveConflicts, setAutoResolveConflicts] = useState(true);
   const [resolvingConflicts, setResolvingConflicts] = useState<Set<string>>(new Set());
   const [dispatching, setDispatching] = useState<Set<string>>(new Set());
+  const [dispatchErrors, setDispatchErrors] = useState<Record<string, string>>({});
 
   const severityOrder: Record<string, number> = { low: 1, medium: 2, high: 3, critical: 4 };
   const canAutoApprove = (severity?: string | null) => {
@@ -290,6 +291,7 @@ export default function Approvals() {
 
   const dispatchSession = async (sessionId: string, issueId: number) => {
     setDispatching(prev => new Set(prev).add(sessionId));
+    setDispatchErrors(prev => { const next = { ...prev }; delete next[sessionId]; return next; });
     try {
       const result = await api.dispatchSession(issueId);
       setToast({ message: `Sent to Devin! Session created: ${result.session_id?.slice(0, 8)}...`, type: 'success' });
@@ -297,8 +299,9 @@ export default function Approvals() {
       await loadSessions();
     } catch (e) {
       console.error('Failed to dispatch session:', e);
-      setToast({ message: `Failed to send to Devin: ${e instanceof Error ? e.message : 'Unknown error'}`, type: 'error' });
-      setTimeout(() => setToast(null), 4000);
+      const errMsg = e instanceof Error ? e.message : 'Unknown error';
+      const friendly = errMsg.includes('429') ? 'Rate limited — too many sessions created recently. Will auto-retry.' : errMsg.includes('500') ? 'Devin API error. Will auto-retry on next cycle.' : errMsg;
+      setDispatchErrors(prev => ({ ...prev, [sessionId]: friendly }));
     } finally {
       setDispatching(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
     }
@@ -711,25 +714,48 @@ export default function Approvals() {
                         </span>
                       </div>
                       <div style={{ padding: 14, background: 'var(--white)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                          <Loader2 size={14} className="animate-spin" style={{ color: '#3969CA' }} />
-                          <div style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 600, lineHeight: 1.5 }}>
-                            Automatically dispatching to Devin...
-                          </div>
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.6, marginBottom: 12 }}>
-                          This issue has been approved and will be automatically sent to Devin on the next polling cycle. 
-                          A Devin session will be created to work on this issue.
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 11, color: 'var(--dim)' }}>Queued: {formatTimestamp(session.created_at)}</span>
-                          <button
-                            onClick={() => dispatchSession(session.id, session.issue_id)}
-                            disabled={dispatching.has(session.id)}
-                            style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 6, cursor: 'pointer', border: '1px solid rgba(57,105,202,0.3)', background: 'transparent', color: '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 5, opacity: dispatching.has(session.id) ? 0.6 : 1, transition: '0.15s' }}>
-                            {dispatching.has(session.id) ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} {dispatching.has(session.id) ? 'Sending...' : 'Send Now'}
-                          </button>
-                        </div>
+                        {dispatchErrors[session.id] ? (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                              <AlertTriangle size={14} style={{ color: '#ef4444', marginTop: 1, flexShrink: 0 }} />
+                              <div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: '#ef4444', marginBottom: 4 }}>Dispatch failed</div>
+                                <div style={{ fontSize: 11, color: 'var(--mid)', lineHeight: 1.5 }}>{dispatchErrors[session.id]}</div>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: 11, color: 'var(--dim)' }}>Queued: {formatTimestamp(session.created_at)}</span>
+                              <button
+                                onClick={() => dispatchSession(session.id, session.issue_id)}
+                                disabled={dispatching.has(session.id)}
+                                style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 6, cursor: 'pointer', border: 'none', background: '#3969CA', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 5, opacity: dispatching.has(session.id) ? 0.6 : 1, transition: '0.15s' }}>
+                                {dispatching.has(session.id) ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} Retry Now
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                              <Loader2 size={14} className="animate-spin" style={{ color: '#3969CA' }} />
+                              <div style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 600, lineHeight: 1.5 }}>
+                                Automatically dispatching to Devin...
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.6, marginBottom: 12 }}>
+                              This issue has been approved and will be automatically sent to Devin on the next polling cycle. 
+                              A Devin session will be created to work on this issue.
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: 11, color: 'var(--dim)' }}>Queued: {formatTimestamp(session.created_at)}</span>
+                              <button
+                                onClick={() => dispatchSession(session.id, session.issue_id)}
+                                disabled={dispatching.has(session.id)}
+                                style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 6, cursor: 'pointer', border: '1px solid rgba(57,105,202,0.3)', background: 'transparent', color: '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 5, opacity: dispatching.has(session.id) ? 0.6 : 1, transition: '0.15s' }}>
+                                {dispatching.has(session.id) ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} {dispatching.has(session.id) ? 'Sending...' : 'Send Now'}
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
