@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, GitPullRequestArrow, Shield, CheckSquare, BarChart3, Radio, Settings, Sun, Moon, AlertCircle, Github, BookOpen, FileText } from 'lucide-react';
+import { LayoutDashboard, GitPullRequestArrow, Shield, CheckSquare, BarChart3, Radio, Settings, Sun, Moon, AlertCircle, Github, BookOpen, FileText, LogOut } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { useState, useEffect } from 'react';
 import api from '../../api/client';
 
@@ -29,6 +30,7 @@ const insightNav = [
 
 export default function Sidebar() {
   const { theme, toggleTheme } = useTheme();
+  const { logout, username } = useAuth();
   const location = useLocation();
   const [status, setStatus] = useState<StatusData | null>(null);
 
@@ -212,6 +214,21 @@ export default function Sidebar() {
             {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
           </button>
         </div>
+
+        {/* Logout */}
+        <button onClick={logout}
+          style={{
+            width: '100%', marginTop: 12, padding: '8px 12px',
+            borderRadius: 8, border: '1px solid var(--rule)',
+            background: 'var(--bg2)', color: 'var(--mid)',
+            fontSize: 12, fontWeight: 500, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 8,
+            transition: '0.15s',
+          }}
+        >
+          <LogOut size={14} />
+          Sign out{username ? ` (${username})` : ''}
+        </button>
       </div>
     </aside>
   );
