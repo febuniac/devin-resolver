@@ -128,7 +128,7 @@ export default function Approvals() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [approving, setApproving] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [mergeError, setMergeError] = useState<{ sessionId: string; prUrl: string; reason: string } | null>(null);
+  const [mergeErrors, setMergeErrors] = useState<Record<string, { prUrl: string; reason: string }>>({});
   const [approved, setApproved] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterType>('all');
   const [liveData, setLiveData] = useState<Record<string, LiveData>>({});
@@ -326,7 +326,7 @@ export default function Approvals() {
       } else {
         reason = msg;
       }
-      setMergeError({ sessionId, prUrl, reason });
+      setMergeErrors(prev => ({ ...prev, [sessionId]: { prUrl, reason } }));
     } finally {
       setMerging(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
     }
@@ -514,6 +514,8 @@ export default function Approvals() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}>
                   {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
                     <><GitMerge size={14} style={{ color: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>Merged</span></>
+                  ) : mergeErrors[session.id] ? (
+                    <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Needs Input</span></>
                   ) : session.pr_url && ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                     <><span className="dot" style={{ background: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>PR Ready</span></>
                   ) : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
@@ -615,14 +617,35 @@ export default function Approvals() {
                             {isMerged ? <GitMerge size={14} style={{ color: '#3969CA' }} /> : <GitPullRequest size={14} style={{ color: '#3969CA' }} />}
                           </div>
                           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
-                            {isMerged ? 'PR Merged! Issue Resolved' : 'Pull Request Ready for Review'}
+                            {isMerged ? 'PR Merged! Issue Resolved' : mergeErrors[session.id] ? 'PR Cannot Be Merged' : 'Pull Request Ready for Review'}
                           </div>
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--mid)', marginBottom: 12, lineHeight: 1.5 }}>
                           {isMerged
                             ? 'PR was merged successfully. The code changes are now in the main branch.'
+                            : mergeErrors[session.id]
+                            ? 'Action required — this PR needs your attention before it can be merged.'
                             : 'Devin has created a PR. Review the code changes and recording below, then click "Approve & Merge" to merge it.'}
                         </div>
+                        {mergeErrors[session.id] && (
+                          <div style={{ padding: '12px 14px', borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 14 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                              <AlertCircle size={14} style={{ color: '#e53e3e', flexShrink: 0 }} />
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#991b1b' }}>Merge failed</span>
+                            </div>
+                            <p style={{ fontSize: 11, color: '#7f1d1d', lineHeight: 1.5, margin: '0 0 10px', paddingLeft: 22 }}>{mergeErrors[session.id].reason}</p>
+                            <div style={{ display: 'flex', gap: 8, paddingLeft: 22 }}>
+                              <a href={mergeErrors[session.id].prUrl} target="_blank" rel="noopener noreferrer"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 8, background: '#1f2937', color: '#fff', fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
+                                <GitHubIcon size={12} /> View on GitHub
+                              </a>
+                              <button onClick={() => { setMergeErrors(prev => { const next = { ...prev }; delete next[session.id]; return next; }); mergePr(session.id, mergeErrors[session.id].prUrl); }}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 8, background: '#8b5cf6', color: '#fff', fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+                                <RefreshCw size={10} /> Retry Merge
+                              </button>
+                            </div>
+                          </div>
+                        )}
                         {diff && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: 12, color: 'var(--mid)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -1351,43 +1374,6 @@ export default function Approvals() {
           </div>
         ))}
       </div>
-
-      {/* Merge Error Modal */}
-      {mergeError && createPortal(
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)' }}
-          onClick={() => setMergeError(null)}>
-          <div style={{ background: '#fff', borderRadius: 16, maxWidth: 440, width: '100%', overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.35)' }}
-            onClick={e => e.stopPropagation()}>
-            <div style={{ background: '#fef2f2', padding: '20px 24px', borderBottom: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <AlertCircle size={18} style={{ color: '#e53e3e' }} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: '#991b1b' }}>PR Cannot Be Merged</div>
-                <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 2 }}>Action required on GitHub</div>
-              </div>
-            </div>
-            <div style={{ padding: '20px 24px' }}>
-              <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 16px' }}>{mergeError.reason}</p>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <a href={mergeError.prUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, background: '#1f2937', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }}>
-                  <GitHubIcon size={14} /> View PR on GitHub
-                </a>
-                <button onClick={() => { setMergeError(null); mergePr(mergeError.sessionId, mergeError.prUrl); }}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, background: '#8b5cf6', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
-                  <RefreshCw size={12} /> Retry Merge
-                </button>
-              </div>
-              <button onClick={() => setMergeError(null)}
-                style={{ width: '100%', marginTop: 8, padding: '8px', borderRadius: 8, border: '1px solid #e5e7eb', background: 'transparent', color: '#6b7280', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* Toast notification */}
       {toast && (
