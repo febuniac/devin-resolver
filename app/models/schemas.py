@@ -151,6 +151,7 @@ class SettingsResponse(BaseModel):
     auto_approve_enabled: bool
     auto_approve_confidence: int
     auto_approve_max_severity: str
+    auto_resolve_conflicts: bool = True
     codeql_enabled: bool
     scan_frequency: str
     notifications: dict
@@ -166,6 +167,7 @@ class SettingsUpdate(BaseModel):
     auto_approve_enabled: Optional[bool] = None
     auto_approve_confidence: Optional[int] = None
     auto_approve_max_severity: Optional[str] = None
+    auto_resolve_conflicts: Optional[bool] = None
     codeql_enabled: Optional[bool] = None
     scan_frequency: Optional[str] = None
     notifications: Optional[dict] = None

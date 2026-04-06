@@ -407,20 +407,53 @@ async def merge_pr(
             }
         else:
             error_detail = merge_resp.json().get("message", merge_resp.text[:300])
-            # Check if failure is due to merge conflicts — auto-resolve
+            # Check if failure is due to merge conflicts — auto-resolve if enabled
             if merge_resp.status_code == 405 or "not mergeable" in error_detail.lower():
-                try:
-                    resolve_result = await _auto_resolve_conflicts(
-                        db, pat, owner, repo, pr_number, pr_data, headers
-                    )
-                    if resolve_result:
-                        return resolve_result
-                except Exception as resolve_err:
-                    logger.error(f"Auto-resolve conflicts failed: {resolve_err}")
+                # Check if auto-resolve is enabled in settings
+                arc_cursor = await db.execute("SELECT auto_resolve_conflicts FROM settings WHERE id = 1")
+                arc_row = await arc_cursor.fetchone()
+                auto_resolve_enabled = bool(arc_row[0]) if arc_row and arc_row[0] is not None else True
+                if auto_resolve_enabled:
+                    try:
+                        resolve_result = await _auto_resolve_conflicts(
+                            db, pat, owner, repo, pr_number, pr_data, headers
+                        )
+                        if resolve_result:
+                            return resolve_result
+                    except Exception as resolve_err:
+                        logger.error(f"Auto-resolve conflicts failed: {resolve_err}")
             raise HTTPException(
                 status_code=merge_resp.status_code,
                 detail=f"Failed to merge PR: {error_detail}",
             )
+
+
+@router.post("/pr-resolve-conflicts/{owner}/{repo}/{pr_number}")
+async def resolve_conflicts(
+    owner: str,
+    repo: str,
+    pr_number: int,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Manually trigger a Devin session to resolve merge conflicts for a PR."""
+    pat = await get_github_pat(db)
+    headers = {
+        "Authorization": f"token {pat}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        pr_resp = await client.get(
+            f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}",
+            headers=headers,
+        )
+        if pr_resp.status_code != 200:
+            raise HTTPException(status_code=pr_resp.status_code, detail=f"GitHub API error: {pr_resp.text[:300]}")
+        pr_data = pr_resp.json()
+
+    result = await _auto_resolve_conflicts(db, pat, owner, repo, pr_number, pr_data, headers)
+    if result:
+        return result
+    raise HTTPException(status_code=500, detail="Failed to create conflict resolution session")
 
 
 async def _auto_resolve_conflicts(

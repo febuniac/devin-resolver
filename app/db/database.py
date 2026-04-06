@@ -141,6 +141,12 @@ async def init_db():
             await db.execute("ALTER TABLE settings ADD COLUMN github_pat TEXT DEFAULT ''")
 
 
+        # Migration: add auto_resolve_conflicts column to settings
+        cursor = await db.execute("PRAGMA table_info(settings)")
+        columns = [row[1] for row in await cursor.fetchall()]
+        if "auto_resolve_conflicts" not in columns:
+            await db.execute("ALTER TABLE settings ADD COLUMN auto_resolve_conflicts INTEGER DEFAULT 1")
+
         # Migration: add status_detail column to devin_sessions if it doesn't exist
         cursor = await db.execute("PRAGMA table_info(devin_sessions)")
         ds_columns = [row[1] for row in await cursor.fetchall()]

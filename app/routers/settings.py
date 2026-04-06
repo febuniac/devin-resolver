@@ -42,7 +42,7 @@ async def get_settings(db: aiosqlite.Connection = Depends(get_db)):
         """SELECT github_token, devin_api_token, devin_org_id, slack_webhook_url,
         slack_channels, auto_approve_enabled, auto_approve_confidence,
         auto_approve_max_severity, codeql_enabled, scan_frequency, notifications,
-        github_pat
+        github_pat, auto_resolve_conflicts
         FROM settings WHERE id = 1"""
     )
     row = await cursor.fetchone()
@@ -59,6 +59,7 @@ async def get_settings(db: aiosqlite.Connection = Depends(get_db)):
         auto_approve_enabled=bool(row[5]),
         auto_approve_confidence=row[6] or 90,
         auto_approve_max_severity=row[7] or "medium",
+        auto_resolve_conflicts=bool(row[12]) if len(row) > 12 else True,
         codeql_enabled=bool(row[8]),
         scan_frequency=row[9] or "daily",
         notifications=json.loads(row[10]) if row[10] else {},
@@ -100,6 +101,9 @@ async def update_settings(
     if settings.auto_approve_max_severity is not None:
         updates.append("auto_approve_max_severity = ?")
         params.append(settings.auto_approve_max_severity)
+    if settings.auto_resolve_conflicts is not None:
+        updates.append("auto_resolve_conflicts = ?")
+        params.append(int(settings.auto_resolve_conflicts))
     if settings.codeql_enabled is not None:
         updates.append("codeql_enabled = ?")
         params.append(int(settings.codeql_enabled))
