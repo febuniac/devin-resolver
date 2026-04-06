@@ -1154,6 +1154,65 @@ async def approve_session(
     return {"session_id": actual_session_id, "status": "approved", "result": result}
 
 
+@router.post("/sessions/dispatch/{issue_id}")
+async def dispatch_queued_session(
+    issue_id: int,
+    db: aiosqlite.Connection = Depends(get_db),
+    devin: DevinService = Depends(get_devin_service),
+):
+    """Dispatch a queued issue to Devin — creates a real Devin session."""
+    if not devin.token:
+        raise HTTPException(status_code=400, detail="Devin API token not configured")
+
+    # Fetch the issue
+    cursor = await db.execute("SELECT * FROM issues WHERE id = ?", (issue_id,))
+    issue_row = await cursor.fetchone()
+    if not issue_row:
+        raise HTTPException(status_code=404, detail="Issue not found")
+
+    # Fetch GitHub PAT
+    pat_cursor = await db.execute("SELECT github_pat FROM settings WHERE id = 1")
+    pat_row = await pat_cursor.fetchone()
+    github_pat = (pat_row[0] if pat_row else "") or ""
+
+    labels = json.loads(issue_row[6] or "[]")
+    issue_dict = {
+        "number": issue_row[2],
+        "title": issue_row[3],
+        "body": issue_row[4] or "",
+        "labels": labels,
+    }
+    prompt = devin.build_issue_prompt(issue_dict, issue_row[5], github_pat=github_pat)
+
+    # Create Devin session
+    try:
+        session_data = await devin.create_session(prompt=prompt)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create Devin session: {str(e)}")
+
+    session_id = session_data.get("session_id", "")
+    session_url = session_data.get("url", f"https://app.devin.ai/sessions/{session_id}")
+
+    # Store in database
+    await db.execute(
+        """INSERT INTO devin_sessions (session_id, session_url, issue_id, status)
+        VALUES (?, ?, ?, 'running')""",
+        (session_id, session_url, issue_id),
+    )
+    # Update issue status
+    await db.execute(
+        "UPDATE issues SET status = 'in_progress', devin_session_id = ?, devin_session_url = ? WHERE id = ?",
+        (session_id, session_url, issue_id),
+    )
+    await db.commit()
+
+    return {
+        "session_id": session_id,
+        "session_url": session_url,
+        "status": "running",
+    }
+
+
 @router.post("/sessions/{session_id}/terminate")
 async def terminate_session(
     session_id: str,
