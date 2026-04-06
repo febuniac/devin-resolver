@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BacklogZero — Devin Platform Integration Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1a1a2e;
+            background: #ffffff;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 40px 32px;
+        }
+
+        /* Header */
+        .report-header {
+            text-align: center;
+            border-bottom: 3px solid #3969CA;
+            padding-bottom: 32px;
+            margin-bottom: 40px;
+        }
+
+        .report-header h1 {
+            font-size: 2.2em;
+            color: #1a1a2e;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .report-header .subtitle {
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 4px;
+        }
+
+        .report-header .meta {
+            font-size: 0.95em;
+            color: #777;
+        }
+
+        /* Headings */
+        h1 {
+            font-size: 1.8em;
+            color: #1a1a2e;
+            margin-top: 48px;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        h2 {
+            font-size: 1.4em;
+            color: #2c3e50;
+            margin-top: 36px;
+            margin-bottom: 12px;
+        }
+
+        h3 {
+            font-size: 1.15em;
+            color: #34495e;
+            margin-top: 28px;
+            margin-bottom: 10px;
+        }
+
+        h4 {
+            font-size: 1em;
+            color: #555;
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+
+        p {
+            margin-bottom: 12px;
+        }
+
+        /* Links */
+        a {
+            color: #3969CA;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0 24px 0;
+            font-size: 0.92em;
+        }
+
+        thead th {
+            background: #f4f6f9;
+            color: #2c3e50;
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 14px;
+            border: 1px solid #d0d7e0;
+        }
+
+        tbody td {
+            padding: 9px 14px;
+            border: 1px solid #d0d7e0;
+            vertical-align: top;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #fafbfc;
+        }
+
+        /* Code */
+        code {
+            background: #f0f2f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace;
+            font-size: 0.88em;
+            color: #c7254e;
+        }
+
+        pre {
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 16px 20px;
+            overflow-x: auto;
+            margin: 16px 0 24px 0;
+            font-size: 0.88em;
+            line-height: 1.5;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: #24292e;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin: 8px 0 16px 24px;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        /* Mermaid diagrams */
+        pre.mermaid {
+            background: #ffffff;
+            border: 1px solid #e1e4e8;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* Horizontal rules */
+        hr {
+            border: none;
+            border-top: 1px solid #e0e0e0;
+            margin: 40px 0;
+        }
+
+        /* Bold */
+        strong {
+            color: #1a1a2e;
+        }
+
+        /* Table of Contents */
+        .toc {
+            background: #f8f9fb;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 20px 28px;
+            margin: 24px 0 40px 0;
+        }
+
+        .toc h2 {
+            margin-top: 0;
+            font-size: 1.2em;
+        }
+
+        .toc ol {
+            margin-left: 20px;
+        }
+
+        .toc li {
+            margin-bottom: 4px;
+        }
+
+        /* Confidential footer */
+        .footer {
+            margin-top: 48px;
+            padding-top: 16px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 0.85em;
+            color: #999;
+            font-style: italic;
+            text-align: center;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                font-size: 11pt;
+            }
+
+            .container {
+                max-width: 100%;
+                padding: 0;
+                margin: 0;
+            }
+
+            h1 {
+                page-break-after: avoid;
+            }
+
+            table, pre, .mermaid {
+                page-break-inside: avoid;
+            }
+
+            .report-header {
+                border-bottom-color: #000;
+            }
+
+            a {
+                color: #000;
+                text-decoration: none;
+            }
+
+            @page {
+                margin: 2cm;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- Report Header -->
+        <div class="report-header">
+            <h1 style="border: none; margin-top: 0; padding-bottom: 0;">BacklogZero — Devin Platform Integration Report</h1>
+            <p class="subtitle">Prepared by: BacklogZero Engineering</p>
+            <p class="meta">Date: April 2026</p>
+            <p class="meta">Audience: Cognition Engineering &amp; Partnerships Team</p>
+        </div>
+
+        <!-- Table of Contents -->
+        <div class="toc">
+            <h2>Table of Contents</h2>
+            <ol>
+                <li><a href="#section-1">Executive Summary</a></li>
+                <li><a href="#section-2">Product Overview</a></li>
+                <li><a href="#section-3">Architecture Overview</a></li>
+                <li><a href="#section-4">Devin API Integration</a></li>
+                <li><a href="#section-5">Issue-to-PR Pipeline</a></li>
+                <li><a href="#section-6">Security Remediation Workflow</a></li>
+                <li><a href="#section-7">Governance &amp; Auto-Approve Engine</a></li>
+                <li><a href="#section-8">Analytics, ROI &amp; Audit Reporting</a></li>
+                <li><a href="#section-9">Slack Notification System</a></li>
+                <li><a href="#section-10">Roadmap &amp; Future Enhancements</a></li>
+            </ol>
+        </div>
+
+        <hr>
+
+        <!-- Section 1 -->
+        <h1 id="section-1">1. Executive Summary</h1>
+
+        <p>BacklogZero is an autonomous remediation platform that eliminates engineering debt and security vulnerabilities by integrating directly with the <strong>Devin AI software engineer</strong>. The system automates the full lifecycle of a GitHub issue — from initial triage and severity scoring to autonomous code repair, test verification, and Pull Request generation.</p>
+
+        <h2>Key Outcomes</h2>
+
+        <table>
+            <thead>
+                <tr><th>Metric</th><th>Value</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Issue-to-PR automation</strong></td><td>End-to-end, zero human code required</td></tr>
+                <tr><td><strong>Parallel fleet execution</strong></td><td>N issues resolved in constant wall-clock time</td></tr>
+                <tr><td><strong>Security remediation</strong></td><td>CodeQL alerts triaged and patched autonomously</td></tr>
+                <tr><td><strong>ROI multiplier</strong></td><td>~3 engineer-hours saved per resolved issue</td></tr>
+                <tr><td><strong>Audit readiness</strong></td><td>Real-time compliance scoring with PDF export</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Core Value Proposition</h2>
+
+        <ul>
+            <li><strong>Autonomous Remediation</strong>: Leverages Devin to write code, run tests, and verify fixes before human review.</li>
+            <li><strong>AI-Driven Triage</strong>: Automatically categorizes GitHub issues and CodeQL security alerts by severity and confidence.</li>
+            <li><strong>Closed-Loop Feedback</strong>: Integrates with Slack to keep teams informed of PR readiness and session blockers.</li>
+            <li><strong>Audit Readiness</strong>: Generates executive-level reports on remediation rates and security compliance.</li>
+        </ul>
+
+        <p>The platform aims to provide a "hands-off" experience for maintainers where the only manual intervention required is the high-level approval of triaged batches and the final review of generated Pull Requests.</p>
+
+        <hr>
+
+        <!-- Section 2 -->
+        <h1 id="section-2">2. Product Overview</h1>
+
+        <p>BacklogZero is a full-stack application consisting of a <strong>React + TypeScript + Vite</strong> frontend and a <strong>FastAPI + SQLite</strong> backend. It connects to three external services: <strong>GitHub</strong>, <strong>Devin AI</strong>, and <strong>Slack</strong>.</p>
+
+        <h2>Frontend Pages</h2>
+
+        <table>
+            <thead>
+                <tr><th>Path</th><th>Component</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>/</code></td><td>Dashboard</td><td>High-level metrics and ROI overview</td></tr>
+                <tr><td><code>/issues</code></td><td>IssueTriage</td><td>Triage and approval of GitHub issues</td></tr>
+                <tr><td><code>/security</code></td><td>Security</td><td>Management of CodeQL security findings</td></tr>
+                <tr><td><code>/approvals</code></td><td>Approvals</td><td>Reviewing Devin sessions and PR diffs</td></tr>
+                <tr><td><code>/analytics</code></td><td>Analytics</td><td>Historical trends and category breakdowns</td></tr>
+                <tr><td><code>/integrations</code></td><td>Integrations</td><td>Configuration for GitHub, Devin, and Slack</td></tr>
+                <tr><td><code>/settings</code></td><td>Settings</td><td>Repository management and general preferences</td></tr>
+                <tr><td><code>/wiki</code></td><td>Wiki</td><td>AI-generated codebase documentation</td></tr>
+                <tr><td><code>/audit</code></td><td>AuditReport</td><td>Compliance and executive summary exports</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Backend Services</h2>
+
+        <table>
+            <thead>
+                <tr><th>Service</th><th>Responsibility</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>GitHubService</code></td><td>Issue sync, CodeQL alert ingestion, PR operations</td></tr>
+                <tr><td><code>DevinService</code></td><td>Session creation, prompt engineering, status polling</td></tr>
+                <tr><td><code>SlackService</code></td><td>Block Kit notifications, daily summary digests</td></tr>
+                <tr><td>Database (aiosqlite)</td><td>Persistent state for repos, issues, sessions, settings</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Technology Stack</h2>
+
+        <table>
+            <thead>
+                <tr><th>Layer</th><th>Technology</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Frontend</td><td>React 18, TypeScript, Vite, Tailwind CSS, React Router, Lucide React</td></tr>
+                <tr><td>Backend</td><td>Python 3.12+, FastAPI, aiosqlite, Pydantic, Poetry</td></tr>
+                <tr><td>Database</td><td>SQLite (async via aiosqlite)</td></tr>
+                <tr><td>External APIs</td><td>GitHub REST API v3, Devin API v1/v3, Slack Webhooks</td></tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <!-- Section 3 -->
+        <h1 id="section-3">3. Architecture Overview</h1>
+
+        <h2>High-Level Component Interaction</h2>
+
+        <p>The following diagram illustrates how the system components interact to move an issue from discovery to resolution.</p>
+
+        <pre class="mermaid">
+graph TD
+    subgraph "Frontend (React + Vite)"
+        UI["App.tsx"]
+        Sidebar["Sidebar.tsx"]
+        API_Client["api/client.ts"]
+    end
+
+    subgraph "Backend (FastAPI)"
+        Main["main.py"]
+        GH_Svc["GitHubService"]
+        Devin_Svc["DevinService"]
+        Slack_Svc["SlackService"]
+        DB[("SQLite (aiosqlite)")]
+    end
+
+    subgraph "External Services"
+        GitHubAPI["GitHub API / CodeQL"]
+        DevinAPI["Devin API (v1/v3)"]
+        SlackAPI["Slack Webhooks"]
+    end
+
+    UI --> API_Client
+    API_Client --> Main
+    Main --> GH_Svc
+    Main --> Devin_Svc
+    Main --> Slack_Svc
+    Main --> DB
+
+    GH_Svc --> GitHubAPI
+    Devin_Svc --> DevinAPI
+    Slack_Svc --> SlackAPI
+        </pre>
+
+        <h2>Database Schema</h2>
+
+        <p>The system persists state across six primary tables:</p>
+
+        <pre class="mermaid">
+erDiagram
+    "connected_repos" ||--o{ "issues" : "contains"
+    "connected_repos" ||--o{ "security_findings" : "contains"
+    "issues" ||--o| "devin_sessions" : "triggers"
+    "security_findings" ||--o| "devin_sessions" : "triggers"
+    "devin_sessions" ||--o{ "session_events" : "logs"
+
+    "connected_repos" {
+        string full_name PK
+        string owner
+        string name
+        int sync_enabled
+    }
+
+    "issues" {
+        int id PK
+        string repo_full_name FK
+        string status
+        int ai_confidence
+        string devin_session_id
+    }
+
+    "security_findings" {
+        int id PK
+        string repo_full_name FK
+        string rule_id
+        string cwe_id
+    }
+
+    "devin_sessions" {
+        string session_id PK
+        int issue_id FK
+        int finding_id FK
+        string status
+    }
+
+    "settings" {
+        int id PK
+        string github_token
+        string devin_api_token
+        int auto_approve_enabled
+    }
+        </pre>
+
+        <h2>Backend Router Architecture</h2>
+
+        <table>
+            <thead>
+                <tr><th>Router</th><th>Prefix</th><th>Responsibility</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>issues</td><td><code>/api/issues</code></td><td>Issue CRUD, triage, approval pipeline</td></tr>
+                <tr><td>security</td><td><code>/api/security</code></td><td>CodeQL findings, compliance metrics</td></tr>
+                <tr><td>devin_sessions</td><td><code>/api/devin</code></td><td>Session proxy, status sync, message relay</td></tr>
+                <tr><td>github_pr</td><td><code>/api/github</code></td><td>PR diff, merge, comment, sync</td></tr>
+                <tr><td>settings</td><td><code>/api/settings</code></td><td>Tokens, automation config, validation</td></tr>
+                <tr><td>analytics</td><td><code>/api/analytics</code></td><td>KPI aggregation, ROI calculation</td></tr>
+                <tr><td>repos</td><td><code>/api/repos</code></td><td>Repository connection management</td></tr>
+                <tr><td>slack</td><td><code>/api/slack</code></td><td>Webhook testing, ad-hoc notifications</td></tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <!-- Section 4 -->
+        <h1 id="section-4">4. Devin API Integration</h1>
+
+        <h2>API Versioning and Routing</h2>
+
+        <p>The <code>DevinService</code> class supports both <strong>v1</strong> and <strong>v3</strong> of the Devin API. Routing is determined at initialization based on the API token format and the presence of an Organization ID.</p>
+
+        <table>
+            <thead>
+                <tr><th>Feature</th><th>v1 Implementation</th><th>v3 Implementation</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Base URL</strong></td><td><code>https://api.devin.ai/v1</code></td><td><code>https://api.devin.ai/v3/organizations/{org_id}</code></td></tr>
+                <tr><td><strong>Token Format</strong></td><td>Personal API token</td><td><code>cog_</code> prefix service user key</td></tr>
+                <tr><td><strong>Session ID Prefix</strong></td><td>None</td><td><code>devin-</code> prefix required</td></tr>
+                <tr><td><strong>Message Endpoint</strong></td><td><code>/sessions/{id}/message</code></td><td><code>/sessions/{id}/messages</code></td></tr>
+                <tr><td><strong>Token Validation</strong></td><td><code>limit=1</code> param</td><td><code>first=1</code> param</td></tr>
+            </tbody>
+        </table>
+
+        <pre><code># Routing logic
+self.is_v3 = token.startswith("cog_") and bool(org_id)
+if self.is_v3:
+    self.base_url = f"{DEVIN_API_V3}/organizations/{org_id}"
+else:
+    self.base_url = DEVIN_API_V1</code></pre>
+
+        <h2>Session Management Methods</h2>
+
+        <table>
+            <thead>
+                <tr><th>Method</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>create_session</code></td><td>POST to <code>/sessions</code> with prompt, optional playbook_id and idempotency_key</td></tr>
+                <tr><td><code>get_session</code></td><td>Retrieve session details (handles <code>devin-</code> prefix for v3 automatically)</td></tr>
+                <tr><td><code>list_sessions</code></td><td>Fetch paginated session list</td></tr>
+                <tr><td><code>send_message</code></td><td>Post message to active session (critical for unblocking <code>waiting_for_user</code>)</td></tr>
+                <tr><td><code>validate_token</code></td><td>Lightweight check via listing one session</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Session Data Flow</h2>
+
+        <pre class="mermaid">
+sequenceDiagram
+    participant Client as "Frontend api/client.ts"
+    participant Router as "devin_sessions.py"
+    participant Service as "DevinService"
+    participant DB as "SQLite (devin_sessions)"
+    participant API as "Devin API"
+
+    Client->>Router: GET /api/devin/sessions/{session_id}
+    Router->>DB: SELECT * FROM devin_sessions
+    Router->>Service: get_session(session_id)
+    Service->>API: GET /v3/organizations/{org_id}/sessions/devin-{id}
+    API-->>Service: return session_json
+    Service-->>Router: return dict
+    Router->>DB: UPDATE status, updated_at
+    Router-->>Client: return merged DevinSessionResponse
+        </pre>
+
+        <h2>Prompt Engineering &amp; Git Authentication</h2>
+
+        <p>Every prompt includes a mandatory Git Authentication block injected at the <strong>TOP</strong> to ensure Devin has write access to the target repository:</p>
+
+        <ol>
+            <li>Re-configure the git remote using the provided <code>github_pat</code></li>
+            <li>Avoid using the <code>git_create_pr</code> tool (may fail for private repos)</li>
+            <li>Use <code>curl</code> directly against the GitHub API to create Pull Requests</li>
+        </ol>
+
+        <pre class="mermaid">
+graph TD
+    subgraph "Prompt Construction (DevinService)"
+        A["_build_git_auth_block()"] -->|"Injected at Top"| D["Final Prompt String"]
+        B["Issue/Finding Metadata"] -->|"Context"| D
+        C["Instructions (Analyze/Fix/PR)"] -->|"Execution Plan"| D
+    end
+
+    subgraph "Execution Flow"
+        D --> E["DevinService.create_session()"]
+        E --> F["Devin API (v1 or v3)"]
+    end
+        </pre>
+
+        <h2>Specialized Prompt Builders</h2>
+
+        <table>
+            <thead>
+                <tr><th>Builder</th><th>Context Included</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>build_issue_prompt</code></td><td>Issue number, title, body, labels</td></tr>
+                <tr><td><code>build_security_prompt</code></td><td>CWE ID, file path, line number, rule description</td></tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <!-- Section 5 -->
+        <h1 id="section-5">5. Issue-to-PR Pipeline</h1>
+
+        <p>The core workflow defines the end-to-end lifecycle of a bug or feature request. It transforms raw GitHub issues into verified Pull Requests through a hybrid model of AI autonomy and human oversight.</p>
+
+        <h2>The Five-Stage Lifecycle</h2>
+
+        <table>
+            <thead>
+                <tr><th>Step</th><th>Component</th><th>Description</th><th>Type</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Trigger</strong></td><td>GitHub Issues</td><td>Ingesting open issues via GitHub API</td><td>Trigger</td></tr>
+                <tr><td><strong>Step 1</strong></td><td>AI Triage</td><td>Filtering and assigning severity scores</td><td>Autonomous</td></tr>
+                <tr><td><strong>Step 2</strong></td><td>Human Approval</td><td>User selects batches for Devin to process</td><td>Checkpoint</td></tr>
+                <tr><td><strong>Step 3</strong></td><td>Devin Execution</td><td>Autonomous coding, testing, and recording</td><td>Autonomous</td></tr>
+                <tr><td><strong>Step 4</strong></td><td>PR &amp; Notify</td><td>Pull Request creation and Slack alerts</td><td>Output</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Pipeline Entity Mapping</h2>
+
+        <pre class="mermaid">
+graph TD
+    subgraph "Natural Language Space (GitHub/User)"
+        A["GitHub Issue / CodeQL Alert"]
+        B["User Review & Selection"]
+        C["Pull Request Review"]
+    end
+
+    subgraph "Code Entity Space (Backlog Zero)"
+        direction TB
+        D["GitHubService.list_issues()"]
+        E["api.triageAll()"]
+        F["api.approveIssues()"]
+        G["DevinService.create_session()"]
+        H["api.mergePr()"]
+    end
+
+    A -->|"sync"| D
+    D -->|"process"| E
+    E -->|"display"| B
+    B -->|"POST /api/issues/approve"| F
+    F -->|"trigger"| G
+    G -->|"output"| C
+    C -->|"POST /api/github/pr-merge"| H
+        </pre>
+
+        <h2>Stage 1: Issue Ingestion &amp; Triage</h2>
+
+        <p>Issues are synchronized from connected repositories using <code>GitHubService.list_issues()</code>, which explicitly filters out Pull Requests returned by GitHub's API.</p>
+
+        <h3>AI Triage Scoring Metrics</h3>
+
+        <table>
+            <thead>
+                <tr><th>Metric</th><th>Purpose</th><th>Range</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Severity</strong></td><td>Criticality (critical, high, medium, low)</td><td>4 levels</td></tr>
+                <tr><td><strong>Category</strong></td><td>Nature of work (bug, security, feature, performance)</td><td>6 types</td></tr>
+                <tr><td><strong>AI Confidence</strong></td><td>Predicted success rate for Devin</td><td>0-100%</td></tr>
+                <tr><td><strong>Est. Effort</strong></td><td>Time complexity for fleet scheduling</td><td>Minutes</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Stage 2: Human-in-the-Loop Approval</h2>
+
+        <p>Before any code is modified, a human must approve the triaged items. Users can bulk-approve items, which transitions them from <code>triaged</code> to <code>approved</code> state.</p>
+
+        <h2>Stage 3: Background Session Creation</h2>
+
+        <p>Approving issues triggers a non-blocking background task in FastAPI:</p>
+
+        <pre class="mermaid">
+sequenceDiagram
+    participant U as User (Frontend)
+    participant R as Issues Router
+    participant B as Background Task
+    participant D as DevinService
+    participant S as SlackService
+
+    U->>R: POST /api/issues/approve {issue_ids}
+    R->>B: schedule _create_devin_sessions(issue_ids)
+    R-->>U: 200 OK (Success Modal)
+
+    loop For each Issue
+        B->>D: build_issue_prompt(issue_data, github_pat)
+        B->>D: create_session(prompt)
+        D-->>B: {session_id, url}
+        B->>B: Update DB (status='in_progress')
+        B->>S: notify_issue_sent_to_devin(...)
+    end
+        </pre>
+
+        <h2>Parallel Fleet Execution</h2>
+
+        <p>Unlike human developers who work sequentially, the Devin integration allows for <strong>linear cost scaling with constant time</strong> for the entire batch:</p>
+
+        <ul>
+            <li><strong>Estimated Time</strong>: Calculated as <code>max()</code> of estimated efforts (not sum)</li>
+            <li><strong>Merge Rate</strong>: Derived from average <code>ai_confidence</code> of the batch</li>
+            <li><strong>Pipeline Steps</strong>: Analyzing &rarr; Writing fix &rarr; Testing &rarr; Opening PR</li>
+        </ul>
+
+        <h2>Stage 4: PR Review &amp; Merging</h2>
+
+        <p>The Approvals page provides a two-panel review interface:</p>
+
+        <ul>
+            <li><strong>Left Panel</strong>: AI summary, desktop recording, timeline &amp; todos</li>
+            <li><strong>Right Panel</strong>: File tree with additions/deletions, syntax-highlighted unified diff</li>
+        </ul>
+
+        <h3>Session State Machine</h3>
+
+        <table>
+            <thead>
+                <tr><th>State</th><th>Description</th><th>UI Indicator</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>running</code></td><td>Devin actively executing</td><td>Clock icon, "In Progress"</td></tr>
+                <tr><td><code>waiting_for_user</code></td><td>Requires clarification or manual action</td><td>AlertCircle, "Needs Input"</td></tr>
+                <tr><td><code>PR Ready</code></td><td>Task completed, PR submitted</td><td>GitPullRequest, "PR Ready"</td></tr>
+                <tr><td><code>merged</code></td><td>PR successfully merged</td><td>CheckCheck, "Merged"</td></tr>
+                <tr><td><code>failed</code></td><td>Session terminated due to error</td><td>AlertCircle, "Failed"</td></tr>
+            </tbody>
+        </table>
+
+        <h3>PR Review and Merge Sequence</h3>
+
+        <pre class="mermaid">
+sequenceDiagram
+    participant User as "User (Approvals Page)"
+    participant FE as "React Frontend"
+    participant BE as "FastAPI Backend"
+    participant DB as "SQLite"
+    participant GH as "GitHub API"
+
+    User->>FE: Clicks "Review PR"
+    FE->>BE: GET /api/github/pr-diff/{owner}/{repo}/{pr_number}
+    BE->>GH: Request PR Data & Diff
+    GH-->>BE: Returns JSON + Raw Diff
+    BE-->>FE: Returns PrDiffData
+    FE->>User: Displays Two-Panel Layout
+
+    User->>FE: Clicks "Approve & Merge"
+    FE->>BE: POST /api/github/merge-pr
+    BE->>GH: PUT /pulls/{pr_number}/merge (Squash)
+    GH-->>BE: 200 OK (Merged)
+
+    BE->>DB: UPDATE devin_sessions SET status='merged'
+    BE->>DB: UPDATE issues SET status='resolved'
+    BE-->>FE: Success Response
+    FE->>User: Show Confetti & Success Toast
+        </pre>
+
+        <hr>
+
+        <!-- Section 6 -->
+        <h1 id="section-6">6. Security Remediation Workflow</h1>
+
+        <p>The Security Findings module manages the ingestion, triage, and remediation of vulnerabilities detected by GitHub's CodeQL analysis. It mirrors the standard issue workflow but is specialized for code-scanning alerts.</p>
+
+        <h2>SecurityFinding Data Model</h2>
+
+        <table>
+            <thead>
+                <tr><th>Field</th><th>Source</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>alert_number</code></td><td>GitHub</td><td>Unique identifier for the alert within the repository</td></tr>
+                <tr><td><code>rule_id</code></td><td>GitHub</td><td>The specific CodeQL rule triggered (e.g., <code>js/sql-injection</code>)</td></tr>
+                <tr><td><code>severity</code></td><td>GitHub</td><td>Critical, High, Medium, or Low</td></tr>
+                <tr><td><code>file_path</code></td><td>GitHub</td><td>Location in source code where the vulnerability exists</td></tr>
+                <tr><td><code>cwe_id</code></td><td>GitHub</td><td>Common Weakness Enumeration identifier</td></tr>
+                <tr><td><code>ai_summary</code></td><td>Backend AI</td><td>Human-readable explanation of risk and proposed fix</td></tr>
+                <tr><td><code>status</code></td><td>System</td><td>Internal state: <code>open</code>, <code>triaged</code>, <code>approved</code>, or <code>resolved</code></td></tr>
+            </tbody>
+        </table>
+
+        <h2>Security-Specific Metrics</h2>
+
+        <ul>
+            <li><strong>Audit Readiness</strong>: Visual representation of compliance score</li>
+            <li><strong>Open Vulnerabilities</strong>: Breakdown by severity (Critical/High)</li>
+            <li><strong>Remediation Rate</strong>: Percentage of historical findings resolved by Devin</li>
+        </ul>
+
+        <h2>Finding-to-PR Lifecycle</h2>
+
+        <pre class="mermaid">
+sequenceDiagram
+    participant GH as GitHub Code Scanning
+    participant GS as GitHubService
+    participant DB as SQLite (security_findings)
+    participant SR as security_router
+    participant DS as DevinService
+
+    GH->>GS: Alert Detected (e.g., SQL Injection)
+    GS->>DB: Insert Finding (status='open')
+    SR->>DB: Update status='approved' (User Action)
+    DB->>DS: Trigger Session (Background Task)
+    DS->>GH: Open PR with Security Fix
+    GH->>DB: Update status='resolved' (On Merge)
+        </pre>
+
+        <h2>Security Prompt Construction</h2>
+
+        <p>When a finding is sent to Devin, the prompt includes:</p>
+
+        <ol>
+            <li><strong>The Vulnerability Path</strong>: Exact file and line number where the flaw was detected</li>
+            <li><strong>The Rule Description</strong>: Details on why the code is unsafe (CWE identifiers)</li>
+            <li><strong>AI Summary</strong>: Pre-calculated triage summary guiding Devin toward the correct fix</li>
+        </ol>
+
+        <h2>Compliance API</h2>
+
+        <table>
+            <thead>
+                <tr><th>Endpoint</th><th>Method</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>GET /api/security/findings</code></td><td>GET</td><td>Filtered list sorted by severity</td></tr>
+                <tr><td><code>POST /api/security/findings/approve</code></td><td>POST</td><td>Transition to approved, trigger Devin</td></tr>
+                <tr><td><code>GET /api/security/compliance</code></td><td>GET</td><td>Aggregated compliance metrics</td></tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <!-- Section 7 -->
+        <h1 id="section-7">7. Governance &amp; Auto-Approve Engine</h1>
+
+        <p>BacklogZero includes a governance layer that controls how autonomously the system operates, balancing speed with safety.</p>
+
+        <h2>Two-Token Security Model</h2>
+
+        <p>The platform employs a dual-token strategy to ensure the principle of least privilege:</p>
+
+        <table>
+            <thead>
+                <tr><th>Token Type</th><th>Purpose</th><th>Permissions Required</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>GitHub Token</strong></td><td>Read-only sync of issues and repo metadata</td><td><code>repo</code>, <code>security_events</code></td></tr>
+                <tr><td><strong>GitHub PAT</strong></td><td>Writing comments, merging PRs, Devin write-access</td><td><code>repo</code> (Full), <code>workflow</code></td></tr>
+            </tbody>
+        </table>
+
+        <h2>Auto-Approve Mode</h2>
+
+        <p>For high-velocity environments, the system includes an Auto-Approve engine that bypasses manual PR review when specific criteria are met:</p>
+
+        <table>
+            <thead>
+                <tr><th>Parameter</th><th>Description</th><th>Default</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>auto_approve_enabled</code></td><td>Master toggle for autonomous merging</td><td><code>false</code></td></tr>
+                <tr><td><code>auto_approve_confidence</code></td><td>Minimum AI confidence score required</td><td>90%</td></tr>
+                <tr><td><code>max_severity</code></td><td>Highest severity level allowed for auto-merge</td><td><code>medium</code></td></tr>
+            </tbody>
+        </table>
+
+        <h3>Auto-Approve Flow</h3>
+
+        <ol>
+            <li>A <code>useEffect</code> hook monitors the <code>sessions</code> array in real-time</li>
+            <li>Any session entering <code>PR Ready</code> status is automatically queued for merge</li>
+            <li>The <code>mergePr</code> function is invoked without user intervention</li>
+            <li>Squash merge strategy maintains clean repository history</li>
+        </ol>
+
+        <h2>Repository Management</h2>
+
+        <table>
+            <thead>
+                <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>full_name</code></td><td><code>string</code></td><td>The <code>owner/repo</code> identifier</td></tr>
+                <tr><td><code>sync_enabled</code></td><td><code>boolean</code></td><td>Whether the background worker polls this repo</td></tr>
+                <tr><td><code>last_sync</code></td><td><code>string</code></td><td>Timestamp of the last successful GitHub fetch</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Integration Validation</h2>
+
+        <pre class="mermaid">
+sequenceDiagram
+    participant UI as Integrations.tsx
+    participant Client as api/client.ts
+    participant BE as FastAPI Routers
+
+    UI->>Client: validateGithub()
+    Client->>BE: GET /api/github/validate
+    BE-->>UI: { valid: boolean }
+
+    UI->>Client: validateDevin()
+    Client->>BE: GET /api/devin/validate
+    BE-->>UI: { valid: boolean }
+
+    Note over UI, BE: Connectivity status updated in ghValid / devinValid states
+        </pre>
+
+        <h2>PR Sync Matching Algorithm</h2>
+
+        <p>Because Devin may create PRs asynchronously, the system includes <code>sync_prs_from_github</code>:</p>
+
+        <ol>
+            <li>Iterates through all <code>connected_repos</code></li>
+            <li>Fetches all open PRs from GitHub</li>
+            <li><strong>Regex Extraction</strong>: Scans PR body for <code>Fixes #123</code> or <code>Closes #123</code> patterns</li>
+            <li><strong>Database Update</strong>: Links matched PRs to <code>devin_sessions</code> with <code>PR Ready</code> status</li>
+        </ol>
+
+        <h2>Automatic Status Propagation</h2>
+
+        <p>When a PR is merged, the system triggers a cascade of updates:</p>
+
+        <ol>
+            <li><strong>Session Update</strong>: <code>devin_sessions</code> record set to <code>merged</code></li>
+            <li><strong>Issue Update</strong>: Linked issue set to <code>resolved</code></li>
+            <li><strong>Notification</strong>: <code>SlackService.notify_pr_merged</code> dispatched with time-to-resolution</li>
+        </ol>
+
+        <hr>
+
+        <!-- Section 8 -->
+        <h1 id="section-8">8. Analytics, ROI &amp; Audit Reporting</h1>
+
+        <h2>Dashboard KPIs</h2>
+
+        <p>The Analytics router aggregates data across all tables to provide high-level KPIs:</p>
+
+        <pre class="mermaid">
+graph LR
+    subgraph "Database Tables"
+        T1["issues"]
+        T2["security_findings"]
+        T3["devin_sessions"]
+        T4["connected_repos"]
+    end
+    subgraph "Analytics Router"
+        R["get_analytics()"]
+    end
+    T1 -- "COUNT(status='resolved')" --> R
+    T2 -- "COUNT(status='resolved')" --> R
+    T3 -- "COUNT(pr_url IS NOT NULL)" --> R
+    R -- "ROI Calculation" --> Output["AnalyticsResponse"]
+        </pre>
+
+        <h2>Calculated Metrics</h2>
+
+        <table>
+            <thead>
+                <tr><th>Metric</th><th>Calculation</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Engineer Hours Saved</strong></td><td><code>(issues_resolved + security_fixed) * 3.0</code></td><td>Estimated dev time saved</td></tr>
+                <tr><td><strong>Compliance Score</strong></td><td>Weighted <code>remediation_rate</code> of security findings</td><td>Audit readiness indicator</td></tr>
+                <tr><td><strong>Category Breakdown</strong></td><td><code>GROUP BY category</code></td><td>Distribution of issue types</td></tr>
+                <tr><td><strong>Severity Breakdown</strong></td><td><code>GROUP BY severity</code></td><td>Distribution of criticality levels</td></tr>
+                <tr><td><strong>Backlog Burn Rate</strong></td><td>Net change in open issues per week</td><td>Trend indicator</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Audit Report</h2>
+
+        <p>The Audit Report page aggregates remediation metrics for compliance:</p>
+
+        <ul>
+            <li><strong>Data Retrieval</strong>: <code>api.getAuditReport()</code> fetches the <code>AuditData</code> object</li>
+            <li><strong>Compliance Metrics</strong>: <code>compliance_score</code> and <code>remediation_rate_pct</code> based on resolved vs. open findings</li>
+            <li><strong>PDF Export</strong>: Generates standalone HTML with "Executive Summary" and "Severity Breakdown" table, sent to browser print dialog</li>
+        </ul>
+
+        <h2>Status Endpoint (<code>/api/status</code>)</h2>
+
+        <p>Real-time health and metrics overview:</p>
+
+        <table>
+            <thead>
+                <tr><th>Metric</th><th>Logic</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>repos_connected</code></td><td><code>SELECT COUNT(*) FROM connected_repos</code></td></tr>
+                <tr><td><code>devin_connected</code></td><td>Validates <code>devin_api_token</code> via <code>DevinService.validate_token()</code></td></tr>
+                <tr><td><code>issues_count</code></td><td>Count of issues with status <code>open</code>, <code>triaged</code>, or <code>approved</code></td></tr>
+                <tr><td><code>security_count</code></td><td>Count of findings with status <code>open</code> or <code>triaged</code></td></tr>
+                <tr><td><code>review_count</code></td><td>Count of issues in <code>in_progress</code> or <code>pr_open</code> states</td></tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <!-- Section 9 -->
+        <h1 id="section-9">9. Slack Notification System</h1>
+
+        <p>The Slack Notification Service provides real-time visibility into the BacklogZero pipeline using Slack's <strong>Block Kit</strong> for rich, interactive messages.</p>
+
+        <h2>Notification Types</h2>
+
+        <table>
+            <thead>
+                <tr><th>#</th><th>Type</th><th>Trigger</th><th>Content</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>1</td><td><strong>Issue Triaged</strong></td><td>New issue analyzed by AI</td><td>Repo, severity, category, AI summary, est. effort</td></tr>
+                <tr><td>2</td><td><strong>Sent to Devin</strong></td><td>User approves issue for remediation</td><td>Repo, issue details, Devin Session ID</td></tr>
+                <tr><td>3</td><td><strong>Needs Input</strong></td><td>Devin enters <code>waiting_for_user</code> state</td><td>Repo, issue, "Time Running" metric</td></tr>
+                <tr><td>4</td><td><strong>PR Ready</strong></td><td>Devin creates a Pull Request</td><td>Repo, issue, generated PR URL</td></tr>
+                <tr><td>5</td><td><strong>PR Merged</strong></td><td>User completes workflow by merging</td><td>Success message, merged PR link</td></tr>
+                <tr><td>6</td><td><strong>Session Failed</strong></td><td>Devin encounters error or timeout</td><td>Error status, session details</td></tr>
+                <tr><td>7</td><td><strong>Daily Summary</strong></td><td>Cron job or manual trigger</td><td>Total triaged, running, PRs ready, critical remaining</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Notification Delivery Flow</h2>
+
+        <pre class="mermaid">
+graph TD
+    subgraph "Logic Layer"
+        A["Event Trigger (e.g., Session Failed)"]
+        B["Daily Cron / API Trigger"]
+    end
+
+    subgraph "SlackService"
+        C["SlackService.notify_session_failed()"]
+        D["SlackService.send_daily_summary()"]
+        E["_send_blocks(blocks, fallback_text)"]
+    end
+
+    subgraph "External"
+        F["Slack Webhook URL"]
+        G["Slack Channel"]
+    end
+
+    A --> C
+    B --> D
+    C --> E
+    D --> E
+    E -->|HTTP POST| F
+    F --> G
+        </pre>
+
+        <h2>SlackService Methods</h2>
+
+        <table>
+            <thead>
+                <tr><th>Method</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>_send_blocks</code></td><td>Internal helper for Block Kit payloads via <code>httpx.AsyncClient</code></td></tr>
+                <tr><td><code>send_webhook</code></td><td>Simple text messages for generic notifications</td></tr>
+                <tr><td><code>validate_webhook</code></td><td>Health check sending "connection successful" block</td></tr>
+                <tr><td><code>notify_issue_triaged</code></td><td>Rich notification with severity emoji, category, AI summary</td></tr>
+                <tr><td><code>notify_issue_sent_to_devin</code></td><td>Session ID and direct Devin link</td></tr>
+                <tr><td><code>notify_devin_needs_input</code></td><td>Urgency notification with "Respond in Backlog Zero" action</td></tr>
+                <tr><td><code>notify_pr_ready</code></td><td>PR URL with "Review PR" action button</td></tr>
+                <tr><td><code>notify_pr_merged</code></td><td>Success message with time-to-resolution</td></tr>
+                <tr><td><code>notify_session_failed</code></td><td>Error details and session context</td></tr>
+                <tr><td><code>send_daily_summary</code></td><td>Aggregated digest of system performance</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Notification Preferences</h2>
+
+        <p>Users can toggle specific notification types within Settings. The system checks <code>notify_on_triage</code>, <code>notify_on_pr_ready</code>, and similar flags before dispatching messages.</p>
+
+        <hr>
+
+        <!-- Section 10 -->
+        <h1 id="section-10">10. Roadmap &amp; Future Enhancements</h1>
+
+        <h2>Near-Term (Q2-Q3 2026)</h2>
+
+        <table>
+            <thead>
+                <tr><th>Feature</th><th>Description</th><th>Priority</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>LLM-Powered Triage</strong></td><td>Replace rule-based triage with LLM analysis for richer AI summaries</td><td>High</td></tr>
+                <tr><td><strong>Devin Playbook Integration</strong></td><td>Attach repo-specific playbooks to sessions for guided remediation</td><td>High</td></tr>
+                <tr><td><strong>Structured Output Schemas</strong></td><td>Use Devin v3 <code>structured_output_schema</code> for machine-readable session results</td><td>Medium</td></tr>
+                <tr><td><strong>Webhook-Based PR Sync</strong></td><td>Replace polling with GitHub webhooks for real-time PR status updates</td><td>Medium</td></tr>
+                <tr><td><strong>Multi-Org Support</strong></td><td>Support multiple Devin organizations within a single BacklogZero instance</td><td>Medium</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Mid-Term (Q4 2026)</h2>
+
+        <table>
+            <thead>
+                <tr><th>Feature</th><th>Description</th><th>Priority</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Devin Review Integration</strong></td><td>Leverage Devin Review as a quality gate before auto-merge</td><td>High</td></tr>
+                <tr><td><strong>Parallel Fleet Dashboard</strong></td><td>Real-time visualization of concurrent Devin sessions across repos</td><td>Medium</td></tr>
+                <tr><td><strong>Custom Prompt Templates</strong></td><td>Allow users to define per-repo prompt templates for Devin</td><td>Medium</td></tr>
+                <tr><td><strong>Scheduled Remediation</strong></td><td>Use Devin Scheduled Sessions for recurring backlog sweeps</td><td>Medium</td></tr>
+                <tr><td><strong>Child Session Orchestration</strong></td><td>Break large issues into sub-tasks using Devin child sessions</td><td>Low</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Long-Term Vision</h2>
+
+        <table>
+            <thead>
+                <tr><th>Feature</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Self-Healing Pipelines</strong></td><td>Auto-detect CI failures and trigger Devin to fix broken builds</td></tr>
+                <tr><td><strong>Cross-Repo Dependency Analysis</strong></td><td>Identify and remediate issues spanning multiple repositories</td></tr>
+                <tr><td><strong>Compliance Framework Mapping</strong></td><td>Map security findings to SOC 2, HIPAA, PCI-DSS frameworks</td></tr>
+                <tr><td><strong>AI Confidence Calibration</strong></td><td>Feedback loop using merge success rates to improve confidence scoring</td></tr>
+                <tr><td><strong>Enterprise SSO &amp; RBAC</strong></td><td>Role-based access control with SAML/OIDC authentication</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Integration Expansion</h2>
+
+        <pre class="mermaid">
+graph LR
+    subgraph "Current Integrations"
+        GH["GitHub"]
+        DV["Devin AI"]
+        SL["Slack"]
+    end
+
+    subgraph "Planned Integrations"
+        LN["Linear"]
+        JR["Jira"]
+        GL["GitLab"]
+        DD["Datadog"]
+        SN["Sentry"]
+        PD["PagerDuty"]
+    end
+
+    BZ["BacklogZero"] --> GH
+    BZ --> DV
+    BZ --> SL
+    BZ -.-> LN
+    BZ -.-> JR
+    BZ -.-> GL
+    BZ -.-> DD
+    BZ -.-> SN
+    BZ -.-> PD
+        </pre>
+
+        <hr>
+
+        <!-- Appendix A -->
+        <h1>Appendix A: Glossary</h1>
+
+        <table>
+            <thead>
+                <tr><th>Term</th><th>Definition</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>ACU</strong></td><td>Agent Compute Unit — unit of cost for AI operations (~$0.09)</td></tr>
+                <tr><td><strong>Backlog Burn Rate</strong></td><td>Net change in open issues per week</td></tr>
+                <tr><td><strong>Confidence Score</strong></td><td>AI-predicted probability of a successful fix (0-100%)</td></tr>
+                <tr><td><strong>Parallel Fleet</strong></td><td>Running multiple Devin sessions simultaneously</td></tr>
+                <tr><td><strong>Pseudo-Session</strong></td><td>Queued item waiting for backend ID assignment</td></tr>
+                <tr><td><strong>Audit Readiness</strong></td><td>Compliance metric based on resolved findings ratio</td></tr>
+                <tr><td><strong>Devin Review</strong></td><td>AI quality gate analyzing PRs for bugs and security</td></tr>
+                <tr><td><strong>Sync &amp; Triage</strong></td><td>Atomic operation refreshing GitHub data and AI analysis</td></tr>
+                <tr><td><strong>CodeQL</strong></td><td>GitHub's semantic code analysis engine for security scanning</td></tr>
+                <tr><td><strong>Block Kit</strong></td><td>Slack's UI framework for rich, interactive messages</td></tr>
+            </tbody>
+        </table>
+
+        <!-- Appendix B -->
+        <h1>Appendix B: API Endpoint Reference</h1>
+
+        <table>
+            <thead>
+                <tr><th>Router</th><th>Endpoint</th><th>Method</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Issues</td><td><code>/api/issues/</code></td><td>GET</td><td>List issues with filters</td></tr>
+                <tr><td>Issues</td><td><code>/api/issues/{id}</code></td><td>GET</td><td>Get single issue</td></tr>
+                <tr><td>Issues</td><td><code>/api/issues/approve</code></td><td>POST</td><td>Approve issues for Devin</td></tr>
+                <tr><td>Issues</td><td><code>/api/issues/reject</code></td><td>POST</td><td>Reject issues from queue</td></tr>
+                <tr><td>Security</td><td><code>/api/security/findings</code></td><td>GET</td><td>List security findings</td></tr>
+                <tr><td>Security</td><td><code>/api/security/findings/approve</code></td><td>POST</td><td>Approve findings for Devin</td></tr>
+                <tr><td>Security</td><td><code>/api/security/compliance</code></td><td>GET</td><td>Get compliance metrics</td></tr>
+                <tr><td>Devin</td><td><code>/api/devin/sessions</code></td><td>GET</td><td>List all sessions</td></tr>
+                <tr><td>Devin</td><td><code>/api/devin/sessions/{id}</code></td><td>GET</td><td>Get session with live sync</td></tr>
+                <tr><td>Devin</td><td><code>/api/devin/sessions</code></td><td>POST</td><td>Create new session</td></tr>
+                <tr><td>GitHub</td><td><code>/api/github/pr-diff/{owner}/{repo}/{pr}</code></td><td>GET</td><td>Get PR diff data</td></tr>
+                <tr><td>GitHub</td><td><code>/api/github/merge-pr</code></td><td>POST</td><td>Squash merge a PR</td></tr>
+                <tr><td>GitHub</td><td><code>/api/github/pr-comment</code></td><td>POST</td><td>Post comment on PR</td></tr>
+                <tr><td>GitHub</td><td><code>/api/github/sync-prs</code></td><td>POST</td><td>Sync PRs from GitHub</td></tr>
+                <tr><td>Settings</td><td><code>/api/settings</code></td><td>GET</td><td>Get current settings</td></tr>
+                <tr><td>Settings</td><td><code>/api/settings</code></td><td>PUT</td><td>Update settings</td></tr>
+                <tr><td>Settings</td><td><code>/api/settings/validate/{service}</code></td><td>POST</td><td>Validate integration</td></tr>
+                <tr><td>Analytics</td><td><code>/api/analytics</code></td><td>GET</td><td>Get analytics data</td></tr>
+                <tr><td>Slack</td><td><code>/api/slack/notify</code></td><td>POST</td><td>Send notification</td></tr>
+                <tr><td>Slack</td><td><code>/api/slack/test</code></td><td>POST</td><td>Test webhook</td></tr>
+                <tr><td>Status</td><td><code>/api/status</code></td><td>GET</td><td>System health overview</td></tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <p class="footer">This document is confidential and intended for the Cognition Engineering &amp; Partnerships Team. Distribution beyond the intended audience requires written approval from BacklogZero Engineering.</p>
+
+    </div>
+</body>
+</html>
