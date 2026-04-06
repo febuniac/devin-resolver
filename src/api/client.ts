@@ -93,6 +93,8 @@ export const api = {
     request<any>(`/api/github/pr-diff/${owner}/${repo}/${prNumber}`),
   mergePr: (owner: string, repo: string, prNumber: number) =>
     request<any>(`/api/github/pr-merge/${owner}/${repo}/${prNumber}`, { method: 'POST' }),
+  resolveConflicts: (owner: string, repo: string, prNumber: number) =>
+    request<any>(`/api/github/pr-resolve-conflicts/${owner}/${repo}/${prNumber}`, { method: 'POST' }),
   syncPrs: () =>
     request<any>('/api/github/sync-prs', { method: 'POST' }),
   postPrComment: (owner: string, repo: string, prNumber: number, comment: string) =>

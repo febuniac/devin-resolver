@@ -147,6 +147,8 @@ export default function Approvals() {
   const [autoApproveMaxSeverity, setAutoApproveMaxSeverity] = useState('medium');
   const [autoMerging, setAutoMerging] = useState<Set<string>>(new Set());
   const [manuallyMerged, setManuallyMerged] = useState<Set<string>>(new Set());
+  const [autoResolveConflicts, setAutoResolveConflicts] = useState(true);
+  const [resolvingConflicts, setResolvingConflicts] = useState<Set<string>>(new Set());
 
   const severityOrder: Record<string, number> = { low: 1, medium: 2, high: 3, critical: 4 };
   const canAutoApprove = (severity?: string | null) => {
@@ -156,9 +158,10 @@ export default function Approvals() {
 
   useEffect(() => {
     // Fetch settings to check auto-approve
-    api.getSettings().then((s: { auto_approve_enabled?: boolean; auto_approve_max_severity?: string }) => {
+    api.getSettings().then((s: { auto_approve_enabled?: boolean; auto_approve_max_severity?: string; auto_resolve_conflicts?: boolean }) => {
       setAutoApproveEnabled(!!s.auto_approve_enabled);
       setAutoApproveMaxSeverity(s.auto_approve_max_severity || 'medium');
+      setAutoResolveConflicts(s.auto_resolve_conflicts ?? true);
     }).catch(() => {});
     // Load sessions immediately (fast DB call), then sync in background
     const mapSessions = (raw: (Session & { session_id?: string })[]) =>
@@ -342,6 +345,25 @@ export default function Approvals() {
       setMergeErrors(prev => ({ ...prev, [sessionId]: { prUrl, reason } }));
     } finally {
       setMerging(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
+    }
+  };
+
+  const resolveConflicts = async (sessionId: string, prUrl: string) => {
+    const parsed = parsePrUrl(prUrl);
+    if (!parsed) return;
+    setResolvingConflicts(prev => new Set(prev).add(sessionId));
+    try {
+      const result = await api.resolveConflicts(parsed.owner, parsed.repo, parsed.number);
+      setToast({ message: result?.message || 'Devin is resolving merge conflicts!', type: 'info' });
+      setTimeout(() => setToast(null), 8000);
+      setMergeErrors(prev => { const next = { ...prev }; delete next[sessionId]; return next; });
+      await loadSessions();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setToast({ message: `Failed to resolve conflicts: ${msg}`, type: 'error' });
+      setTimeout(() => setToast(null), 5000);
+    } finally {
+      setResolvingConflicts(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
     }
   };
 
@@ -658,6 +680,13 @@ export default function Approvals() {
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 8, background: '#8b5cf6', color: '#fff', fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
                                 <RefreshCw size={10} /> Retry Merge
                               </button>
+                              {!autoResolveConflicts && (
+                                <button onClick={() => resolveConflicts(session.id, mergeErrors[session.id].prUrl)}
+                                  disabled={resolvingConflicts.has(session.id)}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 8, background: '#3969CA', color: '#fff', fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer', opacity: resolvingConflicts.has(session.id) ? 0.6 : 1 }}>
+                                  {resolvingConflicts.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {resolvingConflicts.has(session.id) ? 'Resolving...' : 'Resolve Conflicts'}
+                                </button>
+                              )}
                             </div>
                           </div>
                         )}
