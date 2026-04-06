@@ -34,7 +34,7 @@ const severityChipClass: Record<string, string> = {
 };
 
 /* ---- Success Modal Component ---- */
-function SuccessModal({ count, issues, onClose, onViewProgress }: { count: number; issues: Issue[]; onClose: () => void; onViewProgress: () => void }) {
+function SuccessModal({ count, issues, queuedCount, onClose, onViewProgress }: { count: number; issues: Issue[]; queuedCount: number; onClose: () => void; onViewProgress: () => void }) {
   const isMultiple = count > 1;
 
   // Compute real estimated time from issues
@@ -101,8 +101,17 @@ function SuccessModal({ count, issues, onClose, onViewProgress }: { count: numbe
         {/* White body */}
         <div style={{ background: '#fff', padding: '24px 28px 20px' }}>
 
+          {/* Queued notice */}
+          {queuedCount > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: '#fffbeb', border: '1px solid #fde68a', marginBottom: 16 }}>
+              <Clock size={14} style={{ color: '#d97706' }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#d97706' }}>{queuedCount} issue{queuedCount > 1 ? 's' : ''} queued</span>
+              <span style={{ fontSize: 11, color: '#92400e' }}>{"\u2014"} waiting for available Devin slots, will auto-start</span>
+            </div>
+          )}
+
           {/* Parallel fleet badge for multiple issues */}
-          {isMultiple && (
+          {isMultiple && queuedCount === 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, background: '#f0fdf8', border: '1px solid #d1fae5', marginBottom: 16 }}>
               <Cpu size={14} style={{ color: '#0d7c5f' }} />
               <span style={{ fontSize: 12, fontWeight: 600, color: '#0d7c5f' }}>Parallel fleet</span>
@@ -189,7 +198,7 @@ export function IssueTriage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
   const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
-  const [successModal, setSuccessModal] = useState<{ show: boolean; count: number; issues: Issue[] }>({ show: false, count: 0, issues: [] });
+  const [successModal, setSuccessModal] = useState<{ show: boolean; count: number; issues: Issue[]; queuedCount: number }>({ show: false, count: 0, issues: [], queuedCount: 0 });
   const [error, setError] = useState('');
 
   useEffect(() => { loadIssues(); }, []);
@@ -222,9 +231,9 @@ export function IssueTriage() {
     if (ids.length === 0) return;
     setSending(true);
     try {
-      await api.approveIssues(ids);
+      const result = await api.approveIssues(ids) as { queued_count?: number };
       const sentIssues = issues.filter(i => ids.includes(i.id));
-      setSuccessModal({ show: true, count: ids.length, issues: sentIssues });
+      setSuccessModal({ show: true, count: ids.length, issues: sentIssues, queuedCount: result.queued_count || 0 });
       setSelectedIssues(new Set());
       await loadIssues();
       // Trigger sidebar badge refresh
@@ -262,7 +271,7 @@ export function IssueTriage() {
   return (
     <div className="animate-fade-in">
       {/* Success Modal */}
-      {successModal.show && <SuccessModal count={successModal.count} issues={successModal.issues} onClose={() => setSuccessModal({ ...successModal, show: false })} onViewProgress={() => { setSuccessModal({ ...successModal, show: false }); navigate('/approvals'); }} />}
+      {successModal.show && <SuccessModal count={successModal.count} issues={successModal.issues} queuedCount={successModal.queuedCount} onClose={() => setSuccessModal({ ...successModal, show: false })} onViewProgress={() => { setSuccessModal({ ...successModal, show: false }); navigate('/approvals'); }} />}
 
       {/* Topbar actions */}
       {topbarEl && createPortal(
