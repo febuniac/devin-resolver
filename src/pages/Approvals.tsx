@@ -599,16 +599,9 @@ export default function Approvals() {
                     style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: approving.has(session.id) ? 0.6 : 1 }}>
                     {approving.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <MessageSquare size={10} />} {approving.has(session.id) ? 'Approving...' : 'Approve Approach'}
                   </button>
-                ) : (session.status === 'queued' && String(session.id).startsWith('queued-')) ? (
-                  <button
-                    onClick={() => dispatchSession(session.id, session.issue_id)}
-                    disabled={dispatching.has(session.id)}
-                    style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#3969CA', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: dispatching.has(session.id) ? 0.6 : 1 }}>
-                    {dispatching.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />} {dispatching.has(session.id) ? 'Sending...' : 'Send to Devin'}
-                  </button>
                 ) : session.status === 'queued' ? (
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(245,158,11,0.12)', color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <Clock size={10} /> Waiting
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(57,105,202,0.1)', color: '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Loader2 size={10} className="animate-spin" /> Dispatching...
                   </span>
                 ) : merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.12)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -718,21 +711,24 @@ export default function Approvals() {
                         </span>
                       </div>
                       <div style={{ padding: 14, background: 'var(--white)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                          <Loader2 size={14} className="animate-spin" style={{ color: '#3969CA' }} />
+                          <div style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 600, lineHeight: 1.5 }}>
+                            Automatically dispatching to Devin...
+                          </div>
+                        </div>
                         <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.6, marginBottom: 12 }}>
-                          This issue has been approved and is queued to be sent to Devin for resolution. 
-                          It has not been dispatched yet — no Devin session exists.
+                          This issue has been approved and will be automatically sent to Devin on the next polling cycle. 
+                          A Devin session will be created to work on this issue.
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.6, marginBottom: 16 }}>
-                          Click <strong>Send to Devin</strong> to immediately create a Devin session and start working on this issue.
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 11, color: 'var(--dim)' }}>Queued: {formatTimestamp(session.created_at)}</span>
                           <button
                             onClick={() => dispatchSession(session.id, session.issue_id)}
                             disabled={dispatching.has(session.id)}
-                            style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, cursor: 'pointer', border: 'none', background: '#3969CA', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: dispatching.has(session.id) ? 0.6 : 1, transition: '0.15s' }}>
-                            {dispatching.has(session.id) ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} {dispatching.has(session.id) ? 'Creating session...' : 'Send to Devin'}
+                            style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 6, cursor: 'pointer', border: '1px solid rgba(57,105,202,0.3)', background: 'transparent', color: '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 5, opacity: dispatching.has(session.id) ? 0.6 : 1, transition: '0.15s' }}>
+                            {dispatching.has(session.id) ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} {dispatching.has(session.id) ? 'Sending...' : 'Send Now'}
                           </button>
-                          <span style={{ fontSize: 11, color: 'var(--dim)' }}>Queued: {formatTimestamp(session.created_at)}</span>
                         </div>
                       </div>
                     </div>
