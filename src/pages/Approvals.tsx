@@ -149,6 +149,7 @@ export default function Approvals() {
   const [manuallyMerged, setManuallyMerged] = useState<Set<string>>(new Set());
   const [autoResolveConflicts, setAutoResolveConflicts] = useState(true);
   const [resolvingConflicts, setResolvingConflicts] = useState<Set<string>>(new Set());
+  const [dispatching, setDispatching] = useState<Set<string>>(new Set());
 
   const severityOrder: Record<string, number> = { low: 1, medium: 2, high: 3, critical: 4 };
   const canAutoApprove = (severity?: string | null) => {
@@ -284,6 +285,22 @@ export default function Approvals() {
       setTimeout(() => setToast(null), 4000);
     } finally {
       setApproving(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
+    }
+  };
+
+  const dispatchSession = async (sessionId: string, issueId: number) => {
+    setDispatching(prev => new Set(prev).add(sessionId));
+    try {
+      const result = await api.dispatchSession(issueId);
+      setToast({ message: `Sent to Devin! Session created: ${result.session_id?.slice(0, 8)}...`, type: 'success' });
+      setTimeout(() => setToast(null), 4000);
+      await loadSessions();
+    } catch (e) {
+      console.error('Failed to dispatch session:', e);
+      setToast({ message: `Failed to send to Devin: ${e instanceof Error ? e.message : 'Unknown error'}`, type: 'error' });
+      setTimeout(() => setToast(null), 4000);
+    } finally {
+      setDispatching(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
     }
   };
 
@@ -582,6 +599,13 @@ export default function Approvals() {
                     style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: approving.has(session.id) ? 0.6 : 1 }}>
                     {approving.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <MessageSquare size={10} />} {approving.has(session.id) ? 'Approving...' : 'Approve Approach'}
                   </button>
+                ) : (session.status === 'queued' && String(session.id).startsWith('queued-')) ? (
+                  <button
+                    onClick={() => dispatchSession(session.id, session.issue_id)}
+                    disabled={dispatching.has(session.id)}
+                    style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#3969CA', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: dispatching.has(session.id) ? 0.6 : 1 }}>
+                    {dispatching.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />} {dispatching.has(session.id) ? 'Sending...' : 'Send to Devin'}
+                  </button>
                 ) : session.status === 'queued' ? (
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(245,158,11,0.12)', color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <Clock size={10} /> Waiting
@@ -636,6 +660,85 @@ export default function Approvals() {
               const fileMatch = body.match(/##?\s*File\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
               const fixMatch = body.match(/##?\s*Recommended\s*Fix\s*\n([\s\S]*?)(?=\n##?\s|$)/i);
               const desc = descMatch ? descMatch[1].trim() : body.split('\n').filter((l: string) => l.trim() && !l.startsWith('#')).slice(0, 2).join(' ').slice(0, 200);
+
+              /* ═══════════════════════════════════════════════════════
+                 QUEUED SESSION VIEW — pseudo-session not yet sent to Devin
+                 ═══════════════════════════════════════════════════════ */
+              const isQueuedPseudo = session.status === 'queued' && String(session.id).startsWith('queued-');
+              if (isQueuedPseudo) return (
+                <div style={{ borderBottom: '1px solid var(--rule)', background: 'var(--bg)', padding: 20 }}>
+                  <div style={{ maxWidth: 600, margin: '0 auto' }}>
+                    {/* Problem Card */}
+                    <div style={{ borderRadius: 10, border: '1px solid rgba(239,68,68,0.2)', overflow: 'hidden', marginBottom: 16 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(239,68,68,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#e53e3e' }}>
+                          {session.issue_category === 'security' ? <Shield size={13} style={{ color: '#e53e3e' }} /> : <Bug size={13} style={{ color: '#e53e3e' }} />}
+                          The Problem
+                        </div>
+                        {session.issue_severity && (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, textTransform: 'uppercase' as const,
+                            background: session.issue_severity === 'critical' || session.issue_severity === 'high' ? 'rgba(239,68,68,0.1)' : 'rgba(217,119,6,0.1)',
+                            color: session.issue_severity === 'critical' || session.issue_severity === 'high' ? '#e53e3e' : '#d97706',
+                            border: `1px solid ${session.issue_severity === 'critical' || session.issue_severity === 'high' ? 'rgba(239,68,68,0.2)' : 'rgba(217,119,6,0.2)'}`,
+                          }}>{session.issue_severity}</span>
+                        )}
+                      </div>
+                      <div style={{ padding: '12px 14px', background: 'var(--white)' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 5 }}>{session.issue_title || 'Issue details loading...'}</div>
+                        {desc && <div style={{ fontSize: 12, color: 'var(--mid)', marginBottom: 8, lineHeight: 1.5 }}>{desc}</div>}
+                        {session.ai_summary && <div style={{ fontSize: 12, color: 'var(--mid)', marginBottom: 8, lineHeight: 1.5, background: 'var(--bg)', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--rule)' }}>{session.ai_summary}</div>}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {session.issue_category && (
+                            <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: session.issue_category === 'security' ? 'rgba(239,68,68,0.08)' : 'var(--bg)', color: session.issue_category === 'security' ? '#e53e3e' : 'var(--dim)', border: '1px solid var(--rule)' }}>{session.issue_category.toUpperCase()}</span>
+                          )}
+                          {session.repo_full_name && (
+                            <a href={`https://github.com/${session.repo_full_name}/issues/${session.issue_number}`} target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 4, fontFamily: "'JetBrains Mono', monospace", background: 'var(--bg)', color: 'var(--blue)', border: '1px solid var(--rule)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <FileCode size={10} /> {session.repo_full_name}#{session.issue_number}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Queued Status Card */}
+                    <div style={{ borderRadius: 10, border: '1px solid rgba(57,105,202,0.25)', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(57,105,202,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#3969CA' }}>
+                          <Clock size={13} style={{ color: '#3969CA' }} />
+                          Queued in Backlog Zero
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 5,
+                          background: 'rgba(57,105,202,0.1)',
+                          color: '#3969CA',
+                          border: '1px solid rgba(57,105,202,0.2)',
+                        }}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3969CA', animation: 'pulse 1.4s infinite' }} />
+                          Waiting to Dispatch
+                        </span>
+                      </div>
+                      <div style={{ padding: 14, background: 'var(--white)' }}>
+                        <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.6, marginBottom: 12 }}>
+                          This issue has been approved and is queued to be sent to Devin for resolution. 
+                          It has not been dispatched yet — no Devin session exists.
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.6, marginBottom: 16 }}>
+                          Click <strong>Send to Devin</strong> to immediately create a Devin session and start working on this issue.
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <button
+                            onClick={() => dispatchSession(session.id, session.issue_id)}
+                            disabled={dispatching.has(session.id)}
+                            style={{ fontSize: 12, fontWeight: 700, padding: '8px 20px', borderRadius: 8, cursor: 'pointer', border: 'none', background: '#3969CA', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, opacity: dispatching.has(session.id) ? 0.6 : 1, transition: '0.15s' }}>
+                            {dispatching.has(session.id) ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} {dispatching.has(session.id) ? 'Creating session...' : 'Send to Devin'}
+                          </button>
+                          <span style={{ fontSize: 11, color: 'var(--dim)' }}>Queued: {formatTimestamp(session.created_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
 
               /* ═══════════════════════════════════════════════════════
                  PR APPROVAL VIEW — two-panel layout matching the HTML model
