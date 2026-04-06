@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video, FileDiff, GitMerge, AlertCircle } from 'lucide-react';
+import { RefreshCw, Loader2, ExternalLink, CheckCircle, Clock, ChevronDown, ChevronRight, Play, GitPullRequest, Send, CheckCheck, MessageSquare, Filter, Eye, Bug, Shield, Wrench, FileCode, Video, FileDiff, GitMerge, AlertCircle, AlertTriangle } from 'lucide-react';
 import api from '../api/client';
 
 const GitHubIcon = ({ size = 14 }: { size?: number }) => (
@@ -98,7 +98,7 @@ interface LiveData {
   updated_at: string;
 }
 
-type FilterType = 'all' | 'running' | 'needs_input' | 'needs_pr_approval' | 'approved_solved';
+type FilterType = 'all' | 'queued' | 'running' | 'needs_input' | 'needs_pr_approval' | 'approved_solved';
 
 function formatTimestamp(ts: string | null): string {
   if (!ts) return '—';
@@ -127,7 +127,8 @@ export default function Approvals() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [approving, setApproving] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [mergeErrors, setMergeErrors] = useState<Record<string, { prUrl: string; reason: string }>>({});
   const [approved, setApproved] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterType>('all');
   const [liveData, setLiveData] = useState<Record<string, LiveData>>({});
@@ -143,38 +144,54 @@ export default function Approvals() {
   const [recordingUrls, setRecordingUrls] = useState<Record<string, string>>({});
   const [loadingRecording, setLoadingRecording] = useState<Set<string>>(new Set());
   const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
+  const [autoApproveMaxSeverity, setAutoApproveMaxSeverity] = useState('medium');
   const [autoMerging, setAutoMerging] = useState<Set<string>>(new Set());
   const [manuallyMerged, setManuallyMerged] = useState<Set<string>>(new Set());
+  const [autoResolveConflicts, setAutoResolveConflicts] = useState(true);
+  const [resolvingConflicts, setResolvingConflicts] = useState<Set<string>>(new Set());
+  const [dispatching, setDispatching] = useState<Set<string>>(new Set());
+  const [dispatchErrors, setDispatchErrors] = useState<Record<string, string>>({});
+
+  const severityOrder: Record<string, number> = { low: 1, medium: 2, high: 3, critical: 4 };
+  const canAutoApprove = (severity?: string | null) => {
+    if (!autoApproveEnabled || !severity) return false;
+    return (severityOrder[severity.toLowerCase()] || 2) <= (severityOrder[autoApproveMaxSeverity] || 2);
+  };
 
   useEffect(() => {
     // Fetch settings to check auto-approve
-    api.getSettings().then((s: { auto_approve_enabled?: boolean }) => {
+    api.getSettings().then((s: { auto_approve_enabled?: boolean; auto_approve_max_severity?: string; auto_resolve_conflicts?: boolean }) => {
       setAutoApproveEnabled(!!s.auto_approve_enabled);
+      setAutoApproveMaxSeverity(s.auto_approve_max_severity || 'medium');
+      setAutoResolveConflicts(s.auto_resolve_conflicts ?? true);
     }).catch(() => {});
     // Load sessions immediately (fast DB call), then sync in background
+    const mapSessions = (raw: (Session & { session_id?: string })[]) =>
+      raw.map(s => ({ ...s, id: s.session_id || String(s.id) }));
     const initialRefresh = async () => {
-      try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
+      try { setSessions(mapSessions(await api.listSessions() as (Session & { session_id?: string })[])); } catch { /* ignore */ }
       setLoading(false);
       // Background sync — don't block the UI
       try { await api.syncPrs(); } catch { /* ignore */ }
       try { await api.pollSessions(); } catch { /* ignore */ }
-      try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
+      try { setSessions(mapSessions(await api.listSessions() as (Session & { session_id?: string })[])); } catch { /* ignore */ }
     };
     initialRefresh();
     const interval = setInterval(async () => {
       try { await api.syncPrs(); } catch { /* ignore */ }
       try { await api.pollSessions(); } catch { /* ignore */ }
-      try { setSessions(await api.listSessions() as Session[]); } catch { /* ignore */ }
+      try { setSessions(mapSessions(await api.listSessions() as (Session & { session_id?: string })[])); } catch { /* ignore */ }
     }, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-merge PR Ready sessions when auto-approve is enabled
+  // Auto-merge PR Ready sessions when auto-approve is enabled AND severity is within threshold
   useEffect(() => {
     if (!autoApproveEnabled) return;
     const prReadySessions = sessions.filter(s =>
       s.pr_url && !merged.has(s.id) && !merging.has(s.id) && !autoMerging.has(s.id) &&
-      s.status !== 'merged' && s.status !== 'running' && s.status !== 'pending'
+      s.status !== 'merged' && s.status !== 'running' && s.status !== 'pending' &&
+      canAutoApprove(s.issue_severity)
     );
     for (const session of prReadySessions) {
       setAutoMerging(prev => new Set(prev).add(session.id));
@@ -185,7 +202,10 @@ export default function Approvals() {
   }, [autoApproveEnabled, sessions]);
 
   const loadSessions = async () => {
-    try { setSessions(await api.listSessions() as Session[]); }
+    try {
+      const raw = await api.listSessions() as (Session & { session_id?: string })[];
+      setSessions(raw.map(s => ({ ...s, id: s.session_id || String(s.id) })));
+    }
     catch { /* ignore */ }
     finally { setLoading(false); }
   };
@@ -269,6 +289,24 @@ export default function Approvals() {
     }
   };
 
+  const dispatchSession = async (sessionId: string, issueId: number) => {
+    setDispatching(prev => new Set(prev).add(sessionId));
+    setDispatchErrors(prev => { const next = { ...prev }; delete next[sessionId]; return next; });
+    try {
+      const result = await api.dispatchSession(issueId);
+      setToast({ message: `Sent to Devin! Session created: ${result.session_id?.slice(0, 8)}...`, type: 'success' });
+      setTimeout(() => setToast(null), 4000);
+      await loadSessions();
+    } catch (e) {
+      console.error('Failed to dispatch session:', e);
+      const errMsg = e instanceof Error ? e.message : 'Unknown error';
+      const friendly = errMsg.includes('429') ? 'Rate limited — too many sessions created recently. Will auto-retry.' : errMsg.includes('500') ? 'Devin API error. Will auto-retry on next cycle.' : errMsg;
+      setDispatchErrors(prev => ({ ...prev, [sessionId]: friendly }));
+    } finally {
+      setDispatching(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
+    }
+  };
+
   // Parse PR URL to extract owner/repo/number
   const parsePrUrl = (url: string): { owner: string; repo: string; number: number } | null => {
     const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
@@ -297,18 +335,55 @@ export default function Approvals() {
     if (!parsed) return;
     setMerging(prev => new Set(prev).add(sessionId));
     try {
-      await api.mergePr(parsed.owner, parsed.repo, parsed.number);
-      setMerged(prev => new Set(prev).add(sessionId));
-      setToast({ message: 'PR merged successfully! Issue resolved.', type: 'success' });
-      setTimeout(() => setToast(null), 5000);
-      await loadSessions();
+      const result = await api.mergePr(parsed.owner, parsed.repo, parsed.number);
+      if (result?.status === 'resolving_conflicts') {
+        setToast({ message: 'Merge conflicts detected — Devin is automatically resolving them!', type: 'info' });
+        setTimeout(() => setToast(null), 8000);
+        // Clear any previous merge error for this session
+        setMergeErrors(prev => { const next = { ...prev }; delete next[sessionId]; return next; });
+        await loadSessions();
+      } else {
+        setMerged(prev => new Set(prev).add(sessionId));
+        setToast({ message: 'PR merged successfully! Issue resolved.', type: 'success' });
+        setTimeout(() => setToast(null), 5000);
+        await loadSessions();
+      }
     } catch (e: unknown) {
       console.error('Failed to merge PR:', e);
       const msg = e instanceof Error ? e.message : 'Unknown error';
-      setToast({ message: `Failed to merge PR: ${msg}`, type: 'error' });
-      setTimeout(() => setToast(null), 5000);
+      let reason = 'Unknown error';
+      if (msg.toLowerCase().includes('not mergeable') || msg.includes('405')) {
+        reason = 'This PR has merge conflicts or failing checks that need to be resolved on GitHub before it can be merged.';
+      } else if (msg.includes('409')) {
+        reason = 'This PR was already merged.';
+        setMerged(prev => new Set(prev).add(sessionId));
+      } else if (msg.includes('401') || msg.includes('403')) {
+        reason = 'GitHub token does not have permission to merge this PR. Check your GitHub PAT in Settings.';
+      } else {
+        reason = msg;
+      }
+      setMergeErrors(prev => ({ ...prev, [sessionId]: { prUrl, reason } }));
     } finally {
       setMerging(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
+    }
+  };
+
+  const resolveConflicts = async (sessionId: string, prUrl: string) => {
+    const parsed = parsePrUrl(prUrl);
+    if (!parsed) return;
+    setResolvingConflicts(prev => new Set(prev).add(sessionId));
+    try {
+      const result = await api.resolveConflicts(parsed.owner, parsed.repo, parsed.number);
+      setToast({ message: result?.message || 'Devin is resolving merge conflicts!', type: 'info' });
+      setTimeout(() => setToast(null), 8000);
+      setMergeErrors(prev => { const next = { ...prev }; delete next[sessionId]; return next; });
+      await loadSessions();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setToast({ message: `Failed to resolve conflicts: ${msg}`, type: 'error' });
+      setTimeout(() => setToast(null), 5000);
+    } finally {
+      setResolvingConflicts(prev => { const next = new Set(prev); next.delete(sessionId); return next; });
     }
   };
 
@@ -333,16 +408,18 @@ export default function Approvals() {
   };
 
   const topbarEl = document.getElementById('topbar-actions');
+  const queued = sessions.filter(s => s.status === 'queued').length;
   const running = sessions.filter(s => (s.status === 'running' || s.status === 'pending') && s.status_detail !== 'waiting_for_user' && !s.pr_url).length;
-  const needsInput = sessions.filter(s => s.status_detail === 'waiting_for_user' && !s.pr_url).length;
-  const needsPrApproval = sessions.filter(s => !!s.pr_url && s.status !== 'merged' && !merged.has(s.id)).length;
+  const needsInput = sessions.filter(s => (s.status_detail === 'waiting_for_user' || mergeErrors[s.id]) && s.status !== 'merged' && !merged.has(s.id) && !['completed', 'succeeded', 'finished', 'stopped'].includes(s.status)).length;
+  const needsPrApproval = sessions.filter(s => !!s.pr_url && s.status !== 'merged' && !merged.has(s.id) && !['completed', 'succeeded', 'finished', 'stopped'].includes(s.status)).length;
   const approvedSolved = sessions.filter(s => s.status === 'merged' || merged.has(s.id) || ['completed', 'succeeded', 'finished', 'stopped'].includes(s.status)).length;
 
   const filteredSessions = sessions.filter(s => {
     switch (filter) {
+      case 'queued': return s.status === 'queued';
       case 'running': return (s.status === 'running' || s.status === 'pending') && s.status_detail !== 'waiting_for_user' && !s.pr_url;
-      case 'needs_input': return s.status_detail === 'waiting_for_user' && !s.pr_url;
-      case 'needs_pr_approval': return !!s.pr_url && s.status !== 'merged' && !merged.has(s.id);
+      case 'needs_input': return (s.status_detail === 'waiting_for_user' || !!mergeErrors[s.id]) && s.status !== 'merged' && !merged.has(s.id) && !['completed', 'succeeded', 'finished', 'stopped'].includes(s.status);
+      case 'needs_pr_approval': return !!s.pr_url && s.status !== 'merged' && !merged.has(s.id) && !['completed', 'succeeded', 'finished', 'stopped'].includes(s.status);
       case 'approved_solved': return s.status === 'merged' || merged.has(s.id) || ['completed', 'succeeded', 'finished', 'stopped'].includes(s.status);
       default: return true;
     }
@@ -352,6 +429,7 @@ export default function Approvals() {
 
   const filters: { key: FilterType; label: string; count: number; color: string }[] = [
     { key: 'all', label: 'All', count: sessions.length, color: 'var(--purple)' },
+    ...(queued > 0 ? [{ key: 'queued' as FilterType, label: 'Queued', count: queued, color: '#f59e0b' }] : []),
     { key: 'running', label: 'Running', count: running, color: 'var(--blue)' },
     { key: 'needs_input', label: 'Needs User Input', count: needsInput, color: '#e9a820' },
     { key: 'needs_pr_approval', label: 'Needs PR Approval', count: needsPrApproval, color: '#8b5cf6' },
@@ -373,8 +451,8 @@ export default function Approvals() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}>
         {[
           { label: 'Total Sessions', value: sessions.length, color: 'var(--purple)' },
+          { label: 'Queued', value: queued, color: '#f59e0b' },
           { label: 'Running', value: running, color: 'var(--blue)' },
-          { label: 'Needs User Input', value: needsInput, color: '#e9a820' },
           { label: 'Needs PR Approval', value: needsPrApproval, color: '#8b5cf6' },
           { label: 'Approved & Solved', value: approvedSolved, color: 'var(--green)' },
         ].map((s, i) => (
@@ -456,11 +534,15 @@ export default function Approvals() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dim)' }}>
                 {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
                   <><CheckCheck size={10} style={{ color: '#8b5cf6', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: '#8b5cf6' }}>{formatTimestamp(session.updated_at)}</span></>
+                ) : session.pr_url && ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                  <><CheckCheck size={10} style={{ color: '#8b5cf6', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: '#8b5cf6' }}>{formatTimestamp(session.updated_at)}</span></>
                 ) : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                   <><CheckCheck size={10} style={{ color: 'var(--green)', flexShrink: 0 }} /><span className="font-mono" style={{ fontSize: 10, color: 'var(--green)' }}>{formatTimestamp(session.updated_at)}</span></>
                 ) : session.status_detail === 'waiting_for_user' ? (
-                  <span style={{ fontSize: 10, color: '#e9a820', fontWeight: 600 }}>Waiting...</span>
-                ) : session.status === 'running' ? (
+                  <span style={{ fontSize: 10, color: '#e9a820', fontWeight: 600 }}>Awaiting Approval</span>
+                ) : session.status === 'queued' ? (
+                  <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600 }}>Queued</span>
+                ) : session.status === 'running' || session.status === 'claimed' ? (
                   <span style={{ fontSize: 10, color: 'var(--blue)' }}>In progress...</span>
                 ) : session.status === 'suspended' ? (
                   <span style={{ fontSize: 10, color: '#e53e3e' }}>Suspended</span>
@@ -471,11 +553,13 @@ export default function Approvals() {
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--dim)' }}>
-                {['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                {session.pr_url && ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                  <span className="font-mono" style={{ fontSize: 10, color: '#8b5cf6', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at)}</span>
+                ) : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                   <span className="font-mono" style={{ fontSize: 10, color: 'var(--green)', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at)}</span>
                 ) : session.status_detail === 'waiting_for_user' ? (
                   <span className="font-mono" style={{ fontSize: 10, color: '#e9a820', fontWeight: 600 }}>{timeDiff(session.created_at, session.updated_at || new Date().toISOString())}</span>
-                ) : (session.status === 'running' || session.status === 'pending') ? (
+                ) : (session.status === 'running' || session.status === 'pending' || session.status === 'claimed') ? (
                   <span className="font-mono" style={{ fontSize: 10, color: 'var(--blue)' }}>{timeDiff(session.created_at, new Date().toISOString())}</span>
                 ) : (
                   <span style={{ fontSize: 10, color: 'var(--dim)' }}>{'—'}</span>
@@ -485,13 +569,21 @@ export default function Approvals() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}>
                   {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
                     <><GitMerge size={14} style={{ color: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>Merged</span></>
+                  ) : session.status_detail === 'resolving_conflicts' ? (
+                    <><span className="dot dot-blue" /><span style={{ color: 'var(--blue)' }}>Resolving Conflicts</span></>
+                  ) : mergeErrors[session.id] ? (
+                    <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Needs Input</span></>
+                  ) : session.pr_url && ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
+                    <><span className="dot" style={{ background: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>PR Ready</span></>
                   ) : ['completed', 'succeeded', 'finished', 'stopped'].includes(session.status) ? (
                     <><CheckCircle size={14} style={{ color: 'var(--green)' }} /><span style={{ color: 'var(--green)' }}>Done</span></>
                   ) : session.pr_url ? (
                     <><span className="dot" style={{ background: '#8b5cf6' }} /><span style={{ color: '#8b5cf6' }}>PR Ready</span></>
-                  ) : session.status_detail === 'waiting_for_user' ? (
-                    <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Needs Input</span></>
-                  ) : (session.status === 'running' || session.status === 'pending') ? (
+                  ) : session.status_detail === 'waiting_for_user' || (session.status === 'queued' && session.status_detail === 'waiting_for_user') ? (
+                    <><span className="dot" style={{ background: '#e9a820' }} /><span style={{ color: '#e9a820' }}>Awaiting Approval</span></>
+                  ) : session.status === 'queued' ? (
+                    <><span className="dot" style={{ background: '#f59e0b' }} /><span style={{ color: '#f59e0b' }}>Queued</span></>
+                  ) : (session.status === 'running' || session.status === 'pending' || session.status === 'claimed') ? (
                     <><span className="dot dot-blue" /><span style={{ color: 'var(--blue)' }}>Running</span></>
                   ) : session.status === 'suspended' ? (
                     <><span className="dot" style={{ background: '#9ca3af' }} /><span style={{ color: '#9ca3af' }}>Suspended</span></>
@@ -503,8 +595,19 @@ export default function Approvals() {
                 </span>
               </div>
               <div onClick={e => e.stopPropagation()}>
-                {merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: (approved.has(session.id) || manuallyMerged.has(session.id)) ? 'rgba(33,193,154,0.12)' : 'rgba(57,105,202,0.1)', color: (approved.has(session.id) || manuallyMerged.has(session.id)) ? 'var(--green)' : '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                {(session.status_detail === 'waiting_for_user' && !approved.has(session.id) && !session.pr_url) ? (
+                  <button
+                    onClick={() => approveSession(session.id)}
+                    disabled={approving.has(session.id)}
+                    style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: approving.has(session.id) ? 0.6 : 1 }}>
+                    {approving.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <MessageSquare size={10} />} {approving.has(session.id) ? 'Approving...' : 'Approve Approach'}
+                  </button>
+                ) : session.status === 'queued' ? (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(57,105,202,0.1)', color: '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Loader2 size={10} className="animate-spin" /> Dispatching...
+                  </span>
+                ) : merged.has(session.id) || session.status === 'merged' || prDiffs[session.id]?.merged ? (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.12)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     {(approved.has(session.id) || manuallyMerged.has(session.id)) ? (
                       <><CheckCircle size={10} /> Manually Approved</>
                     ) : (
@@ -512,7 +615,7 @@ export default function Approvals() {
                     )}
                   </span>
                 ) : session.pr_url ? (
-                  autoApproveEnabled ? (
+                  canAutoApprove(session.issue_severity) ? (
                     <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(57,105,202,0.1)', color: '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       {merging.has(session.id) || autoMerging.has(session.id) ? (
                         <><Loader2 size={10} className="animate-spin" /> Auto-Approving...</>
@@ -521,20 +624,18 @@ export default function Approvals() {
                       )}
                     </span>
                   ) : (
-                    <button
-                      onClick={() => { setManuallyMerged(prev => new Set(prev).add(session.id)); mergePr(session.id, session.pr_url!); }}
-                      disabled={merging.has(session.id)}
-                      style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: merging.has(session.id) ? 0.6 : 1 }}>
-                      {merging.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {merging.has(session.id) ? 'Merging...' : 'Validate & Approve'}
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                      <button
+                        onClick={() => { setManuallyMerged(prev => new Set(prev).add(session.id)); mergePr(session.id, session.pr_url!); }}
+                        disabled={merging.has(session.id)}
+                        style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: merging.has(session.id) ? 0.6 : 1 }}>
+                        {merging.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {merging.has(session.id) ? 'Merging...' : 'Approve & Merge'}
+                      </button>
+                      <span style={{ fontSize: 9, color: '#9ca3af', fontStyle: 'italic' }}>
+                        {session.issue_severity ? `${session.issue_severity} severity — requires manual approval` : 'Requires manual approval'}
+                      </span>
+                    </div>
                   )
-                ) : (session.status_detail === 'waiting_for_user' && !approved.has(session.id)) ? (
-                  <button
-                    onClick={() => approveSession(session.id)}
-                    disabled={approving.has(session.id)}
-                    style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#e9a820', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: approving.has(session.id) ? 0.6 : 1 }}>
-                    {approving.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <MessageSquare size={10} />} {approving.has(session.id) ? 'Approving...' : 'Approve'}
-                  </button>
                 ) : approved.has(session.id) ? (
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(33,193,154,0.15)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <CheckCircle size={10} /> Approved
@@ -557,11 +658,116 @@ export default function Approvals() {
               const desc = descMatch ? descMatch[1].trim() : body.split('\n').filter((l: string) => l.trim() && !l.startsWith('#')).slice(0, 2).join(' ').slice(0, 200);
 
               /* ═══════════════════════════════════════════════════════
+                 QUEUED SESSION VIEW — pseudo-session not yet sent to Devin
+                 ═══════════════════════════════════════════════════════ */
+              const isQueuedPseudo = session.status === 'queued' && String(session.id).startsWith('queued-');
+              if (isQueuedPseudo) return (
+                <div style={{ borderBottom: '1px solid var(--rule)', background: 'var(--bg)', padding: 20 }}>
+                  <div style={{ maxWidth: 600, margin: '0 auto' }}>
+                    {/* Problem Card */}
+                    <div style={{ borderRadius: 10, border: '1px solid rgba(239,68,68,0.2)', overflow: 'hidden', marginBottom: 16 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(239,68,68,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#e53e3e' }}>
+                          {session.issue_category === 'security' ? <Shield size={13} style={{ color: '#e53e3e' }} /> : <Bug size={13} style={{ color: '#e53e3e' }} />}
+                          The Problem
+                        </div>
+                        {session.issue_severity && (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, textTransform: 'uppercase' as const,
+                            background: session.issue_severity === 'critical' || session.issue_severity === 'high' ? 'rgba(239,68,68,0.1)' : 'rgba(217,119,6,0.1)',
+                            color: session.issue_severity === 'critical' || session.issue_severity === 'high' ? '#e53e3e' : '#d97706',
+                            border: `1px solid ${session.issue_severity === 'critical' || session.issue_severity === 'high' ? 'rgba(239,68,68,0.2)' : 'rgba(217,119,6,0.2)'}`,
+                          }}>{session.issue_severity}</span>
+                        )}
+                      </div>
+                      <div style={{ padding: '12px 14px', background: 'var(--white)' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 5 }}>{session.issue_title || 'Issue details loading...'}</div>
+                        {desc && <div style={{ fontSize: 12, color: 'var(--mid)', marginBottom: 8, lineHeight: 1.5 }}>{desc}</div>}
+                        {session.ai_summary && <div style={{ fontSize: 12, color: 'var(--mid)', marginBottom: 8, lineHeight: 1.5, background: 'var(--bg)', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--rule)' }}>{session.ai_summary}</div>}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {session.issue_category && (
+                            <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: session.issue_category === 'security' ? 'rgba(239,68,68,0.08)' : 'var(--bg)', color: session.issue_category === 'security' ? '#e53e3e' : 'var(--dim)', border: '1px solid var(--rule)' }}>{session.issue_category.toUpperCase()}</span>
+                          )}
+                          {session.repo_full_name && (
+                            <a href={`https://github.com/${session.repo_full_name}/issues/${session.issue_number}`} target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 4, fontFamily: "'JetBrains Mono', monospace", background: 'var(--bg)', color: 'var(--blue)', border: '1px solid var(--rule)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <FileCode size={10} /> {session.repo_full_name}#{session.issue_number}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Queued Status Card */}
+                    <div style={{ borderRadius: 10, border: '1px solid rgba(57,105,202,0.25)', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(57,105,202,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: '#3969CA' }}>
+                          <Clock size={13} style={{ color: '#3969CA' }} />
+                          Queued in Backlog Zero
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 5,
+                          background: 'rgba(57,105,202,0.1)',
+                          color: '#3969CA',
+                          border: '1px solid rgba(57,105,202,0.2)',
+                        }}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3969CA', animation: 'pulse 1.4s infinite' }} />
+                          Waiting to Dispatch
+                        </span>
+                      </div>
+                      <div style={{ padding: 14, background: 'var(--white)' }}>
+                        {dispatchErrors[session.id] ? (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                              <AlertTriangle size={14} style={{ color: '#ef4444', marginTop: 1, flexShrink: 0 }} />
+                              <div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: '#ef4444', marginBottom: 4 }}>Dispatch failed</div>
+                                <div style={{ fontSize: 11, color: 'var(--mid)', lineHeight: 1.5 }}>{dispatchErrors[session.id]}</div>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: 11, color: 'var(--dim)' }}>Queued: {formatTimestamp(session.created_at)}</span>
+                              <button
+                                onClick={() => dispatchSession(session.id, session.issue_id)}
+                                disabled={dispatching.has(session.id)}
+                                style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 6, cursor: 'pointer', border: 'none', background: '#3969CA', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 5, opacity: dispatching.has(session.id) ? 0.6 : 1, transition: '0.15s' }}>
+                                {dispatching.has(session.id) ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} Retry Now
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                              <Loader2 size={14} className="animate-spin" style={{ color: '#3969CA' }} />
+                              <div style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 600, lineHeight: 1.5 }}>
+                                Automatically dispatching to Devin...
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--mid)', lineHeight: 1.6, marginBottom: 12 }}>
+                              This issue has been approved and will be automatically sent to Devin on the next polling cycle. 
+                              A Devin session will be created to work on this issue.
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: 11, color: 'var(--dim)' }}>Queued: {formatTimestamp(session.created_at)}</span>
+                              <button
+                                onClick={() => dispatchSession(session.id, session.issue_id)}
+                                disabled={dispatching.has(session.id)}
+                                style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 6, cursor: 'pointer', border: '1px solid rgba(57,105,202,0.3)', background: 'transparent', color: '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 5, opacity: dispatching.has(session.id) ? 0.6 : 1, transition: '0.15s' }}>
+                                {dispatching.has(session.id) ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} {dispatching.has(session.id) ? 'Sending...' : 'Send Now'}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+
+              /* ═══════════════════════════════════════════════════════
                  PR APPROVAL VIEW — two-panel layout matching the HTML model
                  ═══════════════════════════════════════════════════════ */
               if (hasPr) return (
                 <div style={{ borderBottom: '1px solid var(--rule)', background: 'var(--bg)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: 0, minHeight: 420 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: 0 }}>
 
                     {/* ── LEFT PANEL ── */}
                     <div style={{ borderRight: '1px solid var(--rule)', background: 'var(--white)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -573,14 +779,42 @@ export default function Approvals() {
                             {isMerged ? <GitMerge size={14} style={{ color: '#3969CA' }} /> : <GitPullRequest size={14} style={{ color: '#3969CA' }} />}
                           </div>
                           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
-                            {isMerged ? 'PR Merged! Issue Resolved' : 'Pull Request Ready for Review'}
+                            {isMerged ? 'PR Merged! Issue Resolved' : mergeErrors[session.id] ? 'PR Cannot Be Merged' : 'Pull Request Ready for Review'}
                           </div>
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--mid)', marginBottom: 12, lineHeight: 1.5 }}>
                           {isMerged
                             ? 'PR was merged successfully. The code changes are now in the main branch.'
+                            : mergeErrors[session.id]
+                            ? 'Action required — this PR needs your attention before it can be merged.'
                             : 'Devin has created a PR. Review the code changes and recording below, then click "Approve & Merge" to merge it.'}
                         </div>
+                        {mergeErrors[session.id] && (
+                          <div style={{ padding: '12px 14px', borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 14 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                              <AlertCircle size={14} style={{ color: '#e53e3e', flexShrink: 0 }} />
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#991b1b' }}>Merge failed</span>
+                            </div>
+                            <p style={{ fontSize: 11, color: '#7f1d1d', lineHeight: 1.5, margin: '0 0 10px', paddingLeft: 22 }}>{mergeErrors[session.id].reason}</p>
+                            <div style={{ display: 'flex', gap: 8, paddingLeft: 22 }}>
+                              <a href={mergeErrors[session.id].prUrl} target="_blank" rel="noopener noreferrer"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 8, background: '#1f2937', color: '#fff', fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
+                                <GitHubIcon size={12} /> View on GitHub
+                              </a>
+                              <button onClick={() => { setMergeErrors(prev => { const next = { ...prev }; delete next[session.id]; return next; }); mergePr(session.id, mergeErrors[session.id].prUrl); }}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 8, background: '#8b5cf6', color: '#fff', fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
+                                <RefreshCw size={10} /> Retry Merge
+                              </button>
+                              {!autoResolveConflicts && (
+                                <button onClick={() => resolveConflicts(session.id, mergeErrors[session.id].prUrl)}
+                                  disabled={resolvingConflicts.has(session.id)}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 8, background: '#3969CA', color: '#fff', fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer', opacity: resolvingConflicts.has(session.id) ? 0.6 : 1 }}>
+                                  {resolvingConflicts.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {resolvingConflicts.has(session.id) ? 'Resolving...' : 'Resolve Conflicts'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         {diff && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: 12, color: 'var(--mid)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -775,7 +1009,7 @@ export default function Approvals() {
                     </div>
 
                     {/* ── RIGHT PANEL ── */}
-                    <div style={{ background: 'var(--bg)', overflowY: 'auto', maxHeight: 600, padding: 20 }}>
+                    <div style={{ background: 'var(--bg)', overflowY: 'auto', padding: 20 }}>
 
                       {/* 1. Desktop Recording */}
                       {(() => {
@@ -1315,13 +1549,13 @@ export default function Approvals() {
         <div style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
           padding: '12px 20px', borderRadius: 10,
-          background: toast.type === 'success' ? '#21C19A' : '#e53e3e',
+          background: toast.type === 'success' ? '#21C19A' : toast.type === 'info' ? '#3b82f6' : '#e53e3e',
           color: '#fff', fontSize: 13, fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: 8,
           boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
           animation: 'slideIn 0.3s ease-out',
         }}>
-          {toast.type === 'success' ? <CheckCircle size={16} /> : <Eye size={16} />}
+          {toast.type === 'success' ? <CheckCircle size={16} /> : toast.type === 'info' ? <GitMerge size={16} /> : <Eye size={16} />}
           {toast.message}
         </div>
       )}

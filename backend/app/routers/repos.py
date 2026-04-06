@@ -1,10 +1,13 @@
 import json
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 import aiosqlite
 
-from app.db.database import get_db
+from app.db.database import get_db, get_db_connection
 from app.models.schemas import RepoConnect, RepoResponse
 from app.services.github_service import GitHubService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/repos", tags=["repositories"])
 
@@ -37,9 +40,138 @@ async def list_repos(db: aiosqlite.Connection = Depends(get_db)):
     return repos
 
 
+async def _sync_and_triage_repo(repo_id: int):
+    """Background task: sync issues from GitHub and auto-triage them."""
+    from app.routers.issues import classify_issue
+    db = await get_db_connection()
+    try:
+        # Get GitHub token
+        cursor = await db.execute("SELECT github_token FROM settings WHERE id = 1")
+        row = await cursor.fetchone()
+        gh_token = row[0] if row and row[0] else ""
+        if not gh_token:
+            logger.warning("No GitHub token — skipping auto-sync")
+            return
+
+        github = GitHubService(gh_token)
+
+        cursor = await db.execute("SELECT * FROM connected_repos WHERE id = ?", (repo_id,))
+        repo_row = await cursor.fetchone()
+        if not repo_row:
+            return
+
+        owner, name, full_name = repo_row[1], repo_row[2], repo_row[3]
+        logger.info(f"Auto-syncing issues for {full_name}...")
+
+        # Fetch issues from GitHub
+        try:
+            issues = await github.list_issues(owner, name)
+        except Exception as e:
+            logger.error(f"Failed to sync {full_name}: {e}")
+            return
+
+        synced_count = 0
+        new_issue_ids = []
+        for issue in issues:
+            github_id = issue["id"]
+            cursor = await db.execute("SELECT id FROM issues WHERE github_id = ?", (github_id,))
+            existing = await cursor.fetchone()
+
+            labels = json.dumps([l["name"] for l in issue.get("labels", [])])
+
+            if existing:
+                await db.execute(
+                    """UPDATE issues SET title = ?, body = ?, labels = ?, state = ?,
+                    updated_at = ? WHERE github_id = ?""",
+                    (issue["title"], issue.get("body", ""), labels, issue["state"],
+                     issue.get("updated_at", ""), github_id),
+                )
+            else:
+                cursor2 = await db.execute(
+                    """INSERT INTO issues (github_id, number, title, body, repo_full_name,
+                    labels, state, author, created_at, updated_at, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')""",
+                    (github_id, issue["number"], issue["title"], issue.get("body", ""),
+                     full_name, labels, issue["state"],
+                     issue.get("user", {}).get("login", ""),
+                     issue.get("created_at", ""), issue.get("updated_at", "")),
+                )
+                new_issue_ids.append(cursor2.lastrowid)
+                synced_count += 1
+
+        # Sync security findings (CodeQL)
+        security_count = 0
+        try:
+            alerts = await github.list_code_scanning_alerts(owner, name)
+            for alert in alerts:
+                alert_number = alert["number"]
+                cursor = await db.execute(
+                    "SELECT id FROM security_findings WHERE alert_number = ? AND repo_full_name = ?",
+                    (alert_number, full_name),
+                )
+                existing = await cursor.fetchone()
+                rule = alert.get("rule", {})
+                location = alert.get("most_recent_instance", {}).get("location", {})
+                if not existing:
+                    await db.execute(
+                        """INSERT INTO security_findings
+                        (alert_number, rule, rule_id, severity, file_path, line_number,
+                        description, repo_full_name, category, cwe_id, status, detected_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)""",
+                        (alert_number, rule.get("description", ""), rule.get("id", ""),
+                         alert.get("rule", {}).get("security_severity_level", "medium"),
+                         location.get("path", ""), location.get("start_line", 0),
+                         rule.get("full_description", rule.get("description", "")),
+                         full_name, rule.get("tags", [""])[0] if rule.get("tags") else "",
+                         ",".join(f"CWE-{c.get('cwe_id', '')}" for c in rule.get("cwes", [])) if rule.get("cwes") else "",
+                         alert.get("created_at", "")),
+                    )
+                    security_count += 1
+        except Exception:
+            pass  # CodeQL might not be enabled
+
+        # Update last_sync
+        await db.execute(
+            """UPDATE connected_repos SET last_sync = datetime('now'),
+            open_issues_count = ? WHERE id = ?""",
+            (len(issues), repo_id),
+        )
+        await db.commit()
+        logger.info(f"Synced {synced_count} issues for {full_name}")
+
+        # Auto-triage all new open issues
+        cursor = await db.execute(
+            "SELECT id, title, body, labels FROM issues WHERE repo_full_name = ? AND status = 'open'",
+            (full_name,),
+        )
+        open_issues = await cursor.fetchall()
+        triaged = 0
+        for oi in open_issues:
+            issue_id, title, body, labels_json = oi[0], oi[1] or "", oi[2] or "", oi[3] or "[]"
+            labels_list = json.loads(labels_json)
+            category, severity, confidence, effort = classify_issue(title, body, labels_list)
+            ai_summary = f"Issue in {full_name}: {title}. Categorized as {category} ({severity}). Est: {effort}."
+            await db.execute(
+                """UPDATE issues SET severity = ?, category = ?, status = 'triaged',
+                ai_confidence = ?, ai_summary = ?, estimated_effort = ?,
+                triaged_at = datetime('now') WHERE id = ?""",
+                (severity, category, confidence, ai_summary, effort, issue_id),
+            )
+            triaged += 1
+
+        await db.commit()
+        logger.info(f"Auto-triaged {triaged} issues for {full_name}")
+
+    except Exception as e:
+        logger.error(f"Auto-sync failed for repo {repo_id}: {e}", exc_info=True)
+    finally:
+        await db.close()
+
+
 @router.post("", response_model=RepoResponse)
 async def connect_repo(
     repo: RepoConnect,
+    background_tasks: BackgroundTasks,
     db: aiosqlite.Connection = Depends(get_db),
     github: GitHubService = Depends(get_github_service),
 ):
@@ -76,6 +208,10 @@ async def connect_repo(
     await db.commit()
 
     new_id = cursor.lastrowid
+
+    # Auto-sync issues + triage in background
+    background_tasks.add_task(_sync_and_triage_repo, new_id)
+
     cursor = await db.execute("SELECT * FROM connected_repos WHERE id = ?", (new_id,))
     row = await cursor.fetchone()
 

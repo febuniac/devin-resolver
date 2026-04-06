@@ -1,4 +1,5 @@
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 import aiosqlite
 
@@ -8,7 +9,31 @@ from app.services.github_service import GitHubService
 from app.services.devin_service import DevinService
 from app.services.slack_service import SlackService
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/settings", tags=["settings"])
+
+
+async def _sync_pat_to_devin_secrets(db: aiosqlite.Connection) -> dict:
+    """Sync the GitHub PAT to Devin org secrets so sessions get it automatically."""
+    cursor = await db.execute(
+        "SELECT devin_api_token, devin_org_id, github_pat FROM settings WHERE id = 1"
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return {"synced": False, "reason": "no settings"}
+    token = row[0] or ""
+    org_id = row[1] or ""
+    pat = row[2] or ""
+    if not token or not org_id or not pat:
+        return {"synced": False, "reason": "missing token, org_id, or PAT"}
+    devin = DevinService(token, org_id=org_id)
+    result = await devin.sync_org_secret(
+        key="GITHUB_PAT",
+        value=pat,
+        note="GitHub Personal Access Token for push access to repos. Use: git remote set-url origin https://<owner>:$GITHUB_PAT@github.com/<repo>.git",
+    )
+    logger.info(f"Synced GitHub PAT to Devin org secrets: {result}")
+    return {"synced": True, "result": result}
 
 
 @router.get("", response_model=SettingsResponse)
@@ -17,7 +42,7 @@ async def get_settings(db: aiosqlite.Connection = Depends(get_db)):
         """SELECT github_token, devin_api_token, devin_org_id, slack_webhook_url,
         slack_channels, auto_approve_enabled, auto_approve_confidence,
         auto_approve_max_severity, codeql_enabled, scan_frequency, notifications,
-        github_pat
+        github_pat, auto_resolve_conflicts
         FROM settings WHERE id = 1"""
     )
     row = await cursor.fetchone()
@@ -34,6 +59,7 @@ async def get_settings(db: aiosqlite.Connection = Depends(get_db)):
         auto_approve_enabled=bool(row[5]),
         auto_approve_confidence=row[6] or 90,
         auto_approve_max_severity=row[7] or "medium",
+        auto_resolve_conflicts=bool(row[12]) if len(row) > 12 else True,
         codeql_enabled=bool(row[8]),
         scan_frequency=row[9] or "daily",
         notifications=json.loads(row[10]) if row[10] else {},
@@ -75,6 +101,9 @@ async def update_settings(
     if settings.auto_approve_max_severity is not None:
         updates.append("auto_approve_max_severity = ?")
         params.append(settings.auto_approve_max_severity)
+    if settings.auto_resolve_conflicts is not None:
+        updates.append("auto_resolve_conflicts = ?")
+        params.append(int(settings.auto_resolve_conflicts))
     if settings.codeql_enabled is not None:
         updates.append("codeql_enabled = ?")
         params.append(int(settings.codeql_enabled))
@@ -96,7 +125,26 @@ async def update_settings(
     await db.execute(query, params[:-1])
     await db.commit()
 
+    # Auto-sync GitHub PAT to Devin org secrets when PAT or Devin credentials change
+    if settings.github_pat is not None or settings.devin_api_token is not None or settings.devin_org_id is not None:
+        try:
+            sync_result = await _sync_pat_to_devin_secrets(db)
+            logger.info(f"Auto-sync PAT to Devin secrets: {sync_result}")
+        except Exception as e:
+            logger.warning(f"Failed to auto-sync PAT to Devin secrets: {e}")
+
     return {"message": "Settings updated"}
+
+
+@router.post("/sync-devin-secrets")
+async def sync_devin_secrets(db: aiosqlite.Connection = Depends(get_db)):
+    """Manually sync GitHub PAT to Devin org secrets."""
+    try:
+        result = await _sync_pat_to_devin_secrets(db)
+        return result
+    except Exception as e:
+        logger.error(f"Failed to sync Devin secrets: {e}", exc_info=True)
+        return {"synced": False, "error": str(e)}
 
 
 @router.post("/validate/github")
@@ -140,6 +188,19 @@ async def validate_slack(db: aiosqlite.Connection = Depends(get_db)):
     service = SlackService(webhook_url=webhook)
     valid = await service.validate_webhook()
     return {"valid": valid, "error": None if valid else "Invalid webhook URL"}
+
+
+@router.post("/reset-demo-data")
+async def reset_demo_data(db: aiosqlite.Connection = Depends(get_db)):
+    """Clear all demo data (issues, sessions, repos, wiki, security) but keep settings."""
+    await db.execute("DELETE FROM session_events")
+    await db.execute("DELETE FROM devin_sessions")
+    await db.execute("DELETE FROM security_findings")
+    await db.execute("DELETE FROM wiki_pages")
+    await db.execute("DELETE FROM issues")
+    await db.execute("DELETE FROM connected_repos")
+    await db.commit()
+    return {"message": "Demo data reset successfully", "tables_cleared": ["session_events", "devin_sessions", "security_findings", "wiki_pages", "issues", "connected_repos"]}
 
 
 @router.post("/notifications/daily-summary")

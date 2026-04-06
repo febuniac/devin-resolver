@@ -105,6 +105,54 @@ class GitHubService:
             resp.raise_for_status()
             return resp.json()
 
+    async def get_readme(self, owner: str, name: str) -> str:
+        """Fetch the decoded README content for a repo."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{GITHUB_API_BASE}/repos/{owner}/{name}/readme",
+                headers={**self.headers, "Accept": "application/vnd.github.v3.raw"},
+            )
+            if resp.status_code == 404:
+                return ""
+            resp.raise_for_status()
+            return resp.text
+
+    async def get_file_tree(self, owner: str, name: str, branch: str = "main") -> list[dict]:
+        """Fetch the recursive file tree (paths only) for a repo."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{GITHUB_API_BASE}/repos/{owner}/{name}/git/trees/{branch}",
+                headers=self.headers,
+                params={"recursive": "1"},
+            )
+            if resp.status_code != 200:
+                return []
+            tree = resp.json().get("tree", [])
+            return [{"path": item["path"], "type": item["type"], "size": item.get("size", 0)} for item in tree]
+
+    async def get_repo_topics(self, owner: str, name: str) -> list[str]:
+        """Fetch repo topics/tags."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{GITHUB_API_BASE}/repos/{owner}/{name}/topics",
+                headers={**self.headers, "Accept": "application/vnd.github.mercy-preview+json"},
+            )
+            if resp.status_code != 200:
+                return []
+            return resp.json().get("names", [])
+
+    async def get_contributors(self, owner: str, name: str, per_page: int = 10) -> list[dict]:
+        """Fetch top contributors."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{GITHUB_API_BASE}/repos/{owner}/{name}/contributors",
+                headers=self.headers,
+                params={"per_page": per_page},
+            )
+            if resp.status_code != 200:
+                return []
+            return [{"login": c["login"], "contributions": c["contributions"], "avatar_url": c["avatar_url"]} for c in resp.json()]
+
     async def validate_token(self) -> bool:
         try:
             async with httpx.AsyncClient() as client:

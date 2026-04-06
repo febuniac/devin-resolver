@@ -125,6 +125,7 @@ class DevinSessionResponse(BaseModel):
     issue_id: Optional[int] = None
     finding_id: Optional[int] = None
     status: str
+    status_detail: Optional[str] = None
     created_at: str
     updated_at: Optional[str] = None
     pr_url: Optional[str] = None
@@ -133,11 +134,16 @@ class DevinSessionResponse(BaseModel):
     issue_title: Optional[str] = None
     issue_number: Optional[int] = None
     repo_full_name: Optional[str] = None
+    issue_body: Optional[str] = None
+    ai_summary: Optional[str] = None
+    issue_severity: Optional[str] = None
+    issue_category: Optional[str] = None
 
 
 # Settings schemas
 class SettingsResponse(BaseModel):
     github_token_set: bool
+    github_pat_set: bool = False
     devin_api_token_set: bool
     devin_org_id: str
     slack_webhook_url: str
@@ -145,6 +151,7 @@ class SettingsResponse(BaseModel):
     auto_approve_enabled: bool
     auto_approve_confidence: int
     auto_approve_max_severity: str
+    auto_resolve_conflicts: bool = True
     codeql_enabled: bool
     scan_frequency: str
     notifications: dict
@@ -152,6 +159,7 @@ class SettingsResponse(BaseModel):
 
 class SettingsUpdate(BaseModel):
     github_token: Optional[str] = None
+    github_pat: Optional[str] = None
     devin_api_token: Optional[str] = None
     devin_org_id: Optional[str] = None
     slack_webhook_url: Optional[str] = None
@@ -159,6 +167,7 @@ class SettingsUpdate(BaseModel):
     auto_approve_enabled: Optional[bool] = None
     auto_approve_confidence: Optional[int] = None
     auto_approve_max_severity: Optional[str] = None
+    auto_resolve_conflicts: Optional[bool] = None
     codeql_enabled: Optional[bool] = None
     scan_frequency: Optional[str] = None
     notifications: Optional[dict] = None

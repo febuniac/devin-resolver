@@ -9,8 +9,34 @@ import Settings from './pages/Settings';
 import Integrations from './pages/Integrations';
 import Wiki from './pages/Wiki';
 import AuditReport from './pages/AuditReport';
+import Login from './pages/Login';
+import { useAuth } from './context/AuthContext';
 
 function App() {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg)',
+      }}>
+        <div style={{ color: 'var(--dim)', fontSize: 14 }}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <BrowserRouter>
+        <Login />
+      </BrowserRouter>
+    );
+  }
+
   return (
     <BrowserRouter>
       <Routes>

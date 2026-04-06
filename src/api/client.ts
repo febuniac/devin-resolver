@@ -85,6 +85,8 @@ export const api = {
     request<any>('/api/devin/sessions/poll', { method: 'POST' }),
   approveSession: (sessionId: string) =>
     request<any>(`/api/devin/sessions/${sessionId}/approve`, { method: 'POST' }),
+  dispatchSession: (issueId: number) =>
+    request<any>(`/api/devin/sessions/dispatch/${issueId}`, { method: 'POST' }),
   getSessionLive: (sessionId: string) =>
     request<any>(`/api/devin/sessions/${sessionId}/live`),
   getSessionRecording: (sessionId: string) =>
@@ -93,6 +95,8 @@ export const api = {
     request<any>(`/api/github/pr-diff/${owner}/${repo}/${prNumber}`),
   mergePr: (owner: string, repo: string, prNumber: number) =>
     request<any>(`/api/github/pr-merge/${owner}/${repo}/${prNumber}`, { method: 'POST' }),
+  resolveConflicts: (owner: string, repo: string, prNumber: number) =>
+    request<any>(`/api/github/pr-resolve-conflicts/${owner}/${repo}/${prNumber}`, { method: 'POST' }),
   syncPrs: () =>
     request<any>('/api/github/sync-prs', { method: 'POST' }),
   postPrComment: (owner: string, repo: string, prNumber: number, comment: string) =>

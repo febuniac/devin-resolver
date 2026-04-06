@@ -27,6 +27,7 @@ export default function Settings() {
   const [autoApprove, setAutoApprove] = useState(false);
   const [autoApproveConfidence, setAutoApproveConfidence] = useState(90);
   const [autoApproveMaxSeverity, setAutoApproveMaxSeverity] = useState('medium');
+  const [autoResolveConflicts, setAutoResolveConflicts] = useState(true);
 
   useEffect(() => { loadRepos(); loadAutoApproveSettings(); }, []);
 
@@ -36,6 +37,7 @@ export default function Settings() {
       setAutoApprove(!!s.auto_approve_enabled);
       setAutoApproveConfidence(s.auto_approve_confidence ?? 90);
       setAutoApproveMaxSeverity(s.auto_approve_max_severity || 'medium');
+      setAutoResolveConflicts(s.auto_resolve_conflicts ?? true);
     } catch { /* ignore */ }
   };
 
@@ -53,6 +55,7 @@ export default function Settings() {
         auto_approve_enabled: autoApprove,
         auto_approve_confidence: autoApproveConfidence,
         auto_approve_max_severity: autoApproveMaxSeverity,
+        auto_resolve_conflicts: autoResolveConflicts,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -199,6 +202,25 @@ export default function Settings() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Auto-resolve conflicts */}
+        <div style={{ background: 'var(--white)', border: '1px solid var(--rule)', borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
+          <div style={{ ...labelStyle, marginBottom: 10 }}><GitBranch size={14} style={{ color: 'var(--purple)' }} /> Auto-Resolve Merge Conflicts</div>
+          <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 14, lineHeight: 1.6 }}>
+            When enabled, BacklogZero will automatically spawn a Devin session to rebase and resolve merge conflicts when a PR cannot be merged. When disabled, you will see a "Resolve Conflicts" button to trigger it manually.
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--rule)', background: 'var(--bg)' }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Enable Auto-Resolve</div>
+              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>Devin will automatically rebase and resolve conflicts when merging fails</div>
+            </div>
+            <button onClick={() => setAutoResolveConflicts(!autoResolveConflicts)}
+              style={{ width: 42, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', position: 'relative', transition: '0.2s', background: autoResolveConflicts ? 'var(--green)' : 'var(--rule)' }}>
+              <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: autoResolveConflicts ? 21 : 3, transition: '0.2s', boxShadow: '0 1px 3px rgba(0,0,0,.15)' }} />
+            </button>
+          </div>
         </div>
 
         {/* Connected repos */}

@@ -141,6 +141,12 @@ async def init_db():
             await db.execute("ALTER TABLE settings ADD COLUMN github_pat TEXT DEFAULT ''")
 
 
+        # Migration: add auto_resolve_conflicts column to settings
+        cursor = await db.execute("PRAGMA table_info(settings)")
+        columns = [row[1] for row in await cursor.fetchall()]
+        if "auto_resolve_conflicts" not in columns:
+            await db.execute("ALTER TABLE settings ADD COLUMN auto_resolve_conflicts INTEGER DEFAULT 1")
+
         # Migration: add status_detail column to devin_sessions if it doesn't exist
         cursor = await db.execute("PRAGMA table_info(devin_sessions)")
         ds_columns = [row[1] for row in await cursor.fetchall()]
@@ -158,6 +164,23 @@ async def init_db():
                 FOREIGN KEY (session_id) REFERENCES devin_sessions(session_id)
             );
             CREATE INDEX IF NOT EXISTS idx_session_events_sid ON session_events(session_id);
+        """)
+
+        # Wiki pages table — auto-generated documentation per repo
+        await db.executescript("""
+            CREATE TABLE IF NOT EXISTS wiki_pages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repo_full_name TEXT NOT NULL,
+                slug TEXT NOT NULL,
+                title TEXT NOT NULL,
+                content TEXT DEFAULT '',
+                icon TEXT DEFAULT '',
+                sort_order INTEGER DEFAULT 0,
+                generated_at TEXT DEFAULT (datetime('now')),
+                UNIQUE(repo_full_name, slug),
+                FOREIGN KEY (repo_full_name) REFERENCES connected_repos(full_name)
+            );
+            CREATE INDEX IF NOT EXISTS idx_wiki_repo ON wiki_pages(repo_full_name);
         """)
 
         await db.commit()
