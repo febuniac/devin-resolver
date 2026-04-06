@@ -63,9 +63,12 @@ async def get_status(db: aiosqlite.Connection = Depends(get_db)):
     cursor = await db.execute("SELECT COUNT(*) FROM issues WHERE category = 'security' AND status = 'triaged'")
     security_count = (await cursor.fetchone())[0]
 
-    # Review work count — count active Devin sessions (running/pending/suspended)
+    # Review work count — active sessions + queued issues waiting for a slot
     cursor = await db.execute("SELECT COUNT(*) FROM devin_sessions WHERE status IN ('running','pending','suspended')")
-    review_count = (await cursor.fetchone())[0]
+    session_count = (await cursor.fetchone())[0]
+    cursor = await db.execute("SELECT COUNT(*) FROM issues WHERE status IN ('queued', 'approved')")
+    queued_count = (await cursor.fetchone())[0]
+    review_count = session_count + queued_count
 
     return {
         "repos_connected": repo_count,
