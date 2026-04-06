@@ -541,12 +541,17 @@ export default function Approvals() {
                       )}
                     </span>
                   ) : (
-                    <button
-                      onClick={() => { setManuallyMerged(prev => new Set(prev).add(session.id)); mergePr(session.id, session.pr_url!); }}
-                      disabled={merging.has(session.id)}
-                      style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: merging.has(session.id) ? 0.6 : 1 }}>
-                      {merging.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {merging.has(session.id) ? 'Merging...' : 'Validate & Approve'}
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                      <button
+                        onClick={() => { setManuallyMerged(prev => new Set(prev).add(session.id)); mergePr(session.id, session.pr_url!); }}
+                        disabled={merging.has(session.id)}
+                        style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: 'none', background: '#8b5cf6', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: merging.has(session.id) ? 0.6 : 1 }}>
+                        {merging.has(session.id) ? <Loader2 size={10} className="animate-spin" /> : <GitMerge size={10} />} {merging.has(session.id) ? 'Merging...' : 'Approve & Merge'}
+                      </button>
+                      <span style={{ fontSize: 9, color: '#9ca3af', fontStyle: 'italic' }}>
+                        {session.issue_severity ? `${session.issue_severity} severity — requires manual approval` : 'Requires manual approval'}
+                      </span>
+                    </div>
                   )
                 ) : (session.status_detail === 'waiting_for_user' && !approved.has(session.id)) ? (
                   <button
