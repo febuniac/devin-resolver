@@ -143,13 +143,21 @@ export default function Approvals() {
   const [recordingUrls, setRecordingUrls] = useState<Record<string, string>>({});
   const [loadingRecording, setLoadingRecording] = useState<Set<string>>(new Set());
   const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
+  const [autoApproveMaxSeverity, setAutoApproveMaxSeverity] = useState('medium');
   const [autoMerging, setAutoMerging] = useState<Set<string>>(new Set());
   const [manuallyMerged, setManuallyMerged] = useState<Set<string>>(new Set());
 
+  const severityOrder: Record<string, number> = { low: 1, medium: 2, high: 3, critical: 4 };
+  const canAutoApprove = (severity?: string | null) => {
+    if (!autoApproveEnabled || !severity) return false;
+    return (severityOrder[severity.toLowerCase()] || 2) <= (severityOrder[autoApproveMaxSeverity] || 2);
+  };
+
   useEffect(() => {
     // Fetch settings to check auto-approve
-    api.getSettings().then((s: { auto_approve_enabled?: boolean }) => {
+    api.getSettings().then((s: { auto_approve_enabled?: boolean; auto_approve_max_severity?: string }) => {
       setAutoApproveEnabled(!!s.auto_approve_enabled);
+      setAutoApproveMaxSeverity(s.auto_approve_max_severity || 'medium');
     }).catch(() => {});
     // Load sessions immediately (fast DB call), then sync in background
     const initialRefresh = async () => {
@@ -169,12 +177,13 @@ export default function Approvals() {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-merge PR Ready sessions when auto-approve is enabled
+  // Auto-merge PR Ready sessions when auto-approve is enabled AND severity is within threshold
   useEffect(() => {
     if (!autoApproveEnabled) return;
     const prReadySessions = sessions.filter(s =>
       s.pr_url && !merged.has(s.id) && !merging.has(s.id) && !autoMerging.has(s.id) &&
-      s.status !== 'merged' && s.status !== 'running' && s.status !== 'pending'
+      s.status !== 'merged' && s.status !== 'running' && s.status !== 'pending' &&
+      canAutoApprove(s.issue_severity)
     );
     for (const session of prReadySessions) {
       setAutoMerging(prev => new Set(prev).add(session.id));
@@ -523,7 +532,7 @@ export default function Approvals() {
                     )}
                   </span>
                 ) : session.pr_url ? (
-                  autoApproveEnabled ? (
+                  canAutoApprove(session.issue_severity) ? (
                     <span style={{ fontSize: 10, fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'rgba(57,105,202,0.1)', color: '#3969CA', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       {merging.has(session.id) || autoMerging.has(session.id) ? (
                         <><Loader2 size={10} className="animate-spin" /> Auto-Approving...</>
